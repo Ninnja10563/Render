@@ -86,7 +86,7 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
         let ids = assets.map(\.id) + tracks.map(\.id) + tracks.flatMap(\.clips).map(\.id) + markers.map(\.id)
         guard Set(ids).count == ids.count else { throw RenderError.invalid("Project contains duplicate identifiers.") }
         for asset in assets {
-            guard asset.url.isFileURL, asset.duration.isFinite, asset.duration > 0,
+            guard asset.url.isFileURL, asset.duration.isFinite, asset.duration > 0, asset.duration <= 604800,
                   asset.frameRate.isFinite, asset.audioChannels >= 0 else { throw RenderError.invalid("Invalid media metadata for \(asset.name).") }
         }
         for track in tracks {

@@ -41,14 +41,16 @@ struct WorkspaceView: View {
         } message: { Text(session.errorMessage ?? "") }
         .sheet(isPresented: $session.showExport) { ExportView(session: session, exporter: session.exporter) }
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-            for provider in providers {
-                _ = provider.loadObject(ofClass: URL.self) { url,_ in
-                    guard let url else { return }
-                    Task { @MainActor in
-                        if url.pathExtension == "renderproject" { session.open(url) }
-                        else { session.importMedia([url]) }
+            Task {
+                var urls: [URL] = []
+                for provider in providers {
+                    let url: URL? = await withCheckedContinuation { continuation in
+                        _ = provider.loadObject(ofClass: URL.self) { url,_ in continuation.resume(returning: url) }
                     }
+                    if let url { urls.append(url) }
                 }
+                if urls.count == 1, let url = urls.first, url.pathExtension == "renderproject" { session.open(url) }
+                else { session.importMedia(urls) }
             }
             return true
         }

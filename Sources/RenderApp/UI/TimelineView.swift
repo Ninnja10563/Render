@@ -17,7 +17,7 @@ struct TimelineView: View {
                     Image(systemName: "arrow.left.and.right.righttriangle.left.righttriangle.right").tag(EditingTool.trim)
                 }.pickerStyle(.segmented).frame(width: 110).labelsHidden().help("Selection (A), Blade (B), Trim (T)")
                 Toggle(isOn: $session.snapping) { Image(systemName: "point.topleft.down.curvedto.point.bottomright.up") }.toggleStyle(.button).help("Snapping (N)")
-                Menu { Button("Video Track") { session.perform(.addTrack(.video)) }; Button("Audio Track") { session.perform(.addTrack(.audio)) } label: { Image(systemName: "plus") }.menuStyle(.borderlessButton).frame(width: 24)
+                Menu { Button("Video Track") { session.perform(.addTrack(.video)) }; Button("Audio Track") { session.perform(.addTrack(.audio)) } } label: { Image(systemName: "plus") }.menuStyle(.borderlessButton).frame(width: 24)
                 Button { session.split() } label: { Image(systemName: "scissors") }.buttonStyle(.plain).help("Split at playhead (⌘B)")
                 Spacer()
                 Image(systemName: "minus.magnifyingglass").foregroundStyle(.secondary)

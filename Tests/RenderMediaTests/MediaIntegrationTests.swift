@@ -103,3 +103,37 @@ final class MediaIntegrationTests: XCTestCase {
         return bytes
     }
 }
+
+extension MediaIntegrationTests {
+    @MainActor
+    func testAudioOnlyTimelineWaveformMuteAndExport() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder,withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appendingPathComponent("tone.wav")
+        let format = AVAudioFormat(standardFormatWithSampleRate: 48000,channels: 1)!
+        let buffer = AVAudioPCMBuffer(pcmFormat: format,frameCapacity: 48000)!
+        buffer.frameLength = 48000
+        for index in 0..<48000 { buffer.floatChannelData![0][index] = Float(sin(Double(index) * 440 * 2 * .pi / 48000)) * 0.4 }
+        do { let file = try AVAudioFile(forWriting: url,settings: format.settings); try file.write(from: buffer) }
+        let library = MediaLibrary()
+        let media = try await library.analyze(url)
+        XCTAssertEqual(media.kind,.audio); XCTAssertEqual(media.audioChannels,1)
+        let peaks = try await library.waveform(media)
+        XCTAssertEqual(peaks.count,400); XCTAssertGreaterThan(peaks.max() ?? 0,0.3)
+        var project = RenderProject(); project.settings.width = 320; project.settings.height = 180; project.assets = [media]
+        var clip = TimelineClip(assetID: media.id,name: "Tone",start: 0,duration: 30)
+        clip.properties.volume = 0.5
+        project.tracks[1].clips = [clip]
+        var config = ExportConfiguration(); config.width = 320; config.height = 180
+        let output = folder.appendingPathComponent("audio.mp4")
+        try await ExportService().export(project: project,configuration: config,to: output)
+        let result = try await library.analyze(output)
+        XCTAssertGreaterThan(result.audioChannels,0)
+        let exportedPeaks = try await library.waveform(result)
+        XCTAssertEqual(Double(exportedPeaks.max() ?? 0),0.2,accuracy: 0.04)
+        project.tracks[1].muted = true
+        let muted = try await CompositionBuilder().build(project)
+        XCTAssertTrue(muted.audioMix.inputParameters.isEmpty)
+    }
+}

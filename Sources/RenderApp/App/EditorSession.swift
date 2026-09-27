@@ -99,11 +99,14 @@ final class EditorSession: ObservableObject {
         history.setActionName(name)
         project = next; isDirty = project != savedProject
         selection = selection.filter { project.clip($0) != nil }
-        scheduleRecovery(); rebuild()
+        scheduleRecovery()
+        if previous.tracks != next.tracks || previous.settings != next.settings ||
+            previous.assets.contains(where: { old in next.assets.first(where: { $0.id == old.id }) != old }) { rebuild() }
     }
     func undo() { history.undo(); objectWillChange.send() }
     func redo() { history.redo(); objectWillChange.send() }
     func scheduleRecovery() {
+        guard !CommandLine.arguments.contains("--smoke-test") else { return }
         recoveryTask?.cancel()
         let snapshot = project
         recoveryTask = Task {
