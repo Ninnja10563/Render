@@ -22,6 +22,7 @@ public enum TimelineCommand: Sendable {
     case paste(clips: [TimelineClip], track: UUID, at: Int64)
     case properties(clip: UUID, ClipProperties)
     case effects(clip: UUID, [Effect])
+    case animation(clip: UUID, target: AnimationTarget, edit: AnimationEdit)
     case speed(clip: UUID, Double)
     case trackState(track: UUID, locked: Bool, hidden: Bool, muted: Bool, solo: Bool)
     case marker(TimelineMarker)
@@ -49,6 +50,7 @@ public enum TimelineCommand: Sendable {
         case .paste: return "Paste Clips"
         case .properties: return "Change Properties"
         case .effects: return "Change Effects"
+        case .animation: return "Edit Keyframes"
         case .speed: return "Change Speed"
         case .trackState: return "Change Track"
         case .marker: return "Add Marker"
@@ -275,6 +277,10 @@ public enum TimelineCommand: Sendable {
             let (t, c) = try location(id); project.tracks[t].clips[c].properties = properties
         case .effects(let id, let effects):
             let (t, c) = try location(id); project.tracks[t].clips[c].effects = effects
+        case .animation(let id, let target, let edit):
+            let (t,c) = try location(id)
+            let curve = try target.curve(in: project.tracks[t].clips[c])
+            try target.replacingCurve(in: &project.tracks[t].clips[c], with: edit.applying(to: curve))
         case .speed(let id, let speed):
             guard speed.isFinite, (0.05...16).contains(speed) else { throw RenderError.invalid("Speed must be between 5% and 1600%.") }
             let (t, c) = try location(id)

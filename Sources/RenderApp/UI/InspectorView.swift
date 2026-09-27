@@ -3,6 +3,7 @@ import RenderCore
 
 struct InspectorView: View {
     @ObservedObject var session: EditorSession
+    @State private var keyframeClipboard: [Keyframe] = []
     @ObservedObject private var transport: TransportState
     init(session: EditorSession) { self.session = session; transport = session.transport }
     var body: some View {
@@ -46,20 +47,13 @@ struct InspectorView: View {
                                         Button { var effects = clip.effects; effects.swapAt(index,index - 1); session.perform(.effects(clip: clip.id,effects)) } label: { Image(systemName: "arrow.up") }.disabled(index == 0).help("Move effect earlier")
                                         Button { var effects = clip.effects; effects.remove(at: index); session.perform(.effects(clip: clip.id,effects)) } label: { Image(systemName: "xmark") }.help("Remove effect")
                                     }.buttonStyle(.plain)
-                                    InspectorNumber(label: "Amount",value: effect.amount,range: effect.kind.range,reset: effect.kind.defaultValue) { amount in changeEffect(clip,index: index) { $0.amount = amount } }
+                                    EffectAmountView(session: session,clip: clip,effect: effect)
                                 }.padding(.bottom,4)
                             }
                             Menu { ForEach(EffectKind.allCases,id: \.self) { kind in Button(kind.label) { session.perform(.effects(clip: clip.id,clip.effects + [Effect(kind: kind)])) } } } label: { Label("Add Effect",systemImage: "plus") }
                         }
                         inspectorSection("Animation") {
-                            Text("Use the diamond beside a property to add or remove a keyframe at the playhead. Changing an animated property records a keyframe.")
-                                .font(.system(size: 10)).foregroundStyle(.secondary)
-                            let keys = Set(clip.properties.animations.values.flatMap(\.keys).map(\.frame)).filter { $0 >= clip.animationOffset && $0 < clip.animationOffset + clip.duration }.sorted()
-                            HStack {
-                                Button { if let previous = keys.last(where: { $0 < session.playhead - clip.start + clip.animationOffset }) { session.seek(clip.start + previous - clip.animationOffset) } } label: { Image(systemName: "backward.end") }
-                                Text("\(keys.count) keyframe positions").font(.system(size: 10)).foregroundStyle(.secondary)
-                                Button { if let next = keys.first(where: { $0 > session.playhead - clip.start + clip.animationOffset }) { session.seek(clip.start + next - clip.animationOffset) } } label: { Image(systemName: "forward.end") }
-                            }.buttonStyle(.plain)
+                            KeyframeEditorView(session: session,clip: clip,clipboard: $keyframeClipboard)
                         }
                     }.padding(14)
                 } else if let media = session.selectedMedia {

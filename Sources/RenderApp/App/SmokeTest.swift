@@ -42,6 +42,15 @@ extension EditorSession {
         selection = [original.id]
         setProperty("scale",value: 0.9)
         toggleKeyframe("opacity")
+        let effect = Effect(kind: .exposure)
+        perform(.effects(clip: original.id,[effect]))
+        perform(.animation(clip: original.id,target: .effect(effect.id),edit: .set(frame: 0,value: 0)))
+        perform(.animation(clip: original.id,target: .effect(effect.id),edit: .set(frame: 50,value: 0.2)))
+        guard let key = project.clip(original.id)?.effects.first?.animation.keys.first else { throw RenderError.invalid("Effect keyframe missing.") }
+        perform(.animation(clip: original.id,target: .effect(effect.id),edit: .interpolation([key.id],.easeInOut)))
+        perform(.animation(clip: original.id,target: .effect(effect.id),edit: .move(key: key.id,to: 5)))
+        undo()
+        guard project.clip(original.id)?.effects.first?.animation.keys.first?.frame == 0 else { throw RenderError.invalid("Keyframe undo failed.") }
         perform(.marker(.init(frame: 60,name: "Edit point")))
         selectedAsset = asset.id
         if let image = try await library.thumbnail(asset) { thumbnails[asset.id] = NSImage(cgImage: image,size: .zero) }

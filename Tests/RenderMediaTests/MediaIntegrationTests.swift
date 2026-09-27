@@ -86,6 +86,36 @@ final class MediaIntegrationTests: XCTestCase {
         XCTAssertGreaterThan(a[0],80); XCTAssertGreaterThan(a[2],80); XCTAssertLessThan(a[1],40)
         for i in 0..<3 { XCTAssertEqual(Double(a[i]),Double(b[i]),accuracy: 15) }
     }
+    @MainActor
+    func testAnimatedEffectPreviewMatchesExportAtMultipleFrames() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder,withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let media = try await MediaLibrary().analyze(makeImage(in: folder,color: NSColor(white: 0.25,alpha: 1)))
+        var project = RenderProject(); project.settings.width = 320; project.settings.height = 180; project.assets = [media]
+        var clip = TimelineClip(assetID: media.id,name: "Animated exposure",start: 0,duration: 30)
+        var effect = Effect(kind: .exposure)
+        effect.animation = AnimationCurve(keys: [Keyframe(frame: 0,value: 0,interpolation: .easeInOut),Keyframe(frame: 29,value: 2)])
+        clip.effects = [effect]; project.tracks[0].clips = [clip]
+        let prepared = try await CompositionBuilder().build(project)
+        let preview = AVAssetImageGenerator(asset: prepared.composition); preview.videoComposition = prepared.videoComposition
+        preview.requestedTimeToleranceBefore = .zero; preview.requestedTimeToleranceAfter = .zero
+        var config = ExportConfiguration(); config.width = 320; config.height = 180
+        let output = folder.appendingPathComponent("animation.mp4")
+        try await ExportService().export(project: project,configuration: config,to: output)
+        let exported = AVAssetImageGenerator(asset: AVURLAsset(url: output))
+        exported.requestedTimeToleranceBefore = .zero; exported.requestedTimeToleranceAfter = .zero
+        var samples: [UInt8] = []
+        for frame: Int64 in [0,15,29] {
+            let time = CMTime(value: frame,timescale: 30)
+            let a = pixel(try await preview.image(at: time).image)
+            let b = pixel(try await exported.image(at: time).image)
+            for channel in 0..<3 { XCTAssertEqual(Double(a[channel]),Double(b[channel]),accuracy: 15) }
+            samples.append(a[0])
+        }
+        XCTAssertGreaterThan(samples[1],samples[0] + 10)
+        XCTAssertGreaterThan(samples[2],samples[1] + 10)
+    }
     func testMissingAndCorruptMediaFailGracefully() async throws {
         let library = MediaLibrary()
         do { _ = try await library.analyze(URL(fileURLWithPath: "/nonexistent/Render-test.mov")); XCTFail("Missing file accepted") } catch {}

@@ -361,7 +361,9 @@ final class EditorSession: ObservableObject {
         switch key { case "x": p.x = value; case "y": p.y = value; case "scale": p.scale = value; case "rotation": p.rotation = value; case "opacity": p.opacity = value; case "volume": p.volume = value; default: return }
         if var curve = p.animations[key], !curve.keys.isEmpty {
             let frame = max(0,min(clip.duration - 1,playhead - clip.start)) + clip.animationOffset
-            curve.set(Keyframe(frame: frame,value: value)); p.animations[key] = curve
+            do { curve = try AnimationEdit.set(frame: frame,value: value).applying(to: curve) }
+            catch { errorMessage = error.localizedDescription; return }
+            p.animations[key] = curve
         }
         perform(.properties(clip: clip.id, p))
     }

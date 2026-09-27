@@ -1,0 +1,138 @@
+import SwiftUI
+import RenderCore
+
+struct KeyframeEditorView: View {
+    @ObservedObject var session: EditorSession
+    let clip: TimelineClip
+    @Binding var clipboard: [Keyframe]
+    @State private var target = AnimationTarget.property("opacity")
+    @State private var selected: Set<UUID> = []
+
+    private var curve: AnimationCurve { (try? target.curve(in: clip)) ?? AnimationCurve() }
+    private var frame: Int64 { max(0,min(clip.duration - 1,session.playhead - clip.start)) + clip.animationOffset }
+    private var visibleKeys: [Keyframe] { curve.keys.sorted { $0.frame < $1.frame } }
+    private var availableTargets: [AnimationTarget] {
+        ["x","y","scale","rotation","opacity","volume"].map(AnimationTarget.property) + clip.effects.map { .effect($0.id) }
+    }
+    var body: some View {
+        VStack(alignment: .leading,spacing: 8) {
+            Picker("Parameter",selection: $target) {
+                Text("Position X").tag(AnimationTarget.property("x"))
+                Text("Position Y").tag(AnimationTarget.property("y"))
+                Text("Scale").tag(AnimationTarget.property("scale"))
+                Text("Rotation").tag(AnimationTarget.property("rotation"))
+                Text("Opacity").tag(AnimationTarget.property("opacity"))
+                Text("Volume").tag(AnimationTarget.property("volume"))
+                ForEach(Array(clip.effects.enumerated()),id: \.element.id) { index,effect in
+                    Text("\(index + 1). \(effect.kind.label)").tag(AnimationTarget.effect(effect.id))
+                }
+            }.font(.system(size: 10))
+            HStack(spacing: 10) {
+                Button { navigate(previous: true) } label: { Image(systemName: "backward.end") }.help("Previous keyframe")
+                    .disabled(!visibleKeys.contains { $0.frame < frame && $0.frame >= clip.animationOffset })
+                Button {
+                    if let value = try? target.value(in: clip,at: frame) { edit(.set(frame: frame,value: value)) }
+                } label: { Label("Add",systemImage: "diamond") }.help("Add a keyframe at the playhead")
+                Button { navigate(previous: false) } label: { Image(systemName: "forward.end") }.help("Next keyframe")
+                    .disabled(!visibleKeys.contains { $0.frame > frame && $0.frame < clip.animationOffset + clip.duration })
+                Spacer(minLength: 0)
+                Text("\(curve.keys.count) keys").foregroundStyle(.secondary)
+            }.font(.system(size: 10)).buttonStyle(.plain)
+            if !curve.keys.isEmpty {
+                Text("Frame within clip · value · outgoing curve").font(.system(size: 9)).foregroundStyle(.secondary)
+                // A bounded viewport keeps long automation curves inexpensive to inspect.
+                ScrollView {
+                    LazyVStack(spacing: 6) {
+                        ForEach(visibleKeys) { key in
+                            KeyframeRow(key: key,offset: clip.animationOffset,duration: clip.duration,selected: selected.contains(key.id),select: {
+                                if selected.contains(key.id) { selected.remove(key.id) } else { selected.insert(key.id) }
+                            },seek: { session.seek(clip.start + key.frame - clip.animationOffset) },move: { local in
+                                guard local >= 0, local < clip.duration else { session.errorMessage = "Place the keyframe within the visible clip."; return }
+                                edit(.move(key: key.id,to: clip.animationOffset + local))
+                            },setValue: { edit(.set(frame: key.frame,value: $0)) },interpolate: { edit(.interpolation([key.id],$0)) })
+                        }
+                    }
+                }.frame(maxHeight: 200)
+            }
+            HStack(spacing: 8) {
+                Button("Copy") { clipboard = visibleKeys.filter { selected.isEmpty || selected.contains($0.id) } }.disabled(curve.keys.isEmpty)
+                Button("Paste") {
+                    guard let first = clipboard.map(\.frame).min(), let last = clipboard.map(\.frame).max(), last - first < clip.animationOffset + clip.duration - frame else {
+                        session.errorMessage = "The copied animation does not fit between the playhead and the end of this clip."; return
+                    }
+                    edit(.paste(clipboard,at: frame))
+                }.disabled(clipboard.isEmpty)
+                Spacer(minLength: 0)
+                Button("Delete") { edit(.remove(selected)); selected.removeAll() }.disabled(selected.isEmpty)
+            }.controlSize(.mini)
+            Text("Copy uses selected keys, or all keys when none are selected. Paste aligns the first key to the playhead. Dimmed keys lie outside the trimmed clip.")
+                .font(.system(size: 9)).foregroundStyle(.secondary)
+        }
+        .onChange(of: target) { _,_ in selected.removeAll() }
+        .onChange(of: clip.id) { _,_ in selected.removeAll(); if !availableTargets.contains(target) { target = .property("opacity") } }
+        .onChange(of: availableTargets) { _,targets in if !targets.contains(target) { target = .property("opacity") } }
+    }
+    private func edit(_ edit: AnimationEdit) { session.perform(.animation(clip: clip.id,target: target,edit: edit)) }
+    private func navigate(previous: Bool) {
+        let visible = visibleKeys.filter { $0.frame >= clip.animationOffset && $0.frame < clip.animationOffset + clip.duration }
+        let key = previous ? visible.last(where: { $0.frame < frame }) : visible.first(where: { $0.frame > frame })
+        if let key { session.seek(clip.start + key.frame - clip.animationOffset) }
+    }
+}
+
+private struct KeyframeRow: View {
+    let key: Keyframe
+    let offset: Int64
+    let duration: Int64
+    let selected: Bool
+    let select: () -> Void
+    let seek: () -> Void
+    let move: (Int64) -> Void
+    let setValue: (Double) -> Void
+    let interpolate: (Interpolation) -> Void
+    @State private var draftFrame: Int64 = 0
+    @State private var draftValue: Double = 0
+    private var visible: Bool { key.frame >= offset && key.frame < offset + duration }
+    var body: some View {
+        HStack(spacing: 5) {
+            Button(action: select) { Image(systemName: selected ? "checkmark.square.fill" : "square") }.buttonStyle(.plain).help("Select keyframe")
+            TextField("Frame",value: $draftFrame,format: .number.grouping(.never))
+                .frame(width: 42).onSubmit { move(draftFrame) }.help("Frame relative to the clip start")
+            TextField("Value",value: $draftValue,format: .number.precision(.fractionLength(0...3)))
+                .frame(width: 43).onSubmit { setValue(draftValue) }
+            Picker("Interpolation",selection: Binding(get: { key.interpolation },set: interpolate)) {
+                Text("Linear").tag(Interpolation.linear)
+                Text("Ease In").tag(Interpolation.easeIn)
+                Text("Ease Out").tag(Interpolation.easeOut)
+                Text("Ease In/Out").tag(Interpolation.easeInOut)
+                Text("Hold").tag(Interpolation.hold)
+            }.labelsHidden().frame(maxWidth: .infinity)
+            Button(action: seek) { Image(systemName: "scope") }.buttonStyle(.plain).disabled(!visible).help("Go to keyframe")
+        }.font(.system(size: 10)).controlSize(.mini).opacity(visible ? 1 : 0.55)
+            .onAppear { refresh() }.onChange(of: key) { _,_ in refresh() }.onChange(of: offset) { _,_ in refresh() }
+    }
+    private func refresh() { draftFrame = key.frame - offset; draftValue = key.value }
+}
+
+struct EffectAmountView: View {
+    @ObservedObject var session: EditorSession
+    let clip: TimelineClip
+    let effect: Effect
+    private var frame: Int64 { max(0,min(clip.duration - 1,session.playhead - clip.start)) + clip.animationOffset }
+    var body: some View {
+        HStack(spacing: 7) {
+            InspectorNumber(label: "Amount",value: effect.animation.value(at: Double(frame),fallback: effect.amount),range: effect.kind.range,reset: effect.kind.defaultValue) { value in
+                if effect.animation.keys.isEmpty {
+                    var effects = clip.effects
+                    if let index = effects.firstIndex(where: { $0.id == effect.id }) { effects[index].amount = value; session.perform(.effects(clip: clip.id,effects)) }
+                } else { session.perform(.animation(clip: clip.id,target: .effect(effect.id),edit: .set(frame: frame,value: value))) }
+            }
+            Button {
+                let ids = Set(effect.animation.keys.filter { $0.frame == frame }.map(\.id))
+                let edit: AnimationEdit = ids.isEmpty ? .set(frame: frame,value: effect.animation.value(at: Double(frame),fallback: effect.amount)) : .remove(ids)
+                session.perform(.animation(clip: clip.id,target: .effect(effect.id),edit: edit))
+            } label: { Image(systemName: effect.animation.keys.contains { $0.frame == frame } ? "diamond.fill" : "diamond") }
+                .buttonStyle(.plain).help("Add / remove effect keyframe")
+        }
+    }
+}
