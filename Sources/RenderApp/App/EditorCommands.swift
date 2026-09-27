@@ -32,8 +32,13 @@ struct EditorCommands: Commands {
         }
         CommandMenu("Timeline") {
             Button("Split at Playhead") { session.split() }.keyboardShortcut("b")
-            Button("Delete") { session.delete() }.disabled(session.selection.isEmpty)
-            Button("Ripple Delete") { session.delete(ripple: true) }.disabled(session.selection.isEmpty)
+            Button("Delete") { session.delete() }.disabled(session.selection.isEmpty && session.selectedRange == nil)
+            Button("Ripple Delete") { session.delete(ripple: true) }.disabled(session.selection.isEmpty && session.selectedRange == nil)
+            Divider()
+            Picker("Editing Tool",selection: $session.tool) {
+                ForEach(EditingTool.allCases,id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            Button("Detach Audio") { if let clip = session.selectedClip { session.perform(.detachAudio(clip: clip.id)) } }.disabled(session.selectedClip == nil)
             Divider()
             Button("Add Video Track") { session.perform(.addTrack(.video)) }
             Button("Add Audio Track") { session.perform(.addTrack(.audio)) }

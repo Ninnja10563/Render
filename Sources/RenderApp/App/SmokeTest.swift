@@ -30,6 +30,15 @@ extension EditorSession {
         guard project.tracks[0].clips.count == 1 else { throw RenderError.invalid("Smoke undo failed.") }
         redo()
         guard project.tracks[0].clips.count == 2 else { throw RenderError.invalid("Smoke redo failed.") }
+        perform(.roll(clip: original.id,boundary: 75))
+        guard project.clip(original.id)?.duration == 75 else { throw RenderError.invalid("Smoke roll edit failed.") }
+        undo()
+        perform(.rippleTrim(clip: original.id,edge: .trailing,to: 45))
+        guard project.duration == 135 else { throw RenderError.invalid("Smoke ripple trim failed.") }
+        undo()
+        perform(.deleteRange(track: project.tracks[0].id,start: 10,end: 20,ripple: false))
+        guard project.tracks[0].clips.count == 3 else { throw RenderError.invalid("Smoke range delete failed.") }
+        undo()
         selection = [original.id]
         setProperty("scale",value: 0.9)
         toggleKeyframe("opacity")
@@ -45,6 +54,6 @@ extension EditorSession {
         seek(30)
         try await Task.sleep(nanoseconds: 500_000_000)
         guard errorMessage == nil else { throw RenderError.invalid(errorMessage!) }
-        print("RENDER_EDIT_SMOKE_OK import split undo redo transform keyframe playback")
+        print("RENDER_EDIT_SMOKE_OK import split undo redo roll ripple range transform keyframe playback")
     }
 }

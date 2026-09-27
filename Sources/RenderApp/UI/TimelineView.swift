@@ -12,10 +12,8 @@ struct TimelineView: View {
             HStack(spacing: 14) {
                 Text("TIMELINE").font(.system(size: 10,weight: .semibold)).foregroundStyle(.secondary)
                 Picker("Tool", selection: $session.tool) {
-                    Image(systemName: "cursorarrow").tag(EditingTool.select)
-                    Image(systemName: "scissors").tag(EditingTool.blade)
-                    Image(systemName: "arrow.left.and.right.righttriangle.left.righttriangle.right").tag(EditingTool.trim)
-                }.pickerStyle(.segmented).frame(width: 110).labelsHidden().help("Selection (A), Blade (B), Trim (T)")
+                    ForEach(EditingTool.allCases,id: \.self) { tool in Label(tool.rawValue,systemImage: tool.symbol).tag(tool) }
+                }.pickerStyle(.menu).frame(width: 120).labelsHidden().help("A Selection · B Blade · T Trim · R Ripple · O Roll · Y Slip · U Slide · G Range · Z Zoom")
                 Toggle(isOn: $session.snapping) { Image(systemName: "point.topleft.down.curvedto.point.bottomright.up") }.toggleStyle(.button).help("Snapping (N)")
                 Menu { Button("Video Track") { session.perform(.addTrack(.video)) }; Button("Audio Track") { session.perform(.addTrack(.audio)) } } label: { Image(systemName: "plus") }.menuStyle(.borderlessButton).frame(width: 24)
                 Button { session.split() } label: { Image(systemName: "scissors") }.buttonStyle(.plain).help("Split at playhead (⌘B)")
@@ -46,6 +44,28 @@ struct TimelineView: View {
                                     }
                                     Rectangle().fill(Color.primary.opacity(0.07)).frame(height: 1).offset(y: laneHeight - 1)
                                 }.frame(width: contentWidth,height: laneHeight)
+                                .overlay(alignment: .leading) {
+                                    if let range = session.selectedRange, range.trackID == track.id {
+                                        Rectangle().fill(Color.accentColor.opacity(0.18))
+                                            .overlay { Rectangle().strokeBorder(Color.accentColor,lineWidth: 1) }
+                                            .frame(width: session.fps.seconds(range.end - range.start) * session.pointsPerSecond)
+                                            .offset(x: session.fps.seconds(range.start) * session.pointsPerSecond).allowsHitTesting(false)
+                                    }
+                                }
+                                .overlay {
+                                    if session.tool == .range {
+                                        Color.clear.contentShape(Rectangle()).gesture(DragGesture(minimumDistance: 1).onChanged { value in
+                                            let a = session.snap(session.fps.frames(value.startLocation.x / session.pointsPerSecond))
+                                            let b = session.snap(session.fps.frames(value.location.x / session.pointsPerSecond))
+                                            session.selection = []; session.selectedTrack = track.id
+                                            session.selectedRange = TimelineSelectionRange(trackID: track.id,start: min(a,b),end: max(a,b))
+                                        })
+                                    } else if session.tool == .zoom {
+                                        Color.clear.contentShape(Rectangle()).onTapGesture {
+                                            session.pointsPerSecond = min(240,max(10,session.pointsPerSecond * (NSEvent.modifierFlags.contains(.shift) ? 0.5 : 2)))
+                                        }
+                                    }
+                                }
                                 .onDrop(of: [.text], isTargeted: nil) { providers,location in
                                     guard let provider = providers.first, !track.locked else { return false }
                                     _ = provider.loadObject(ofClass: String.self) { value,_ in
@@ -113,6 +133,8 @@ private struct ClipTile: View {
     let clip: TimelineClip
     let track: TimelineTrack
     @State private var dragFrames: Int64 = 0
+    @State private var trimDelta: Int64 = 0
+    @State private var trimEdge: TrimEdge = .trailing
     var selected: Bool { session.selection.contains(clip.id) }
     var tint: Color { track.kind == .audio ? Color(red: 0.24,green: 0.43,blue: 0.36) : Color(red: 0.23,green: 0.36,blue: 0.49) }
     var body: some View {
@@ -143,17 +165,40 @@ private struct ClipTile: View {
                         trimHandle(.trailing)
                     }
                 }
-            }.clipShape(RoundedRectangle(cornerRadius: 3))
+            }.frame(width: max(3,geometry.size.width + session.fps.seconds(trimEdge == .leading ? -trimDelta : trimDelta) * session.pointsPerSecond),height: geometry.size.height)
+                .clipShape(RoundedRectangle(cornerRadius: 3))
                 .overlay { RoundedRectangle(cornerRadius: 3).strokeBorder(selected ? Color.accentColor : .white.opacity(0.12),lineWidth: selected ? 2 : 0.5) }
+                .overlay(alignment: .bottomLeading) {
+                    if dragFrames != 0, session.tool != .select {
+                        Text("\(session.tool.rawValue) \(dragFrames > 0 ? "+" : "")\(dragFrames)f")
+                            .font(.system(size: 9,weight: .semibold,design: .monospaced)).padding(4).background(.black.opacity(0.8)).foregroundStyle(.white)
+                    }
+                }
                 .contentShape(Rectangle())
                 .gesture(DragGesture(minimumDistance: 3).onChanged { value in
-                    guard !track.locked, session.tool == .select else { return }
+                    guard !track.locked, session.tool != .blade else { return }
                     if !selected { session.selectClip(clip.id) }
-                    let proposed = clip.start + session.fps.frames(value.translation.width / session.pointsPerSecond)
-                    dragFrames = session.snap(proposed,excluding: session.selection) - clip.start
-                    session.movePreview = dragFrames
+                    let delta = session.fps.frames(value.translation.width / session.pointsPerSecond)
+                    if session.tool == .select {
+                        let earliest = session.selection.compactMap { session.project.clip($0)?.start }.min() ?? clip.start
+                        dragFrames = max(-earliest,session.snap(clip.start + delta,excluding: session.selection) - clip.start)
+                        session.movePreview = dragFrames
+                    } else {
+                        dragFrames = delta
+                        if session.tool == .slide { session.movePreview = delta }
+                    }
                 }.onEnded { _ in
-                    if dragFrames != 0 { session.perform(.move(clips: session.selection,delta: dragFrames)) }
+                    if dragFrames != 0 {
+                        switch session.tool {
+                        case .select: session.perform(.move(clips: session.selection,delta: dragFrames))
+                        case .trim: session.perform(.trim(clip: clip.id,edge: .trailing,to: clip.end + dragFrames))
+                        case .slip: session.perform(.slip(clip: clip.id,delta: dragFrames))
+                        case .slide: session.perform(.slide(clip: clip.id,delta: dragFrames))
+                        case .roll: session.perform(.roll(clip: clip.id,boundary: clip.end + dragFrames))
+                        case .ripple: session.perform(.rippleTrim(clip: clip.id,edge: .trailing,to: clip.end + dragFrames))
+                        default: break
+                        }
+                    }
                     dragFrames = 0; session.movePreview = 0
                 })
                 .onTapGesture { location in
@@ -167,18 +212,31 @@ private struct ClipTile: View {
                             Button(target.name) { session.perform(.moveToTrack(clip: clip.id,track: target.id,at: clip.start)) }
                         }
                     }
+                    Button("Detach Audio") { session.perform(.detachAudio(clip: clip.id)) }
+                        .disabled(session.project.assets.first(where: { $0.id == clip.assetID })?.kind != .video || (session.project.assets.first(where: { $0.id == clip.assetID })?.audioChannels ?? 0) == 0)
                     Button("Delete") { session.perform(.delete(clips: [clip.id],ripple: false)) }
                     Button("Ripple Delete") { session.perform(.delete(clips: [clip.id],ripple: true)) }
                 }
-                .offset(x: session.fps.seconds(selected ? session.movePreview : 0) * session.pointsPerSecond)
+                .offset(x: session.fps.seconds((selected ? session.movePreview : 0) + (trimEdge == .leading && session.tool != .ripple ? trimDelta : 0)) * session.pointsPerSecond)
         }.help("\(clip.name) · \(session.fps.timecode(clip.duration))\(track.locked ? " · Locked" : "")")
     }
     func trimHandle(_ edge: TrimEdge) -> some View {
         Rectangle().fill(Color.accentColor.opacity(0.75)).frame(width: 5)
-            .gesture(DragGesture(minimumDistance: 2).onEnded { value in
+            .gesture(DragGesture(minimumDistance: 2).onChanged { value in
+                guard !track.locked else { return }
+                trimEdge = edge
+                trimDelta = session.fps.frames(value.translation.width / session.pointsPerSecond)
+            }.onEnded { value in
+                defer { trimDelta = 0 }
+                guard !track.locked else { return }
                 let original = edge == .leading ? clip.start : clip.end
                 let target = session.snap(original + session.fps.frames(value.translation.width / session.pointsPerSecond),excluding: [clip.id])
-                session.perform(.trim(clip: clip.id,edge: edge,to: target))
+                if session.tool == .ripple { session.perform(.rippleTrim(clip: clip.id,edge: edge,to: target)) }
+                else if session.tool == .roll {
+                    let leftID = edge == .trailing ? clip.id : track.clips.first(where: { $0.end == clip.start && $0.id != clip.id })?.id
+                    if let leftID { session.perform(.roll(clip: leftID,boundary: target)) }
+                    else { session.errorMessage = "Roll needs an adjacent clip at this edge." }
+                } else { session.perform(.trim(clip: clip.id,edge: edge,to: target)) }
             })
             .help(edge == .leading ? "Trim clip start" : "Trim clip end")
     }

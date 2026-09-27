@@ -10,6 +10,7 @@ final class EditorSession: ObservableObject {
     @Published var project = RenderProject()
     @Published var selection: Set<UUID> = []
     @Published var movePreview: Int64 = 0
+    @Published var selectedRange: TimelineSelectionRange?
     @Published var selectedAsset: UUID?
     @Published var selectedTrack: UUID?
     @Published var playhead: Int64 = 0
@@ -44,7 +45,7 @@ final class EditorSession: ObservableObject {
     private var generation = UUID()
     private var playbackObservation: NSKeyValueObservation?
     private var previewTasks: [UUID: Task<Void, Never>] = [:]
-    private var clipboard: [TimelineClip] = []
+    private var clipboard: [ClipboardLane] = []
     private var clipboardProjectID: UUID?
     private var didStart = false
     var recoveryURL: URL {
@@ -173,6 +174,7 @@ final class EditorSession: ObservableObject {
         isPlaying = true
     }
     func selectClip(_ id: UUID, extend: Bool = false) {
+        selectedRange = nil
         if extend { if selection.contains(id) { selection.remove(id) } else { selection.insert(id) } }
         else { selection = [id] }
         if let location = project.location(id) { selectedTrack = project.tracks[location.track].id }
@@ -181,9 +183,16 @@ final class EditorSession: ObservableObject {
         let ids = selection.isEmpty ? Set(project.tracks.filter { !$0.locked }.flatMap(\.clips).filter { $0.start < playhead && $0.end > playhead }.map(\.id)) : selection
         perform(.split(clips: ids, at: playhead))
     }
-    func delete(ripple: Bool = false) { perform(.delete(clips: selection, ripple: ripple)) }
+    func delete(ripple: Bool = false) {
+        if let range = selectedRange {
+            perform(.deleteRange(track: range.trackID,start: range.start,end: range.end,ripple: ripple)); selectedRange = nil
+        } else { perform(.delete(clips: selection, ripple: ripple)) }
+    }
     func copy() {
-        clipboard = project.tracks.flatMap(\.clips).filter { selection.contains($0.id) }
+        clipboard = project.tracks.compactMap { track in
+            let selected = track.clips.filter { selection.contains($0.id) }
+            return selected.isEmpty ? nil : ClipboardLane(trackID: track.id,clips: selected)
+        }
         clipboardProjectID = project.id
     }
     func cut() {
@@ -192,14 +201,16 @@ final class EditorSession: ObservableObject {
     }
     func paste() {
         guard clipboardProjectID == project.id, !clipboard.isEmpty, let track = selectedTrack ?? project.tracks.first?.id else { return }
-        perform(.paste(clips: clipboard, track: track, at: playhead))
+        if clipboard.count == 1, let lane = clipboard.first { perform(.paste(clips: lane.clips, track: track, at: playhead)) }
+        else { perform(.pasteLanes(clipboard,at: playhead)) }
     }
-    func append(_ assetID: UUID, atPlayhead: Bool = false, insert: Bool = false) {
+    func append(_ assetID: UUID, atPlayhead: Bool = false, insert: Bool = false, overwrite: Bool = false) {
         guard let media = project.assets.first(where: { $0.id == assetID }) else { return }
         let kind: TrackKind = media.kind == .audio ? .audio : .video
         guard let track = project.tracks.first(where: { $0.id == selectedTrack && $0.kind == kind }) ?? project.tracks.last(where: { $0.kind == kind && !$0.locked }) else { return }
         let at = atPlayhead ? playhead : (track.clips.map(\.end).max() ?? 0)
-        perform(insert ? .insert(asset: assetID, track: track.id, at: at) : .append(asset: assetID, track: track.id, at: at))
+        if overwrite { perform(.overwrite(asset: assetID,track: track.id,at: at)) }
+        else { perform(insert ? .insert(asset: assetID, track: track.id, at: at) : .append(asset: assetID, track: track.id, at: at)) }
     }
     func importPanel() {
         let panel = NSOpenPanel(); panel.allowsMultipleSelection = true
@@ -319,7 +330,7 @@ final class EditorSession: ObservableObject {
         recoveryTask?.cancel(); history.removeAllActions()
         previewTasks.values.forEach { $0.cancel() }; previewTasks.removeAll()
         project = value; savedProject = value; documentURL = url
-        selection = []; selectedAsset = nil; selectedTrack = nil; playhead = 0; isDirty = false
+        selection = []; selectedRange = nil; selectedAsset = nil; selectedTrack = nil; playhead = 0; isDirty = false
         thumbnails = [:]; waveforms = [:]; clipboard = []; clipboardProjectID = nil
         rebuild()
         for asset in project.assets { loadPreview(asset) }
@@ -356,4 +367,25 @@ final class EditorSession: ObservableObject {
     }
 }
 
-enum EditingTool: String, CaseIterable { case select = "Selection", blade = "Blade", trim = "Trim" }
+enum EditingTool: String, CaseIterable {
+    case select = "Selection", blade = "Blade", trim = "Trim", ripple = "Ripple", roll = "Roll", slip = "Slip", slide = "Slide", range = "Range", zoom = "Zoom"
+    var symbol: String {
+        switch self {
+        case .range: return "selection.pin.in.out"
+        case .zoom: return "plus.magnifyingglass"
+        case .select: return "cursorarrow"
+        case .blade: return "scissors"
+        case .trim: return "arrow.left.and.right"
+        case .ripple: return "arrow.right.to.line"
+        case .roll: return "arrow.left.and.right.righttriangle.left.righttriangle.right"
+        case .slip: return "arrow.left.and.right.square"
+        case .slide: return "rectangle.and.arrow.up.right.and.arrow.down.left"
+        }
+    }
+}
+
+struct TimelineSelectionRange {
+    var trackID: UUID
+    var start: Int64
+    var end: Int64
+}

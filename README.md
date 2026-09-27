@@ -10,7 +10,7 @@ Apple Silicon · macOS 14+ · Xcode 16.4+ for source builds. No external runtime
 
 1. Import video, audio or still images (⌘I or Finder drop).
 2. Double-click media to append, or drag it onto a compatible timeline track.
-3. Scrub the ruler, play with Space, select with A, blade with B, split with ⌘B. Drag selected clips to move, drag their edges to trim, Shift-click for multi-selection.
+3. Scrub the ruler, play with Space, select with A, blade with B, split with ⌘B. Drag selected clips to move, drag their edges to trim, Shift-click for multi-selection. R selects ripple trim, O roll, Y slip, U slide, G range and Z zoom (Shift-click zooms out). Select a range and press Delete or Shift-Delete to ripple it.
 4. Adjust transform, opacity, volume, speed and effects in the inspector. Diamonds create property keyframes. Undo/redo uses ⌘Z / ⇧⌘Z.
 5. Save a `.renderproject` document. Original media is referenced without copying. Right-click a media item to relink a moved file.
 6. Export H.264, HEVC or ProRes from the shared preview/export compositor.
@@ -32,6 +32,8 @@ The package script builds an ARM64 Release bundle, generates the icon, ad-hoc si
 
 ## Release status
 
-Version 0.1.0 establishes the functional track-editing foundation. Advanced workflows are scheduled in the development plan; unsupported features are not represented by decorative controls. This release is ad-hoc signed and not notarized. Physical-device performance profiling and the manual release checklist remain required before production use.
+Version 0.2.0 extends the functional track editor with ripple/roll/slip/slide tools, range editing, overwrite, audio detach and synchronized multitrack paste. Advanced workflows are scheduled in the development plan; unsupported features are not represented by decorative controls. This release is ad-hoc signed and not notarized. Physical-device performance profiling and the manual release checklist remain required before production use.
 
 MIT License.
+
+[Download the latest release](https://github.com/Ninnja10563/Render/releases) · [Editing tool semantics](docs/EDITING.md)

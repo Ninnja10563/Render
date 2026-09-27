@@ -91,6 +91,12 @@ final class RenderAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
                 case "a": session.tool = .select
                 case "b": session.tool = .blade
                 case "t": session.tool = .trim
+                case "r": session.tool = .ripple
+                case "o": session.tool = .roll
+                case "y": session.tool = .slip
+                case "u": session.tool = .slide
+                case "g": session.tool = .range
+                case "z": session.tool = .zoom
                 case "n": session.snapping.toggle()
                 case "m": session.perform(.marker(.init(frame: session.playhead, name: "Marker \(session.project.markers.count + 1)")))
                 default: return event
