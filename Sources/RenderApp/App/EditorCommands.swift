@@ -1,8 +1,10 @@
 import SwiftUI
+import AppKit
 import RenderCore
 
 struct EditorCommands: Commands {
     @ObservedObject var session: EditorSession
+    private var textEditor: NSTextView? { NSApp.keyWindow?.firstResponder as? NSTextView }
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
             Button("New Project") { session.newProject() }.keyboardShortcut("n")
@@ -21,14 +23,14 @@ struct EditorCommands: Commands {
             Button("Export…") { session.showExport = true }.keyboardShortcut("e").disabled(session.project.duration == 0)
         }
         CommandGroup(replacing: .undoRedo) {
-            Button("Undo") { session.undo() }.keyboardShortcut("z").disabled(!session.canUndo)
-            Button("Redo") { session.redo() }.keyboardShortcut("z", modifiers: [.command,.shift]).disabled(!session.canRedo)
+            Button("Undo") { if let textEditor { textEditor.undoManager?.undo() } else { session.undo() } }.keyboardShortcut("z").disabled(!session.canUndo && textEditor?.undoManager?.canUndo != true)
+            Button("Redo") { if let textEditor { textEditor.undoManager?.redo() } else { session.redo() } }.keyboardShortcut("z", modifiers: [.command,.shift]).disabled(!session.canRedo && textEditor?.undoManager?.canRedo != true)
         }
         CommandGroup(replacing: .pasteboard) {
-            Button("Cut") { session.cut() }.keyboardShortcut("x").disabled(session.selection.isEmpty)
-            Button("Copy") { session.copy() }.keyboardShortcut("c").disabled(session.selection.isEmpty)
-            Button("Paste") { session.paste() }.keyboardShortcut("v")
-            Button("Select All Clips") { session.selection = Set(session.project.tracks.flatMap(\.clips).map(\.id)) }.keyboardShortcut("a")
+            Button("Cut") { if let textEditor { textEditor.cut(nil) } else { session.cut() } }.keyboardShortcut("x").disabled(session.selection.isEmpty && textEditor == nil)
+            Button("Copy") { if let textEditor { textEditor.copy(nil) } else { session.copy() } }.keyboardShortcut("c").disabled(session.selection.isEmpty && textEditor == nil)
+            Button("Paste") { if let textEditor { textEditor.paste(nil) } else { session.paste() } }.keyboardShortcut("v")
+            Button("Select All") { if let textEditor { textEditor.selectAll(nil) } else { session.selection = Set(session.project.tracks.flatMap(\.clips).map(\.id)) } }.keyboardShortcut("a")
         }
         CommandMenu("Timeline") {
             Button("Split at Playhead") { session.split() }.keyboardShortcut("b")

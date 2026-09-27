@@ -36,7 +36,7 @@ struct TimelineView: View {
                             ForEach(session.project.tracks) { track in
                                 ZStack(alignment: .topLeading) {
                                     Rectangle().fill(session.selectedTrack == track.id ? Color.accentColor.opacity(0.035) : Color.primary.opacity(0.018))
-                                        .onTapGesture { session.selectedTrack = track.id; session.selection = [] }
+                                        .onTapGesture { NSApp.keyWindow?.makeFirstResponder(nil); session.selectedTrack = track.id; session.selection = []; session.selectedRange = nil }
                                     ForEach(track.clips) { clip in
                                         ClipTile(session: session, clip: clip, track: track)
                                             .frame(width: max(3,session.fps.seconds(clip.duration) * session.pointsPerSecond),height: laneHeight - 10)
@@ -57,6 +57,7 @@ struct TimelineView: View {
                                         Color.clear.contentShape(Rectangle()).gesture(DragGesture(minimumDistance: 1).onChanged { value in
                                             let a = session.snap(session.fps.frames(value.startLocation.x / session.pointsPerSecond))
                                             let b = session.snap(session.fps.frames(value.location.x / session.pointsPerSecond))
+                                            NSApp.keyWindow?.makeFirstResponder(nil)
                                             session.selection = []; session.selectedTrack = track.id
                                             session.selectedRange = TimelineSelectionRange(trackID: track.id,start: min(a,b),end: max(a,b))
                                         })
@@ -99,7 +100,7 @@ struct TimelineView: View {
                 context.fill(Path(CGRect(x: x - 2,y: 18,width: 5,height: 9)),with: .color(.orange))
             }
         }.frame(width: contentWidth,height: 28).contentShape(Rectangle())
-            .gesture(DragGesture(minimumDistance: 0).onChanged { value in session.pause(); session.seek(session.fps.frames(value.location.x / session.pointsPerSecond)) })
+            .gesture(DragGesture(minimumDistance: 0).onChanged { value in NSApp.keyWindow?.makeFirstResponder(nil); session.pause(); session.seek(session.fps.frames(value.location.x / session.pointsPerSecond)) })
     }
 }
 

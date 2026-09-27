@@ -117,3 +117,41 @@ extension AdvancedEditingTests {
         XCTAssertEqual(result.tracks[0].clips[1].sourceIn,0)
     }
 }
+
+extension AdvancedEditingTests {
+    func testMixedEditSequenceAlwaysMaintainsProjectInvariants() throws {
+        var project = fixture()
+        var seed: UInt64 = 0x52454E444552
+        func next(_ bound: Int) -> Int {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            return Int((seed >> 32) % UInt64(bound))
+        }
+        var selector = DeterministicSelection()
+        var accepted = 0
+        var rejected = 0
+        for _ in 0..<400 {
+            guard let clip = project.tracks[0].clips.randomElement(using: &selector) else { break }
+            let delta = Int64(next(61) - 30)
+            let command: TimelineCommand
+            switch next(6) {
+            case 0: command = .slip(clip: clip.id,delta: delta)
+            case 1: command = .roll(clip: clip.id,boundary: clip.end + delta)
+            case 2: command = .rippleTrim(clip: clip.id,edge: .trailing,to: clip.end + delta)
+            case 3: command = .move(clips: [clip.id],delta: delta)
+            case 4: command = .slide(clip: clip.id,delta: delta)
+            default: command = .split(clips: [clip.id],at: clip.start + max(1,clip.duration / 2))
+            }
+            let original = project
+            do { project = try command.applying(to: project); accepted += 1 }
+            catch { XCTAssertEqual(project,original); rejected += 1 }
+            try project.validate()
+        }
+        XCTAssertGreaterThan(accepted,50)
+        XCTAssertGreaterThan(rejected,50)
+    }
+}
+
+private struct DeterministicSelection: RandomNumberGenerator {
+    var seed: UInt64 = 7
+    mutating func next() -> UInt64 { seed = seed &* 2862933555777941757 &+ 3037000493; return seed }
+}

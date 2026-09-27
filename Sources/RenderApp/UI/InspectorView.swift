@@ -52,7 +52,7 @@ struct InspectorView: View {
                         inspectorSection("Animation") {
                             Text("Use the diamond beside a property to add or remove a keyframe at the playhead. Changing an animated property records a keyframe.")
                                 .font(.system(size: 10)).foregroundStyle(.secondary)
-                            let keys = Set(clip.properties.animations.values.flatMap(\.keys).map(\.frame)).sorted()
+                            let keys = Set(clip.properties.animations.values.flatMap(\.keys).map(\.frame)).filter { $0 >= clip.animationOffset && $0 < clip.animationOffset + clip.duration }.sorted()
                             HStack {
                                 Button { if let previous = keys.last(where: { $0 < session.playhead - clip.start + clip.animationOffset }) { session.seek(clip.start + previous - clip.animationOffset) } } label: { Image(systemName: "backward.end") }
                                 Text("\(keys.count) keyframe positions").font(.system(size: 10)).foregroundStyle(.secondary)
