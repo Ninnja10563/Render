@@ -88,7 +88,7 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
         guard Set(ids).count == ids.count else { throw RenderError.invalid("Project contains duplicate identifiers.") }
         for asset in assets {
             let variants = asset.variants ?? []
-            guard variants.count <= 2, Set(variants.map(\.mode)).count == variants.count,
+            guard (variants.isEmpty || asset.kind == .video), variants.count <= 2, Set(variants.map(\.mode)).count == variants.count,
                   variants.allSatisfy({ $0.mode != .original && $0.url.isFileURL && $0.source.url.isFileURL && $0.source.size >= 0 && $0.source.modified.timeIntervalSince1970.isFinite }) else {
                 throw RenderError.invalid("Invalid proxy or optimized media reference.")
             }

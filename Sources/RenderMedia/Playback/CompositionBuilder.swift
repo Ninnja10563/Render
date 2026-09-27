@@ -46,7 +46,7 @@ public actor CompositionBuilder {
             for clip in track.clips.sorted(by: { $0.start < $1.start }) {
                 try Task.checkCancellation()
                 guard let media = mediaByID[clip.assetID] else { continue }
-                let selectedURL = MediaResolver.url(for: media,mode: mode)
+                var selectedURL = MediaResolver.url(for: media,mode: mode)
                 if mode != .original && media.kind == .video && selectedURL == media.url { fallbacks.insert(media.name) }
                 guard FileManager.default.fileExists(atPath: selectedURL.path) else { throw RenderError.missingMedia(media.name) }
                 let start = time(rate.seconds(clip.start))
@@ -61,8 +61,22 @@ public actor CompositionBuilder {
                     continue
                 }
                 let sources: SourceTracks
-                if let cached = sourceCache[selectedURL] { sources = cached }
-                else { sources = try await SourceTracks.load(selectedURL); sourceCache[selectedURL] = sources }
+                do {
+                    let loaded: SourceTracks
+                    if let cached = sourceCache[selectedURL] { loaded = cached }
+                    else { loaded = try await SourceTracks.load(selectedURL) }
+                    if selectedURL != media.url {
+                        guard loaded.video != nil, let available = loaded.videoRange,
+                              available.start.seconds <= range.start.seconds + 0.001,
+                              available.end.seconds + 0.001 >= range.end.seconds else { throw RenderError.invalid("Generated media does not cover this edit.") }
+                    }
+                    sources = loaded; sourceCache[selectedURL] = sources
+                } catch {
+                    guard selectedURL != media.url else { throw error }
+                    selectedURL = media.url; fallbacks.insert(media.name)
+                    if let cached = sourceCache[selectedURL] { sources = cached }
+                    else { sources = try await SourceTracks.load(selectedURL); sourceCache[selectedURL] = sources }
+                }
                 // Keep audio at source quality when originals are online, even in proxy video mode.
                 let audioSources: SourceTracks
                 if selectedURL != media.url && FileManager.default.fileExists(atPath: media.url.path) {
@@ -137,13 +151,15 @@ private struct SourceTracks {
     let audio: AVAssetTrack?
     let transform: CGAffineTransform
     let audioRange: CMTimeRange?
+    let videoRange: CMTimeRange?
     static func load(_ url: URL) async throws -> SourceTracks {
         let asset = AVURLAsset(url: url)
         let video = try await asset.loadTracks(withMediaType: .video).first
         let audio = try await asset.loadTracks(withMediaType: .audio).first
         let transform = try await video?.load(.preferredTransform) ?? .identity
         let audioRange = try await audio?.load(.timeRange)
-        return SourceTracks(asset: asset,video: video,audio: audio,transform: transform,audioRange: audioRange)
+        let videoRange = try await video?.load(.timeRange)
+        return SourceTracks(asset: asset,video: video,audio: audio,transform: transform,audioRange: audioRange,videoRange: videoRange)
     }
 }
 

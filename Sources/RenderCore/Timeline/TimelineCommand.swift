@@ -203,7 +203,7 @@ public enum TimelineCommand: Sendable {
             let (t,c) = try location(id)
             let clip = project.tracks[t].clips[c]
             guard let media = project.assets.first(where: { $0.id == clip.assetID }), media.kind == .video, media.audioChannels > 0 else { throw RenderError.invalid("This clip has no embedded audio to detach.") }
-            var audioMedia = media; audioMedia.id = UUID(); audioMedia.kind = .audio
+            var audioMedia = media; audioMedia.id = UUID(); audioMedia.kind = .audio; audioMedia.variants = nil
             audioMedia.name = media.name + " (audio)"
             project.assets.append(audioMedia)
             var audioClip = clip; audioClip.id = UUID(); audioClip.assetID = audioMedia.id
