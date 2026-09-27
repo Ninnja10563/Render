@@ -44,6 +44,7 @@ final class EditorSession: ObservableObject {
     private var buildTask: Task<Void, Never>?
     private var recoveryTask: Task<Void, Never>?
     private var generation = UUID()
+    private var documentRequest = UUID()
     private var playbackObservation: NSKeyValueObservation?
     private var previewTasks: [UUID: Task<Void, Never>] = [:]
     private var clipboard: [ClipboardLane] = []
@@ -297,7 +298,11 @@ final class EditorSession: ObservableObject {
         alert.informativeText = "Your unsaved edits will be lost if you don’t save."
         alert.addButton(withTitle: "Save"); alert.addButton(withTitle: "Cancel"); alert.addButton(withTitle: "Don’t Save")
         switch alert.runModal() {
-        case .alertFirstButtonReturn: return await save()
+        case .alertFirstButtonReturn:
+            guard await save() else { return false }
+            // Editing stays enabled during disk I/O. Never close over newer unsaved edits.
+            if isDirty { errorMessage = "New edits were made while saving. Save again before closing this project."; return false }
+            return true
         case .alertThirdButtonReturn:
             recoveryTask?.cancel()
             do { try await store.remove(recoveryURL); return true } catch { report(error); return false }
@@ -305,25 +310,28 @@ final class EditorSession: ObservableObject {
         }
     }
     func newProject() {
-        Task { if await confirmDiscard() { install(RenderProject(), url: nil) } }
+        let request = UUID(); documentRequest = request
+        Task { if await confirmDiscard(), documentRequest == request { install(RenderProject(), url: nil) } }
     }
     func openPanel() {
         let panel = NSOpenPanel(); panel.allowedContentTypes = [UTType(exportedAs: "app.render.project", conformingTo: .json),.json]
         if panel.runModal() == .OK, let url = panel.url { open(url) }
     }
     func open(_ url: URL) {
+        let request = UUID(); documentRequest = request
         Task {
             // Decode before asking to replace the current document.
             do {
                 let loaded = try await store.load(url)
-                guard await confirmDiscard() else { return }
+                guard documentRequest == request, await confirmDiscard(), documentRequest == request else { return }
                 install(loaded, url: url); addRecent(url)
             } catch { report(error) }
         }
     }
     func duplicate() {
+        let request = UUID(); documentRequest = request
         Task {
-            guard await confirmDiscard() else { return }
+            guard await confirmDiscard(), documentRequest == request else { return }
             var copy = project; copy.id = UUID(); copy.name += " Copy"
             install(copy, url: nil); savedProject = RenderProject(); isDirty = true; scheduleRecovery()
         }

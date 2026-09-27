@@ -11,7 +11,7 @@ CI checks are automated, not a claim that this checklist was performed by a huma
 - Select multiple clips, drag, trim handles, split, cut/copy/paste, insert, delete and ripple delete. Check lock, mute, solo and visibility. Undo/redo each action.
 - Inspect source boundaries at 23.976/29.97 fps; confirm non-drop-frame display and no A/V drift on long files.
 - Animate transform/opacity/volume; split and trim animated clips and verify continuity. Stack/reorder/disable/reset/remove effects.
-- Save/reopen/Save As/duplicate, cancel close, cancel open, cancel save, corrupt project, disk-full and permission failure. Kill app after an edit, reopen and recover.
+- Save/reopen/Save As/duplicate, cancel close, cancel open, cancel save, corrupt project, disk-full and permission failure. Edit again during a save/close request and verify newer edits keep the document open. Rapidly request different projects and verify the newest request wins. Kill app after an edit, reopen and recover.
 - Export H.264/HEVC/ProRes at each size and rate. Compare frames and audio to preview. Cancel export and verify no partial final file. Try a destination matching source media and an existing file.
 - Stress long projects with many tracks/clips. Profile CPU, GPU, memory and disk with Instruments. Document limits before describing Render as production ready.
 
