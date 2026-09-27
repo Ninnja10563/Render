@@ -66,13 +66,18 @@ public enum TimelineCommand: Sendable {
         default: break
         }
         var project = original
+        let trackIndices = Dictionary(uniqueKeysWithValues: original.tracks.enumerated().map { ($0.element.id,$0.offset) })
+        var clipLocations: [UUID: (track: Int, clip: Int)] = [:]
+        for (t,track) in original.tracks.enumerated() {
+            for (c,clip) in track.clips.enumerated() { clipLocations[clip.id] = (t,c) }
+        }
         func trackIndex(_ id: UUID) throws -> Int {
-            guard let index = project.tracks.firstIndex(where: { $0.id == id }) else { throw RenderError.invalid("Track no longer exists.") }
+            guard let index = trackIndices[id] else { throw RenderError.invalid("Track no longer exists.") }
             guard !project.tracks[index].locked else { throw RenderError.invalid("Unlock the track before editing it.") }
             return index
         }
         func location(_ id: UUID) throws -> (Int, Int) {
-            guard let p = project.location(id) else { throw RenderError.invalid("Clip no longer exists.") }
+            guard let p = clipLocations[id] else { throw RenderError.invalid("Clip no longer exists.") }
             _ = try trackIndex(project.tracks[p.track].id)
             return (p.track, p.clip)
         }

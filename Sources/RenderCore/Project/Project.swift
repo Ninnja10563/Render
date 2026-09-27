@@ -89,6 +89,7 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
             guard asset.url.isFileURL, asset.duration.isFinite, asset.duration > 0, asset.duration <= 604800,
                   asset.frameRate.isFinite, asset.audioChannels >= 0 else { throw RenderError.invalid("Invalid media metadata for \(asset.name).") }
         }
+        let mediaByID = Dictionary(uniqueKeysWithValues: assets.map { ($0.id,$0) })
         for track in tracks {
             var previousEnd: Int64 = 0
             for clip in track.clips.sorted(by: { $0.start < $1.start }) {
@@ -98,7 +99,7 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
                 else { throw RenderError.invalid("Invalid timing for \(clip.name).") }
                 guard clip.start >= previousEnd else { throw RenderError.invalid("Clips cannot overlap on the same track. Move the clip to another track.") }
                 previousEnd = clip.end
-                guard let asset = assets.first(where: { $0.id == clip.assetID }) else { throw RenderError.invalid("Clip references an unknown media asset.") }
+                guard let asset = mediaByID[clip.assetID] else { throw RenderError.invalid("Clip references an unknown media asset.") }
                 guard (track.kind == .audio) == (asset.kind == .audio) else { throw RenderError.invalid("This media belongs on a \(asset.kind == .audio ? "audio" : "video") track.") }
                 if asset.kind != .image {
                     guard clip.sourceIn + settings.frameRate.seconds(clip.duration) * clip.speed <= asset.duration + 0.001 else { throw RenderError.invalid("Edit extends past the available source media.") }

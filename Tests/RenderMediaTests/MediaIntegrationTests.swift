@@ -132,6 +132,26 @@ extension MediaIntegrationTests {
         XCTAssertGreaterThan(result.audioChannels,0)
         let exportedPeaks = try await library.waveform(result)
         XCTAssertEqual(Double(exportedPeaks.max() ?? 0),0.2,accuracy: 0.04)
+        // Repeated video+audio edits must reuse timeline tracks, not allocate one decoder track per clip.
+        var sequence = RenderProject(); sequence.settings = project.settings; sequence.assets = [result]
+        sequence.tracks[0].clips = Array((0..<60).map { index in
+            var clip = TimelineClip(assetID: result.id,name: "Edit \(index)",start: Int64(index * 3),duration: 3)
+            clip.speed = index % 2 == 0 ? 2 : 0.5
+            clip.sourceIn = 0.1
+            return clip
+        }.reversed())
+        let built = try await CompositionBuilder().build(sequence)
+        let videoTracks = try await built.composition.loadTracks(withMediaType: .video)
+        let audioTracks = try await built.composition.loadTracks(withMediaType: .audio)
+        XCTAssertEqual(videoTracks.count,2) // One sequence track plus the gap/still clock.
+        XCTAssertEqual(audioTracks.count,1)
+        XCTAssertEqual(built.videoComposition.instructions.count,60)
+        XCTAssertEqual(built.composition.duration.seconds,6,accuracy: 0.01)
+        let sequenceURL = folder.appendingPathComponent("sixty-edits.mp4")
+        try await ExportService().export(project: sequence,configuration: config,to: sequenceURL)
+        let sequenceMedia = try await library.analyze(sequenceURL)
+        XCTAssertEqual(sequenceMedia.duration,6,accuracy: 0.08)
+        XCTAssertGreaterThan(sequenceMedia.audioChannels,0)
         project.tracks[1].muted = true
         let muted = try await CompositionBuilder().build(project)
         XCTAssertTrue(muted.audioMix.inputParameters.isEmpty)
