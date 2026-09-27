@@ -1,0 +1,38 @@
+name: macOS validation
+on:
+  push:
+    branches: [main, 'work/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: validation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+          uname -m
+      - name: Debug build
+        run: swift build --arch arm64
+      - name: Core and media integration tests
+        run: swift test --arch arm64
+      - name: Release app, DMG, installation and launch
+        run: scripts/package.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Render-validation
+          path: |
+            dist/*.dmg
+            dist/*.sha256
+            build/workspace.png
+            build/launch.log
+          if-no-files-found: ignore
