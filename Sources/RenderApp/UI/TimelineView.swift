@@ -16,6 +16,7 @@ struct TimelineView: View {
                 Picker("Tool", selection: $session.tool) {
                     ForEach(EditingTool.allCases,id: \.self) { tool in Label(tool.rawValue,systemImage: tool.symbol).tag(tool) }
                 }.pickerStyle(.menu).frame(width: 120).labelsHidden().help("A Selection · B Blade · T Trim · R Ripple · O Roll · Y Slip · U Slide · G Range · Z Zoom")
+                Toggle("Magnetic",isOn: Binding(get: { session.project.storyline?.enabled == true },set: { session.setMagnetic($0) })).toggleStyle(.button).help("Pack the primary storyline and move connected clips with their anchors")
                 Toggle(isOn: $session.snapping) { Image(systemName: "point.topleft.down.curvedto.point.bottomright.up") }.toggleStyle(.button).help("Snapping (N)")
                 Menu { Button("Video Track") { session.perform(.addTrack(.video)) }; Button("Audio Track") { session.perform(.addTrack(.audio)) } } label: { Image(systemName: "plus") }.menuStyle(.borderlessButton).frame(width: 24)
                 Button { session.split() } label: { Image(systemName: "scissors") }.buttonStyle(.plain).help("Split at playhead (⌘B)")
@@ -87,6 +88,7 @@ private struct TrackHeader: View {
             HStack {
                 Image(systemName: track.kind == .video ? "film" : "waveform").foregroundStyle(.secondary)
                 Text(track.name).fontWeight(.medium)
+                if session.project.storyline?.trackID == track.id { Image(systemName: "link").font(.system(size: 9)).help("Primary storyline") }
             }.font(.system(size: 11))
             HStack(spacing: 12) {
                 Button { update(locked: !track.locked) } label: { Image(systemName: track.locked ? "lock.fill" : "lock.open") }.help(track.locked ? "Unlock track" : "Lock track")
@@ -97,6 +99,9 @@ private struct TrackHeader: View {
         }.padding(.horizontal,12).frame(maxWidth: .infinity,maxHeight: .infinity,alignment: .leading)
             .background(session.selectedTrack == track.id ? Color.accentColor.opacity(0.09) : .clear)
             .contentShape(Rectangle()).onTapGesture { session.selectedTrack = track.id }
+            .contextMenu {
+                if track.kind == .video { Button("Use as Primary Storyline") { session.perform(.storyline(enabled: session.project.storyline?.enabled ?? false,track: track.id)) }.disabled(track.locked) }
+            }
             .overlay(alignment: .bottom) { Divider() }
     }
     func update(locked: Bool? = nil, hidden: Bool? = nil, muted: Bool? = nil, solo: Bool? = nil) {

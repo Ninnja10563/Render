@@ -48,6 +48,10 @@ struct EditorCommands: Commands {
             Button("Add Caption") { session.addTitle(caption: true) }
             Button("Add Video Track") { session.perform(.addTrack(.video)) }
             Button("Add Audio Track") { session.perform(.addTrack(.audio)) }
+            Toggle("Magnetic Storyline",isOn: Binding(get: { session.project.storyline?.enabled == true },set: { session.setMagnetic($0) }))
+            Button("Connect Selected Clip to Storyline") { session.connectSelectedClip() }.disabled(session.selectedClip == nil || session.primaryStoryline == nil)
+            Button("Disconnect Selected Clip") { if let clip = session.selectedClip { session.perform(.connection(clip: clip.id,anchor: nil)) } }.disabled(session.selectedClip?.connection == nil)
+            Button("Insert Two-Second Gap") { session.insertGap() }
             Toggle("Snapping", isOn: $session.snapping)
             Button("Add Marker") { session.perform(.marker(.init(frame: session.playhead,name: "Marker"))) }
         }

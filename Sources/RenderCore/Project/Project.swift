@@ -23,6 +23,8 @@ public struct TimelineClip: Codable, Equatable, Identifiable, Sendable {
     public var id = UUID()
     public var assetID: UUID?
     public var title: TitleContent?
+    public var isGap: Bool?
+    public var connection: ClipConnection?
     public var name: String
     public var start: Int64
     public var duration: Int64
@@ -61,12 +63,13 @@ public struct ProjectSettings: Codable, Equatable, Sendable {
     public init() {}
 }
 public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
-    public static let currentSchema = 4
+    public static let currentSchema = 5
     public var schemaVersion = currentSchema
     public var id = UUID()
     public var name = "Untitled"
     public var settings = ProjectSettings()
     public var assets: [MediaAsset] = []
+    public var storyline: StorylineSettings?
     /// Topmost video track composites above subsequent video tracks.
     public var tracks = [TimelineTrack(name: "Video 1", kind: .video), TimelineTrack(name: "Audio 1", kind: .audio)]
     public var markers: [TimelineMarker] = []
@@ -106,7 +109,9 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
                 else { throw RenderError.invalid("Invalid timing for \(clip.name).") }
                 guard clip.start >= previousEnd else { throw RenderError.invalid("Clips cannot overlap on the same track. Move the clip to another track.") }
                 previousEnd = clip.end
-                if let title = clip.title {
+                if clip.isGap == true {
+                    guard clip.assetID == nil, clip.title == nil, track.kind == .video else { throw RenderError.invalid("A gap must be a generated video clip.") }
+                } else if let title = clip.title {
                     guard clip.assetID == nil, track.kind == .video else { throw RenderError.invalid("Titles must be generated clips on video tracks.") }
                     try title.validate()
                 } else {
@@ -136,6 +141,25 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
                     guard effect.animation.keys.allSatisfy({ effect.kind.range.contains($0.value) }) else { throw RenderError.invalid("Effect keyframe is out of range.") }
                 }
             }
+        }
+        if let storyline {
+            guard let primary = tracks.first(where: { $0.id == storyline.trackID }), primary.kind == .video else { throw RenderError.invalid("The primary storyline must be a video track.") }
+            let anchors = Dictionary(uniqueKeysWithValues: primary.clips.map { ($0.id,$0) })
+            var end: Int64 = 0
+            for clip in primary.clips.sorted(by: { $0.start < $1.start }) {
+                guard clip.connection == nil, !storyline.enabled || clip.start == end else { throw RenderError.invalid("Magnetic storylines cannot contain implicit gaps.") }
+                end = clip.end
+            }
+            for track in tracks where track.id != primary.id {
+                for clip in track.clips {
+                    if let connection = clip.connection {
+                        guard let anchor = anchors[connection.anchor], abs(Double(connection.offset)) < 200_000_000,
+                              clip.start == anchor.start + connection.offset else { throw RenderError.invalid("Invalid storyline connection.") }
+                    }
+                }
+            }
+        } else if tracks.flatMap(\.clips).contains(where: { $0.connection != nil }) {
+            throw RenderError.invalid("Connected clips need a primary storyline.")
         }
         guard markers.allSatisfy({ $0.frame >= 0 && $0.frame < 100_000_000 }) else { throw RenderError.invalid("Invalid marker position.") }
     }

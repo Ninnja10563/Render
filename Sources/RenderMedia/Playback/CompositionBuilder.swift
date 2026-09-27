@@ -45,6 +45,10 @@ public actor CompositionBuilder {
             // Insert in time order: scaling a source segment must never displace a later edit.
             for clip in track.clips.sorted(by: { $0.start < $1.start }) {
                 try Task.checkCancellation()
+                if clip.isGap == true {
+                    if !track.hidden { layers.append(RenderLayer(trackID: clock.trackID,clip: clip,preferredTransform: .identity,still: CIImage(color: .black).cropped(to: CGRect(x: 0,y: 0,width: project.settings.width,height: project.settings.height)))) }
+                    continue
+                }
                 if let title = clip.title {
                     if !track.hidden { layers.append(RenderLayer(trackID: clock.trackID,clip: clip,preferredTransform: .identity,still: nil,title: title)) }
                     continue

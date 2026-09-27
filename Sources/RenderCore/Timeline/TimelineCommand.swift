@@ -2,6 +2,9 @@ import Foundation
 
 public enum TrimEdge: Sendable { case leading, trailing }
 public enum TimelineCommand: Sendable {
+    case storyline(enabled: Bool,track: UUID)
+    case connection(clip: UUID,anchor: UUID?)
+    case gap(track: UUID,at: Int64,duration: Int64)
     case addTitle(TitleContent,at: Int64,duration: Int64)
     case title(clip: UUID,TitleContent)
     case captions([CaptionCue])
@@ -35,6 +38,9 @@ public enum TimelineCommand: Sendable {
 
     public var label: String {
         switch self {
+        case .storyline: return "Change Timeline Mode"
+        case .connection: return "Change Clip Connection"
+        case .gap: return "Insert Gap"
         case .addTitle: return "Add Title"
         case .title: return "Edit Title"
         case .captions: return "Import Captions"
@@ -96,7 +102,50 @@ public enum TimelineCommand: Sendable {
             let frames = asset.kind == .image ? project.settings.frameRate.frames(5) : Int64((asset.duration * project.settings.frameRate.value).rounded(.down))
             return TimelineClip(assetID: asset.id, name: asset.name, start: at, duration: max(1, frames))
         }
+        func reconnectSplit(_ old: TimelineClip,right: TimelineClip,cut: Int64) throws {
+            for t in project.tracks.indices {
+                for c in project.tracks[t].clips.indices {
+                    let child = project.tracks[t].clips[c]
+                    guard child.connection?.anchor == old.id, child.start >= cut else { continue }
+                    let offset = child.start - cut
+                    let newStart = right.start + offset
+                    guard !project.tracks[t].locked || newStart == child.start else { throw RenderError.invalid("Unlock connected clips before inserting at this position.") }
+                    project.tracks[t].clips[c].connection = ClipConnection(anchor: right.id,offset: offset)
+                    project.tracks[t].clips[c].start = newStart
+                }
+            }
+        }
         switch self {
+        case .storyline(let enabled,let track):
+            let t = try trackIndex(track)
+            guard project.tracks[t].kind == .video else { throw RenderError.invalid("Choose a video track for the storyline.") }
+            if project.storyline?.trackID != track {
+                for t in project.tracks.indices { for c in project.tracks[t].clips.indices { project.tracks[t].clips[c].connection = nil } }
+            }
+            project.storyline = StorylineSettings(enabled: enabled,trackID: track)
+        case .connection(let id,let anchorID):
+            let (t,c) = try location(id)
+            if let anchorID {
+                guard let settings = project.storyline, project.tracks[t].id != settings.trackID,
+                      let primary = project.tracks.first(where: { $0.id == settings.trackID }), let anchor = primary.clips.first(where: { $0.id == anchorID }) else { throw RenderError.invalid("Connect a clip to an existing primary storyline clip.") }
+                project.tracks[t].clips[c].connection = ClipConnection(anchor: anchorID,offset: project.tracks[t].clips[c].start - anchor.start)
+            } else { project.tracks[t].clips[c].connection = nil }
+        case .gap(let track,let at,let duration):
+            guard at >= 0, at < 100_000_000, duration > 0, duration < 100_000_000 else { throw RenderError.invalid("Invalid gap timing.") }
+            let t = try trackIndex(track)
+            var gap = TimelineClip(assetID: nil,name: "Gap",start: at,duration: duration); gap.isGap = true
+            var clips: [TimelineClip] = []
+            for var clip in project.tracks[t].clips {
+                if clip.start < at && clip.end > at {
+                    var right = clip; right.id = UUID(); right.start = at + duration
+                    right.sourceIn += project.settings.frameRate.seconds(at - clip.start) * clip.speed
+                    right.animationOffset += at - clip.start; right.duration = clip.end - at
+                    try reconnectSplit(clip,right: right,cut: at)
+                    clip.duration = at - clip.start; clips.append(right)
+                } else if clip.start >= at { clip.start += duration }
+                clips.append(clip)
+            }
+            project.tracks[t].clips = clips + [gap]
         case .addTitle(let title,let start,let duration):
             var track = TimelineTrack(name: title.role == .caption ? "Captions" : "Titles",kind: .video)
             var clip = TimelineClip(assetID: nil,name: title.text,start: start,duration: duration); clip.title = title
@@ -138,6 +187,7 @@ public enum TimelineCommand: Sendable {
                     right.sourceIn += project.settings.frameRate.seconds(at - clip.start) * clip.speed
                     right.animationOffset += at - clip.start
                     right.duration = clip.end - at
+                    try reconnectSplit(clip,right: right,cut: at)
                     clip.duration = at - clip.start
                     clips.append(right)
                 } else if clip.start >= at { clip.start += inserted.duration }
@@ -193,7 +243,7 @@ public enum TimelineCommand: Sendable {
         case .slip(let id,let delta):
             guard abs(Double(delta)) < 100_000_000 else { throw RenderError.invalid("Slip exceeds timeline bounds.") }
             let (t,c) = try location(id)
-            guard project.tracks[t].clips[c].title == nil, project.assets.first(where: { $0.id == project.tracks[t].clips[c].assetID })?.kind != .image else { throw RenderError.invalid("Still images do not have a moving source window.") }
+            guard project.tracks[t].clips[c].assetID != nil, project.tracks[t].clips[c].title == nil, project.assets.first(where: { $0.id == project.tracks[t].clips[c].assetID })?.kind != .image else { throw RenderError.invalid("Still images do not have a moving source window.") }
             project.tracks[t].clips[c].sourceIn += project.settings.frameRate.seconds(delta) * project.tracks[t].clips[c].speed
         case .slide(let id,let delta):
             guard abs(Double(delta)) < 100_000_000 else { throw RenderError.invalid("Slide exceeds timeline bounds.") }
@@ -250,8 +300,10 @@ public enum TimelineCommand: Sendable {
             }
         case .move(let ids, let delta):
             guard abs(Double(delta)) < 100_000_000 else { throw RenderError.invalid("Move exceeds timeline bounds.") }
-            for id in ids {
-                let (t, c) = try location(id)
+            for id in ids { _ = try location(id) }
+            let moved = MagneticEditing.moveStoryline(ids,delta: delta,project: &project)
+            for id in ids.subtracting(moved) {
+                let (t,c) = try location(id)
                 project.tracks[t].clips[c].start += delta
             }
         case .moveToTrack(let id, let track, let at):
@@ -281,6 +333,7 @@ public enum TimelineCommand: Sendable {
                 right.id = UUID(); right.start = at; right.duration -= leftDuration
                 right.sourceIn += project.settings.frameRate.seconds(leftDuration) * right.speed
                 right.animationOffset += leftDuration
+                try reconnectSplit(project.tracks[t].clips[c],right: right,cut: at)
                 project.tracks[t].clips[c].duration = leftDuration
                 project.tracks[t].clips.append(right)
             }
@@ -332,6 +385,7 @@ public enum TimelineCommand: Sendable {
             project.assets[a].url = url
             project.assets[a].variants = nil
         }
+        try MagneticEditing.reconcile(&project,from: original)
         try project.validate()
         return project
     }

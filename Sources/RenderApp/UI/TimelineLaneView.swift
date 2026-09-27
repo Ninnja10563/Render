@@ -60,7 +60,11 @@ struct TimelineLaneView: View {
         guard let provider = providers.first, !track.locked else { return false }
         _ = provider.loadObject(ofClass: String.self) { value,_ in
             guard let value, let asset = UUID(uuidString: value) else { return }
-            Task { @MainActor in session.perform(.append(asset: asset,track: track.id,at: session.snap(session.fps.frames(location.x / session.pointsPerSecond)))) }
+            Task { @MainActor in
+                let frame = session.snap(session.fps.frames(location.x / session.pointsPerSecond))
+                if session.project.storyline?.enabled == true && session.project.storyline?.trackID == track.id { session.perform(.insert(asset: asset,track: track.id,at: frame)) }
+                else { session.perform(.append(asset: asset,track: track.id,at: frame)) }
+            }
         }
         return true
     }

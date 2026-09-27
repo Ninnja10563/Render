@@ -422,3 +422,23 @@ struct TimelineSelectionRange {
     var start: Int64
     var end: Int64
 }
+
+extension EditorSession {
+    var primaryStoryline: TimelineTrack? {
+        if let id = project.storyline?.trackID { return project.tracks.first { $0.id == id } }
+        return nil
+    }
+    func setMagnetic(_ enabled: Bool) {
+        let track = primaryStoryline ?? project.tracks.first(where: { $0.id == selectedTrack && $0.kind == .video }) ?? project.tracks.last(where: { $0.kind == .video })
+        if let track { perform(.storyline(enabled: enabled,track: track.id)) }
+    }
+    func connectSelectedClip() {
+        guard let clip = selectedClip, let track = primaryStoryline else { errorMessage = "Choose a primary storyline first."; return }
+        let ordered = track.clips.sorted { $0.start < $1.start }
+        if let anchor = ordered.last(where: { $0.start <= clip.start }) ?? ordered.first { perform(.connection(clip: clip.id,anchor: anchor.id)) }
+    }
+    func insertGap() {
+        let track = primaryStoryline ?? project.tracks.first(where: { $0.id == selectedTrack && $0.kind == .video }) ?? project.tracks.first(where: { $0.kind == .video })
+        if let track { perform(.gap(track: track.id,at: playhead,duration: fps.frames(2))) }
+    }
+}

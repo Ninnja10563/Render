@@ -10,7 +10,7 @@ struct ClipTile: View {
     @State private var trimDelta: Int64 = 0
     @State private var trimEdge: TrimEdge = .trailing
     var selected: Bool { session.selection.contains(clip.id) }
-    var tint: Color { track.kind == .audio ? Color(red: 0.24,green: 0.43,blue: 0.36) : Color(red: 0.23,green: 0.36,blue: 0.49) }
+    var tint: Color { clip.isGap == true ? Color.gray : track.kind == .audio ? Color(red: 0.24,green: 0.43,blue: 0.36) : Color(red: 0.23,green: 0.36,blue: 0.49) }
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .topLeading) {
@@ -34,7 +34,7 @@ struct ClipTile: View {
                         context.stroke(path,with: .color(.white.opacity(0.65)),lineWidth: 1)
                     }.frame(width: drawWidth,height: track.kind == .audio ? 33 : 16).offset(x: localStart,y: track.kind == .audio ? 24 : 43)
                 }
-                Text(clip.name).font(.system(size: 10,weight: .medium)).foregroundStyle(.white).lineLimit(1).padding(.horizontal,7).frame(height: 22).frame(maxWidth: .infinity,alignment: .leading).background(.black.opacity(0.15))
+                Text((clip.connection != nil ? "↳ " : "") + clip.name).font(.system(size: 10,weight: .medium)).foregroundStyle(.white).lineLimit(1).padding(.horizontal,7).frame(height: 22).frame(maxWidth: .infinity,alignment: .leading).background(.black.opacity(0.15))
                 if selected && session.tool != .blade && geometry.size.width > 18 {
                     HStack {
                         trimHandle(.leading)
