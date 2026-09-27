@@ -13,8 +13,9 @@ final class EditorSession: ObservableObject {
     @Published var selectedRange: TimelineSelectionRange?
     @Published var selectedAsset: UUID?
     @Published var selectedTrack: UUID?
-    @Published var playhead: Int64 = 0
-    @Published var isPlaying = false
+    let transport = TransportState()
+    var playhead: Int64 { get { transport.playhead } set { if transport.playhead != newValue { transport.playhead = newValue } } }
+    var isPlaying: Bool { get { transport.isPlaying } set { if transport.isPlaying != newValue { transport.isPlaying = newValue } } }
     @Published var isDirty = false
     @Published var errorMessage: String?
     @Published var activity: String?

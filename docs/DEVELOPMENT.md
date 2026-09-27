@@ -28,3 +28,11 @@ Each substantial milestone gets tests, version, commits, tag, Release app, verif
 ## Validation
 
 `swift test` and `swift build -c release --arch arm64` on a Mac. `scripts/package.sh` creates the app and disk image. `scripts/smoke.sh` launches the built bundle. CI validates synthetic media through composition/export and probes the output. See MANUAL_TESTS.md for human release checks. The initial CI bootstrap must be pushed before native checks are possible in this Linux environment; subsequent publication is gated on CI success.
+
+## Implemented releases
+
+- 0.1.0: native track-editor foundation, 29 automated tests and an installed-app editing/launch check; ARM64 DMG published.
+- 0.2.0: ripple/roll/slip/slide/range/overwrite editing, audio detach and synchronized multitrack paste; 42 tests including 400 deterministic mixed edits; ARM64 DMG published.
+- 0.3.0: composition track reuse, per-build source cache, instruction boundary sweep, indexed command lookup, isolated transport state and viewport-limited clip/ruler/waveform rendering.
+
+The future milestone numbers above describe feature order only; actual versions follow the completed, verified scope. No project-format migration was needed for 0.2 or 0.3.

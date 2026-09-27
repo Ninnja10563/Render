@@ -4,6 +4,8 @@ import RenderCore
 
 struct TimelineView: View {
     @ObservedObject var session: EditorSession
+    @State private var scrollOffset: CGFloat = 0
+    @State private var viewportWidth: CGFloat = 1000
     private let headerWidth: CGFloat = 148
     private let laneHeight: CGFloat = 70
     var contentWidth: CGFloat { max(1000,session.fps.seconds(session.project.duration) * session.pointsPerSecond + 300) }
@@ -37,8 +39,12 @@ struct TimelineView: View {
                                 ZStack(alignment: .topLeading) {
                                     Rectangle().fill(session.selectedTrack == track.id ? Color.accentColor.opacity(0.035) : Color.primary.opacity(0.018))
                                         .onTapGesture { NSApp.keyWindow?.makeFirstResponder(nil); session.selectedTrack = track.id; session.selection = []; session.selectedRange = nil }
-                                    ForEach(track.clips) { clip in
-                                        ClipTile(session: session, clip: clip, track: track)
+                                    ForEach(track.clips.filter { clip in
+                                        let x = session.fps.seconds(clip.start) * session.pointsPerSecond
+                                        let end = session.fps.seconds(clip.end) * session.pointsPerSecond
+                                        return end >= scrollOffset - 200 && x <= scrollOffset + viewportWidth + 200
+                                    }) { clip in
+                                        ClipTile(session: session, clip: clip, track: track, visibleRange: (scrollOffset - 200)...(scrollOffset + viewportWidth + 200))
                                             .frame(width: max(3,session.fps.seconds(clip.duration) * session.pointsPerSecond),height: laneHeight - 10)
                                             .offset(x: session.fps.seconds(clip.start) * session.pointsPerSecond,y: 5)
                                     }
@@ -78,27 +84,40 @@ struct TimelineView: View {
                             }
                         }
                         .overlay(alignment: .topLeading) {
-                            Rectangle().fill(Color.accentColor).frame(width: 1.5).offset(x: session.fps.seconds(session.playhead) * session.pointsPerSecond).allowsHitTesting(false)
+                            TimelinePlayhead(transport: session.transport,frameRate: session.fps,pointsPerSecond: session.pointsPerSecond)
                         }
+                        .background(GeometryReader { proxy in
+                            Color.clear.preference(key: TimelineScrollOffsetKey.self,value: -proxy.frame(in: .named("timelineViewport")).minX)
+                        })
                     }
+                    .coordinateSpace(name: "timelineViewport")
+                    .onPreferenceChange(TimelineScrollOffsetKey.self) { scrollOffset = $0 }
+                    .background(GeometryReader { proxy in
+                        Color.clear.onAppear { viewportWidth = proxy.size.width }.onChange(of: proxy.size.width) { _,width in viewportWidth = width }
+                    })
                 }
             }
         }.background(Color(nsColor: .underPageBackgroundColor))
     }
     private var ruler: some View {
-        Canvas { context,size in
-            let seconds = contentWidth / session.pointsPerSecond
-            let step = session.pointsPerSecond < 30 ? 5 : (session.pointsPerSecond < 80 ? 2 : 1)
-            for second in stride(from: 0, through: Int(seconds), by: step) {
-                let x = Double(second) * session.pointsPerSecond
-                var path = Path(); path.move(to: CGPoint(x: x,y: 20)); path.addLine(to: CGPoint(x: x,y: 28))
-                context.stroke(path,with: .color(.secondary.opacity(0.5)),lineWidth: 1)
-                context.draw(Text(session.fps.timecode(session.fps.frames(Double(second)))).font(.system(size: 9,design: .monospaced)).foregroundColor(.secondary),at: CGPoint(x: x + 5,y: 10),anchor: .leading)
-            }
-            for marker in session.project.markers {
-                let x = session.fps.seconds(marker.frame) * session.pointsPerSecond
-                context.fill(Path(CGRect(x: x - 2,y: 18,width: 5,height: 9)),with: .color(.orange))
-            }
+        let origin = max(0,scrollOffset - 200)
+        let visibleWidth = min(contentWidth,viewportWidth + 400)
+        return ZStack(alignment: .topLeading) {
+            Canvas { context,size in
+                let step = session.pointsPerSecond < 30 ? 5 : (session.pointsPerSecond < 80 ? 2 : 1)
+                let first = max(0,Int(origin / session.pointsPerSecond) / step * step)
+                let last = Int((origin + visibleWidth) / session.pointsPerSecond) + step
+                for second in stride(from: first,through: last,by: step) {
+                    let x = Double(second) * session.pointsPerSecond - origin
+                    var path = Path(); path.move(to: CGPoint(x: x,y: 20)); path.addLine(to: CGPoint(x: x,y: 28))
+                    context.stroke(path,with: .color(.secondary.opacity(0.5)),lineWidth: 1)
+                    context.draw(Text(session.fps.timecode(session.fps.frames(Double(second)))).font(.system(size: 9,design: .monospaced)).foregroundColor(.secondary),at: CGPoint(x: x + 5,y: 10),anchor: .leading)
+                }
+                for marker in session.project.markers {
+                    let x = session.fps.seconds(marker.frame) * session.pointsPerSecond - origin
+                    if x >= -5 && x <= visibleWidth + 5 { context.fill(Path(CGRect(x: x - 2,y: 18,width: 5,height: 9)),with: .color(.orange)) }
+                }
+            }.frame(width: visibleWidth,height: 28).offset(x: origin)
         }.frame(width: contentWidth,height: 28).contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0).onChanged { value in NSApp.keyWindow?.makeFirstResponder(nil); session.pause(); session.seek(session.fps.frames(value.location.x / session.pointsPerSecond)) })
     }
@@ -133,6 +152,7 @@ private struct ClipTile: View {
     @ObservedObject var session: EditorSession
     let clip: TimelineClip
     let track: TimelineTrack
+    let visibleRange: ClosedRange<CGFloat>
     @State private var dragFrames: Int64 = 0
     @State private var trimDelta: Int64 = 0
     @State private var trimEdge: TrimEdge = .trailing
@@ -146,17 +166,20 @@ private struct ClipTile: View {
                     Image(nsImage: image).resizable().scaledToFill().frame(width: min(90,geometry.size.width),height: 37).clipped().offset(y: 22).opacity(0.8)
                 }
                 if let peaks = session.waveforms[clip.assetID], let asset = session.project.assets.first(where: { $0.id == clip.assetID }) {
+                    let clipOrigin = session.fps.seconds(clip.start) * session.pointsPerSecond
+                    let localStart = max(0,visibleRange.lowerBound - clipOrigin)
+                    let drawWidth = max(0,min(geometry.size.width,visibleRange.upperBound - clipOrigin) - localStart)
                     Canvas { context,size in
                         var path = Path()
                         for x in stride(from: 0.0,to: size.width,by: 2) {
-                            let second = clip.sourceIn + (x / size.width) * session.fps.seconds(clip.duration) * clip.speed
+                            let second = clip.sourceIn + ((localStart + x) / max(1,geometry.size.width)) * session.fps.seconds(clip.duration) * clip.speed
                             let index = min(peaks.count - 1,max(0,Int(second / asset.duration * Double(peaks.count))))
                             guard index >= 0 else { continue }
                             let height = max(1,CGFloat(peaks[index]) * size.height)
                             path.move(to: CGPoint(x: x,y: (size.height - height) / 2)); path.addLine(to: CGPoint(x: x,y: (size.height + height) / 2))
                         }
                         context.stroke(path,with: .color(.white.opacity(0.65)),lineWidth: 1)
-                    }.frame(height: track.kind == .audio ? 33 : 16).offset(y: track.kind == .audio ? 24 : 43)
+                    }.frame(width: drawWidth,height: track.kind == .audio ? 33 : 16).offset(x: localStart,y: track.kind == .audio ? 24 : 43)
                 }
                 Text(clip.name).font(.system(size: 10,weight: .medium)).foregroundStyle(.white).lineLimit(1).padding(.horizontal,7).frame(height: 22).frame(maxWidth: .infinity,alignment: .leading).background(.black.opacity(0.15))
                 if selected && session.tool != .blade && geometry.size.width > 18 {
@@ -240,5 +263,20 @@ private struct ClipTile: View {
                 } else { session.perform(.trim(clip: clip.id,edge: edge,to: target)) }
             })
             .help(edge == .leading ? "Trim clip start" : "Trim clip end")
+    }
+}
+
+private struct TimelineScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat,nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+private struct TimelinePlayhead: View {
+    @ObservedObject var transport: TransportState
+    let frameRate: FrameRate
+    let pointsPerSecond: Double
+    var body: some View {
+        Rectangle().fill(Color.accentColor).frame(width: 1.5)
+            .offset(x: frameRate.seconds(transport.playhead) * pointsPerSecond).allowsHitTesting(false)
     }
 }

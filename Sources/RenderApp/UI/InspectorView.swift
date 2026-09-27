@@ -3,6 +3,8 @@ import RenderCore
 
 struct InspectorView: View {
     @ObservedObject var session: EditorSession
+    @ObservedObject private var transport: TransportState
+    init(session: EditorSession) { self.session = session; transport = session.transport }
     var body: some View {
         VStack(spacing: 0) {
             HStack {

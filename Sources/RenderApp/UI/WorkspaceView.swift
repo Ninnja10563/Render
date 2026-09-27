@@ -80,7 +80,9 @@ struct PlayerSurface: NSViewRepresentable {
 
 private struct ViewerView: View {
     @ObservedObject var session: EditorSession
+    @ObservedObject private var transport: TransportState
     @State private var zoom: Double = 1
+    init(session: EditorSession) { self.session = session; transport = session.transport }
     var body: some View {
         VStack(spacing: 0) {
             HStack {
