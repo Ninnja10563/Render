@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import RenderCore
 
 @main
 struct RenderApplication: App {
@@ -65,7 +66,14 @@ final class RenderAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
             guard alert.runModal() == .alertSecondButtonReturn else { return .terminateCancel }
             session.exporter.cancel()
         }
-        Task { let proceed = await session.confirmDiscard(); sender.reply(toApplicationShouldTerminate: proceed) }
+        Task {
+            let proceed = await session.confirmDiscard()
+            if proceed {
+                session.backgroundTasks.cancelAll()
+                await session.backgroundTasks.waitUntilIdle()
+            }
+            sender.reply(toApplicationShouldTerminate: proceed)
+        }
         return .terminateLater
     }
     func windowShouldClose(_ sender: NSWindow) -> Bool { NSApp.terminate(nil); return false }
@@ -111,7 +119,7 @@ private struct SettingsView: View {
     var body: some View {
         Form {
             LabeledContent("Rendering", value: "Core Image / Metal")
-            LabeledContent("Project format", value: "Render Project · Version 1")
+            LabeledContent("Project format", value: "Render Project · Version \(RenderProject.currentSchema)")
             LabeledContent("Recovery", value: "After every edit (0.75 second delay)")
             Text("Original media stays in its current location. Use Relink Media if a source moves.").foregroundStyle(.secondary)
         }.padding(24).frame(width: 460)

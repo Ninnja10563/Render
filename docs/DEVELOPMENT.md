@@ -39,6 +39,8 @@ Each substantial milestone gets tests, version, commits, tag, Release app, verif
 
 - 0.5.0: extended color controls, GPU-applied chroma lookup, per-effect rectangle/ellipse/polygon masks, bounded mask/cube caches and schema-1 to schema-2 migration.
 
+- 0.6.0: serial cancellable proxy/optimized generation queue, source fingerprint checks, playback selection/offline fallback, original-only exports, persistent bounded derived-media caches and schema-3 media variants.
+
 The future milestone numbers above describe feature order only; actual versions follow the completed, verified scope. No project-format migration was needed for 0.2 or 0.3.
 
 ## Reproducible core benchmark
@@ -52,3 +54,9 @@ Measured on the same Apple Silicon macOS 15 runner in [validation run 3635480354
 EffectRenderer owns the shared Core Image effect stack implementation and bounded lookup/mask caches, independently of clip playback. Masks are source-relative and receive the clip transform. Polygon rasterization is capped at 1024 pixels on its longest side; feather/expansion execute before scaling to source size. Chroma lookup stores premultiplied RGBA and executes through CIColorCubeWithColorSpace in sRGB. The Metal-backed context renders the resulting filter graph without per-frame CPU pixel readback. Animated tolerance can require regenerating a lookup table; physical-device profiling is still needed.
 
 Schema 2 adds optional mask and keying payloads and effect kinds. ProjectStore explicitly migrates schema-1 documents on load; saves write schema 2, so older apps reject them rather than misread them. Original files are not rewritten during opening.
+
+## Media representations and schema 3
+
+MediaVariant records a generated URL, representation type and source fingerprint (path, size, modification date). Playback resolves a matching existing variant; changed originals, missing or corrupt variants fall back to the original with a viewer notice. When online, audio remains at original quality. Export always invokes the builder in Original mode. Offline proxy editing is supported, but final export requires originals. Project schemas 1 and 2 migrate to schema 3 without dropping existing edits.
+
+BackgroundTasks serializes media generation, records progress/errors and supports queued/active cancellation. MediaTranscoder publishes an adjacent staging file only after encode/duration/source-identity checks. Switching documents cancels pending work; completion also verifies project/media identity before an undoable attachment. Generated files are durable references, not evictable cache entries. MediaCache separately stores disposable metadata/posters/waveforms, keyed with SHA-256 over source identity and generation options, capped at 256 MB and 4096 entries; a new import receives a fresh asset UUID.

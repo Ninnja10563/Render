@@ -51,6 +51,9 @@ public final class BackgroundTasks: ObservableObject {
         for id in pending.map(\.id) { cancel(id) }
         if let activeID { cancel(activeID) }
     }
+    public func waitUntilIdle() async {
+        while worker != nil { try? await Task.sleep(nanoseconds: 50_000_000) }
+    }
     public func clearFinished() { tasks.removeAll { $0.state != .queued && $0.state != .running } }
     private func update(_ id: UUID,_ change: (inout BackgroundTaskInfo) -> Void) {
         if let index = tasks.firstIndex(where: { $0.id == id }) { change(&tasks[index]) }

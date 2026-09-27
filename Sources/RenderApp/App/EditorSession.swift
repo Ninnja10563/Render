@@ -342,6 +342,7 @@ final class EditorSession: ObservableObject {
         }
     }
     private func install(_ value: RenderProject, url: URL?) {
+        backgroundTasks.cancelAll()
         recoveryTask?.cancel(); history.removeAllActions()
         previewTasks.values.forEach { $0.cancel() }; previewTasks.removeAll()
         project = value; savedProject = value; documentURL = url
