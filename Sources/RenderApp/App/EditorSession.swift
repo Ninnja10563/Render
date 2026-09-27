@@ -43,6 +43,7 @@ final class EditorSession: ObservableObject {
     private var recoveryTask: Task<Void, Never>?
     private var generation = UUID()
     private var playbackObservation: NSKeyValueObservation?
+    private var previewTasks: [UUID: Task<Void, Never>] = [:]
     private var clipboard: [TimelineClip] = []
     private var clipboardProjectID: UUID?
     private var didStart = false
@@ -229,9 +230,12 @@ final class EditorSession: ObservableObject {
     }
     func loadPreview(_ media: MediaAsset) {
         let projectID = project.id
-        Task {
-            if let image = try? await library.thumbnail(media), project.id == projectID { thumbnails[media.id] = NSImage(cgImage: image, size: .zero) }
-            if media.audioChannels > 0, let peaks = try? await library.waveform(media), project.id == projectID { waveforms[media.id] = peaks }
+        previewTasks[media.id]?.cancel()
+        previewTasks[media.id] = Task {
+            defer { if project.id == projectID { previewTasks[media.id] = nil } }
+            if let image = try? await library.thumbnail(media), !Task.isCancelled, project.id == projectID { thumbnails[media.id] = NSImage(cgImage: image, size: .zero) }
+            guard !Task.isCancelled else { return }
+            if media.audioChannels > 0, let peaks = try? await library.waveform(media), !Task.isCancelled, project.id == projectID { waveforms[media.id] = peaks }
         }
     }
     func relink(_ media: MediaAsset) {
@@ -313,6 +317,7 @@ final class EditorSession: ObservableObject {
     }
     private func install(_ value: RenderProject, url: URL?) {
         recoveryTask?.cancel(); history.removeAllActions()
+        previewTasks.values.forEach { $0.cancel() }; previewTasks.removeAll()
         project = value; savedProject = value; documentURL = url
         selection = []; selectedAsset = nil; selectedTrack = nil; playhead = 0; isDirty = false
         thumbnails = [:]; waveforms = [:]; clipboard = []; clipboardProjectID = nil

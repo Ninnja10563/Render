@@ -63,7 +63,10 @@ public actor MediaLibrary {
         reader.add(output)
         guard reader.startReading() else { throw reader.error ?? RenderError.invalid("Cannot read audio samples.") }
         var peaks = [Float](repeating: 0, count: bins)
+        var buffersRead = 0
         while let sample = output.copyNextSampleBuffer() {
+            buffersRead += 1
+            if buffersRead % 16 == 0 { await Task.yield() }
             if Task.isCancelled { reader.cancelReading(); throw CancellationError() }
             guard let block = CMSampleBufferGetDataBuffer(sample) else { continue }
             let count = CMBlockBufferGetDataLength(block) / MemoryLayout<Float>.size

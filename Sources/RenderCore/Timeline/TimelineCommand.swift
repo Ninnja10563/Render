@@ -41,6 +41,13 @@ public enum TimelineCommand: Sendable {
         }
     }
     public func applying(to original: RenderProject) throws -> RenderProject {
+        try original.validate()
+        switch self {
+        case .append(_,_,let frame), .insert(_,_,let frame), .moveToTrack(_,_,let frame),
+             .trim(_,_,let frame), .split(_,let frame), .paste(_,_,let frame):
+            guard frame >= 0, frame < 100_000_000 else { throw RenderError.invalid("Edit position is outside timeline bounds.") }
+        default: break
+        }
         var project = original
         func trackIndex(_ id: UUID) throws -> Int {
             guard let index = project.tracks.firstIndex(where: { $0.id == id }) else { throw RenderError.invalid("Track no longer exists.") }

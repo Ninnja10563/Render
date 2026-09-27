@@ -4,7 +4,7 @@ A native, non-destructive macOS video editor built with SwiftUI, AppKit, AVFound
 
 ## Requirements
 
-Apple Silicon · macOS 14+ · Xcode 15+ for source builds. No external runtime packages.
+Apple Silicon · macOS 14+ · Xcode 16.4+ for source builds. No external runtime packages.
 
 ## Working editing path
 

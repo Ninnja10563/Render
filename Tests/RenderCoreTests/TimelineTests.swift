@@ -104,3 +104,14 @@ final class TimelineTests: XCTestCase {
         XCTAssertEqual(TimelineSnap.frame(97, targets: [0,100,200], threshold: 2), 97)
     }
 }
+
+extension TimelineTests {
+    func testExtremeEditPositionsAreRejectedWithoutIntegerOverflow() {
+        let p = fixture(); let id = p.tracks[0].clips[0].id
+        for frame in [Int64.min, Int64.max, -1] {
+            XCTAssertThrowsError(try TimelineCommand.trim(clip: id,edge: .leading,to: frame).applying(to: p))
+            XCTAssertThrowsError(try TimelineCommand.split(clips: [id],at: frame).applying(to: p))
+            XCTAssertThrowsError(try TimelineCommand.insert(asset: p.assets[0].id,track: p.tracks[0].id,at: frame).applying(to: p))
+        }
+    }
+}
