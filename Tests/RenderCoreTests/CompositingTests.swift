@@ -45,6 +45,11 @@ final class CompositingTests: XCTestCase {
         let reopened = try await ProjectStore().load(url)
         XCTAssertEqual(reopened,migrated)
     }
+    func testExtremeAnimationOffsetRejectedBeforeTimelineArithmetic() {
+        var project = TimelineTests().fixture()
+        project.tracks[0].clips[0].animationOffset = Int64.max
+        XCTAssertThrowsError(try project.validate())
+    }
     func testMaskedEffectRoundTripAndUndo() throws {
         let project = TimelineTests().fixture(); let id = project.tracks[0].clips[0].id
         var effect = Effect(kind: .chromaKey); effect.mask = EffectMask(); effect.keying = ChromaKeySettings()

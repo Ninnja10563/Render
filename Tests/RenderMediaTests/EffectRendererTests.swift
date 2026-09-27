@@ -39,6 +39,26 @@ final class EffectRendererTests: XCTestCase {
         XCTAssertLessThan(rgba(shifted,x: 150,y: 100)[3],5)
         XCTAssertGreaterThan(rgba(shifted,x: 110,y: 60)[3],245)
     }
+    func testEllipsePolygonAndFeatherChangeCoverage() throws {
+        let renderer = EffectRenderer()
+        let source = CIImage(color: CIColor(red: 1,green: 0,blue: 0)).cropped(to: bounds)
+        var effect = Effect(kind: .opacity); var mask = EffectMask()
+        mask.width = 0.8; mask.height = 0.8; mask.feather = 0; effect.mask = mask
+        let ellipse = try renderer.apply(effect,to: source,at: 0,sourceBounds: bounds,transform: .identity)
+        XCTAssertLessThan(rgba(ellipse,x: 50,y: 50)[3],5)
+        XCTAssertGreaterThan(rgba(ellipse,x: 15,y: 15)[3],245)
+        mask.shape = .polygon; mask.width = 1; mask.height = 1; effect.mask = mask
+        let polygon = try renderer.apply(effect,to: source,at: 0,sourceBounds: bounds,transform: .identity)
+        XCTAssertLessThan(rgba(polygon,x: 50,y: 40)[3],5)
+        XCTAssertGreaterThan(rgba(polygon,x: 15,y: 80)[3],245)
+        mask.shape = .rectangle; mask.width = 0.4; mask.height = 0.4; mask.feather = 0.08; effect.mask = mask
+        let soft = try renderer.apply(effect,to: source,at: 0,sourceBounds: bounds,transform: .identity)
+        let edge = rgba(soft,x: 30,y: 50)[3]
+        XCTAssertGreaterThan(edge,30); XCTAssertLessThan(edge,220)
+        mask.feather = 0; mask.expansion = 0.1; effect.mask = mask
+        let expanded = try renderer.apply(effect,to: source,at: 0,sourceBounds: bounds,transform: .identity)
+        XCTAssertLessThan(rgba(expanded,x: 25,y: 50)[3],10)
+    }
     func testAllColorEffectsProduceFiniteFrames() throws {
         let renderer = EffectRenderer(), source = CIImage(color: CIColor(red: 0.3,green: 0.4,blue: 0.5)).cropped(to: bounds)
         for kind in EffectKind.allCases {

@@ -37,6 +37,8 @@ Each substantial milestone gets tests, version, commits, tag, Release app, verif
 
 - 0.4.0: transactional keyframe timing/value/interpolation editing, key selection/copy/paste/removal, animated effect inspector, phase-preserving trim/split serialization tests and multi-frame preview/export parity.
 
+- 0.5.0: extended color controls, GPU-applied chroma lookup, per-effect rectangle/ellipse/polygon masks, bounded mask/cube caches and schema-1 to schema-2 migration.
+
 The future milestone numbers above describe feature order only; actual versions follow the completed, verified scope. No project-format migration was needed for 0.2 or 0.3.
 
 ## Reproducible core benchmark
@@ -44,3 +46,9 @@ The future milestone numbers above describe feature order only; actual versions 
 `scripts/benchmark.sh` builds only RenderCore in Release configuration for both v0.2.0 and the working tree, then applies the identical 1,000-clip group-move XCTest workload on the same machine. Logs are retained in `build/baseline-benchmark.log` and `build/current-benchmark.log` and uploaded by CI. This measures core transaction latency, not sustained playback, decoding throughput, GPU utilization or real editing-session memory.
 
 Measured on the same Apple Silicon macOS 15 runner in [validation run 36354803548](https://github.com/Ninnja10563/Render/actions/runs/36354803548): mean 1,000-clip group-edit latency was 19.3539 ms at v0.2.0 and 1.3819 ms after indexing, approximately 14× faster. These are ten-iteration Release-build core-logic measurements; they do not quantify playback FPS or GPU throughput.
+
+## Effect model and schema 2
+
+EffectRenderer owns the shared Core Image effect stack implementation and bounded lookup/mask caches, independently of clip playback. Masks are source-relative and receive the clip transform. Polygon rasterization is capped at 1024 pixels on its longest side; feather/expansion execute before scaling to source size. Chroma lookup stores premultiplied RGBA and executes through CIColorCubeWithColorSpace in sRGB. The Metal-backed context renders the resulting filter graph without per-frame CPU pixel readback. Animated tolerance can require regenerating a lookup table; physical-device profiling is still needed.
+
+Schema 2 adds optional mask and keying payloads and effect kinds. ProjectStore explicitly migrates schema-1 documents on load; saves write schema 2, so older apps reject them rather than misread them. Original files are not rewritten during opening.

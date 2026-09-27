@@ -44,6 +44,9 @@ struct InspectorView: View {
                                     HStack {
                                         Toggle(effect.kind.label,isOn: Binding(get: { effect.enabled },set: { enabled in changeEffect(clip,index: index) { $0.enabled = enabled } })).font(.system(size: 11))
                                         Spacer(minLength: 0)
+                                        Button { changeEffect(clip,index: index) { current in
+                                            let identity = current.id; current = Effect(kind: current.kind); current.id = identity
+                                        } } label: { Image(systemName: "arrow.counterclockwise") }.help("Reset effect, animation and mask")
                                         Button { var effects = clip.effects; effects.swapAt(index,index - 1); session.perform(.effects(clip: clip.id,effects)) } label: { Image(systemName: "arrow.up") }.disabled(index == 0).help("Move effect earlier")
                                         Button { var effects = clip.effects; effects.remove(at: index); session.perform(.effects(clip: clip.id,effects)) } label: { Image(systemName: "xmark") }.help("Remove effect")
                                     }.buttonStyle(.plain)

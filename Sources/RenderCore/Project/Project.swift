@@ -94,7 +94,7 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
             var previousEnd: Int64 = 0
             for clip in track.clips.sorted(by: { $0.start < $1.start }) {
                 guard clip.start >= 0, clip.duration > 0, clip.start < 100_000_000,
-                      clip.duration < 100_000_000, clip.animationOffset >= 0,
+                      clip.duration < 100_000_000, clip.animationOffset >= 0, clip.animationOffset < 100_000_000,
                       clip.sourceIn.isFinite, clip.sourceIn >= 0, clip.speed.isFinite, (0.05...16).contains(clip.speed)
                 else { throw RenderError.invalid("Invalid timing for \(clip.name).") }
                 guard clip.start >= previousEnd else { throw RenderError.invalid("Clips cannot overlap on the same track. Move the clip to another track.") }

@@ -107,7 +107,9 @@ private struct PolygonMaskEditor: View {
         context.fill(path,with: .color(Color.accentColor.opacity(0.15)))
         context.stroke(path,with: .color(Color.accentColor),lineWidth: 1)
         for (index,point) in current.enumerated() {
-            let rect = CGRect(x: point.x * size.width - 3,y: (1 - point.y) * size.height - 3,width: 6,height: 6)
+            let x: CGFloat = CGFloat(point.x) * size.width - 3
+            let y: CGFloat = (1 - CGFloat(point.y)) * size.height - 3
+            let rect = CGRect(x: x,y: y,width: 6,height: 6)
             let color: Color = index == selected ? .accentColor : .primary
             context.fill(Path(ellipseIn: rect),with: .color(color))
         }
