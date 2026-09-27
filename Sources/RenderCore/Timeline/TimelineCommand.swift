@@ -2,6 +2,9 @@ import Foundation
 
 public enum TrimEdge: Sendable { case leading, trailing }
 public enum TimelineCommand: Sendable {
+    case addTitle(TitleContent,at: Int64,duration: Int64)
+    case title(clip: UUID,TitleContent)
+    case captions([CaptionCue])
     case addAsset(MediaAsset)
     case addTrack(TrackKind)
     case append(asset: UUID, track: UUID, at: Int64)
@@ -32,6 +35,9 @@ public enum TimelineCommand: Sendable {
 
     public var label: String {
         switch self {
+        case .addTitle: return "Add Title"
+        case .title: return "Edit Title"
+        case .captions: return "Import Captions"
         case .addAsset: return "Import Media"
         case .addTrack: return "Add Track"
         case .append: return "Add Clip"
@@ -91,6 +97,27 @@ public enum TimelineCommand: Sendable {
             return TimelineClip(assetID: asset.id, name: asset.name, start: at, duration: max(1, frames))
         }
         switch self {
+        case .addTitle(let title,let start,let duration):
+            var track = TimelineTrack(name: title.role == .caption ? "Captions" : "Titles",kind: .video)
+            var clip = TimelineClip(assetID: nil,name: title.text,start: start,duration: duration); clip.title = title
+            if title.role == .caption { clip.properties.y = -Double(project.settings.height) * 0.35 }
+            track.clips = [clip]; project.tracks.insert(track,at: 0)
+        case .title(let id,let content):
+            let (t,c) = try location(id)
+            guard project.tracks[t].clips[c].title != nil else { throw RenderError.invalid("Select a title or caption clip.") }
+            project.tracks[t].clips[c].title = content; project.tracks[t].clips[c].name = String(content.text.prefix(80))
+        case .captions(let cues):
+            var lanes: [TimelineTrack] = []
+            for cue in cues.sorted(by: { $0.start < $1.start }) {
+                guard cue.start >= 0, cue.end > cue.start, cue.end < 100_000_000 else { throw RenderError.invalid("Invalid caption timing.") }
+                var title = TitleContent(text: cue.text,role: .caption); title.fontSize = Double(project.settings.height) * 0.045
+                title.background = RGBAColor(0,0,0,0.65); title.shadowBlur = 0
+                var clip = TimelineClip(assetID: nil,name: String(cue.text.prefix(80)),start: cue.start,duration: cue.end - cue.start)
+                clip.title = title; clip.properties.y = -Double(project.settings.height) * 0.35
+                if let lane = lanes.firstIndex(where: { ($0.clips.last?.end ?? 0) <= cue.start }) { lanes[lane].clips.append(clip) }
+                else { var lane = TimelineTrack(name: "Captions \(lanes.count + 1)",kind: .video); lane.clips = [clip]; lanes.append(lane) }
+            }
+            project.tracks.insert(contentsOf: lanes,at: 0)
         case .addAsset(let asset):
             project.assets.append(asset)
         case .addTrack(let kind):
@@ -166,7 +193,7 @@ public enum TimelineCommand: Sendable {
         case .slip(let id,let delta):
             guard abs(Double(delta)) < 100_000_000 else { throw RenderError.invalid("Slip exceeds timeline bounds.") }
             let (t,c) = try location(id)
-            guard project.assets.first(where: { $0.id == project.tracks[t].clips[c].assetID })?.kind != .image else { throw RenderError.invalid("Still images do not have a moving source window.") }
+            guard project.tracks[t].clips[c].title == nil, project.assets.first(where: { $0.id == project.tracks[t].clips[c].assetID })?.kind != .image else { throw RenderError.invalid("Still images do not have a moving source window.") }
             project.tracks[t].clips[c].sourceIn += project.settings.frameRate.seconds(delta) * project.tracks[t].clips[c].speed
         case .slide(let id,let delta):
             guard abs(Double(delta)) < 100_000_000 else { throw RenderError.invalid("Slide exceeds timeline bounds.") }

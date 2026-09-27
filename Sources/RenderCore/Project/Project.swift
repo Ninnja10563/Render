@@ -21,7 +21,8 @@ public struct MediaAsset: Codable, Equatable, Identifiable, Sendable {
 public enum TrackKind: String, Codable, Sendable { case video, audio }
 public struct TimelineClip: Codable, Equatable, Identifiable, Sendable {
     public var id = UUID()
-    public var assetID: UUID
+    public var assetID: UUID?
+    public var title: TitleContent?
     public var name: String
     public var start: Int64
     public var duration: Int64
@@ -32,7 +33,7 @@ public struct TimelineClip: Codable, Equatable, Identifiable, Sendable {
     public var properties = ClipProperties()
     public var effects: [Effect] = []
     public var end: Int64 { start + duration }
-    public init(assetID: UUID, name: String, start: Int64, duration: Int64) {
+    public init(assetID: UUID?, name: String, start: Int64, duration: Int64) {
         self.assetID = assetID; self.name = name; self.start = start; self.duration = duration
     }
 }
@@ -60,7 +61,7 @@ public struct ProjectSettings: Codable, Equatable, Sendable {
     public init() {}
 }
 public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
-    public static let currentSchema = 3
+    public static let currentSchema = 4
     public var schemaVersion = currentSchema
     public var id = UUID()
     public var name = "Untitled"
@@ -105,10 +106,15 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
                 else { throw RenderError.invalid("Invalid timing for \(clip.name).") }
                 guard clip.start >= previousEnd else { throw RenderError.invalid("Clips cannot overlap on the same track. Move the clip to another track.") }
                 previousEnd = clip.end
-                guard let asset = mediaByID[clip.assetID] else { throw RenderError.invalid("Clip references an unknown media asset.") }
-                guard (track.kind == .audio) == (asset.kind == .audio) else { throw RenderError.invalid("This media belongs on a \(asset.kind == .audio ? "audio" : "video") track.") }
-                if asset.kind != .image {
-                    guard clip.sourceIn + settings.frameRate.seconds(clip.duration) * clip.speed <= asset.duration + 0.001 else { throw RenderError.invalid("Edit extends past the available source media.") }
+                if let title = clip.title {
+                    guard clip.assetID == nil, track.kind == .video else { throw RenderError.invalid("Titles must be generated clips on video tracks.") }
+                    try title.validate()
+                } else {
+                    guard let assetID = clip.assetID, let asset = mediaByID[assetID] else { throw RenderError.invalid("Clip references an unknown media asset.") }
+                    guard (track.kind == .audio) == (asset.kind == .audio) else { throw RenderError.invalid("This media belongs on a \(asset.kind == .audio ? "audio" : "video") track.") }
+                    if asset.kind != .image {
+                        guard clip.sourceIn + settings.frameRate.seconds(clip.duration) * clip.speed <= asset.duration + 0.001 else { throw RenderError.invalid("Edit extends past the available source media.") }
+                    }
                 }
                 let p = clip.properties
                 guard [p.x,p.y,p.scale,p.rotation,p.opacity,p.volume].allSatisfy(\.isFinite),

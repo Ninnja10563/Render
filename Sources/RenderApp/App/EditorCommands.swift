@@ -20,6 +20,8 @@ struct EditorCommands: Commands {
             Button("Save As…") { Task { _ = await session.save(asNew: true) } }.keyboardShortcut("s", modifiers: [.command,.shift])
             Divider()
             Button("Import Media…") { session.importPanel() }.keyboardShortcut("i").disabled(session.importing)
+            Button("Import Captions (SRT)…") { session.importCaptions() }
+            Button("Export Captions (SRT)…") { session.exportCaptions() }
             Button("Export…") { session.showExport = true }.keyboardShortcut("e").disabled(session.project.duration == 0)
         }
         CommandGroup(replacing: .undoRedo) {
@@ -42,6 +44,8 @@ struct EditorCommands: Commands {
             }
             Button("Detach Audio") { if let clip = session.selectedClip { session.perform(.detachAudio(clip: clip.id)) } }.disabled(session.selectedClip == nil)
             Divider()
+            Button("Add Title") { session.addTitle() }.keyboardShortcut("t",modifiers: [.command,.option])
+            Button("Add Caption") { session.addTitle(caption: true) }
             Button("Add Video Track") { session.perform(.addTrack(.video)) }
             Button("Add Audio Track") { session.perform(.addTrack(.audio)) }
             Toggle("Snapping", isOn: $session.snapping)

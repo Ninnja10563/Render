@@ -21,6 +21,7 @@ struct InspectorView: View {
                             Text(clip.name).font(.system(size: 12,weight: .semibold)).lineLimit(2)
                             Text("\(session.fps.timecode(clip.duration)) · \(Int(clip.speed * 100))% speed").font(.system(size: 10,design: .monospaced)).foregroundStyle(.secondary)
                         }
+                        if let title = clip.title { TitleInspectorView(session: session,clip: clip,title: title) }
                         inspectorSection("Transform") {
                             property("Position X",key: "x",range: -1920...1920,reset: 0,clip: clip)
                             property("Position Y",key: "y",range: -1080...1080,reset: 0,clip: clip)

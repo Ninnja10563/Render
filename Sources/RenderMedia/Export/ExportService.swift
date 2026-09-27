@@ -20,10 +20,8 @@ public final class ExportService: ObservableObject {
         let start = Date()
         let temporary = destination.deletingLastPathComponent().appendingPathComponent(".render-export-\(UUID().uuidString).\(configuration.codec == .proRes ? "mov" : "mp4")")
         defer { isExporting = false; session = nil; try? FileManager.default.removeItem(at: temporary) }
-        var snapshot = project
-        // Keep timeline units unchanged; only the compositor's output cadence changes.
-        snapshot.settings.width = configuration.width; snapshot.settings.height = configuration.height
-        let prepared = try await CompositionBuilder().build(snapshot)
+        // Preserve sequence coordinates for transforms, masks, effects and titles at every output size.
+        let prepared = try await CompositionBuilder().build(project,outputSize: CGSize(width: configuration.width,height: configuration.height))
         if cancelled { throw CancellationError() }
         prepared.videoComposition.frameDuration = CMTime(value: Int64(configuration.frameRate.denominator), timescale: configuration.frameRate.numerator)
         let preset: String

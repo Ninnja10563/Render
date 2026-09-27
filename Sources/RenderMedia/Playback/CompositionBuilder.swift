@@ -19,7 +19,7 @@ public struct PreparedComposition {
 public actor CompositionBuilder {
     public init() {}
     private func time(_ seconds: Double) -> CMTime { CMTime(seconds: seconds, preferredTimescale: 600_000) }
-    public func build(_ project: RenderProject,mode: PlaybackMediaMode = .original) async throws -> PreparedComposition {
+    public func build(_ project: RenderProject,mode: PlaybackMediaMode = .original,outputSize: CGSize? = nil) async throws -> PreparedComposition {
         try project.validate()
         guard project.duration > 0 else { throw RenderError.invalid("Add a clip to the timeline first.") }
         let rate = project.settings.frameRate
@@ -45,7 +45,11 @@ public actor CompositionBuilder {
             // Insert in time order: scaling a source segment must never displace a later edit.
             for clip in track.clips.sorted(by: { $0.start < $1.start }) {
                 try Task.checkCancellation()
-                guard let media = mediaByID[clip.assetID] else { continue }
+                if let title = clip.title {
+                    if !track.hidden { layers.append(RenderLayer(trackID: clock.trackID,clip: clip,preferredTransform: .identity,still: nil,title: title)) }
+                    continue
+                }
+                guard let assetID = clip.assetID, let media = mediaByID[assetID] else { continue }
                 var selectedURL = MediaResolver.url(for: media,mode: mode)
                 if mode != .original && media.kind == .video && selectedURL == media.url { fallbacks.insert(media.name) }
                 guard FileManager.default.fileExists(atPath: selectedURL.path) else { throw RenderError.missingMedia(media.name) }
@@ -119,7 +123,7 @@ public actor CompositionBuilder {
         }
         let video = AVMutableVideoComposition()
         video.customVideoCompositorClass = VideoCompositor.self
-        video.renderSize = CGSize(width: project.settings.width, height: project.settings.height)
+        video.renderSize = outputSize ?? CGSize(width: project.settings.width, height: project.settings.height)
         video.frameDuration = CMTime(value: Int64(rate.denominator), timescale: rate.numerator)
         // Sweep clip boundaries instead of scanning every clip for every instruction.
         var entering: [Int64: [Int]] = [:]
@@ -134,7 +138,7 @@ public actor CompositionBuilder {
         for (a,b) in zip(boundaries,boundaries.dropFirst()) {
             for index in leaving[a] ?? [] { active.remove(index) }
             for index in entering[a] ?? [] { active.insert(index) }
-            instructions.append(RenderInstruction(range: CMTimeRange(start: time(rate.seconds(a)),duration: time(rate.seconds(b-a))),layers: active.sorted().map { layers[$0] },clock: clock.trackID,frameRate: rate))
+            instructions.append(RenderInstruction(range: CMTimeRange(start: time(rate.seconds(a)),duration: time(rate.seconds(b-a))),layers: active.sorted().map { layers[$0] },clock: clock.trackID,frameRate: rate,designSize: CGSize(width: project.settings.width,height: project.settings.height)))
         }
         video.instructions = instructions
         let audio = AVMutableAudioMix(); audio.inputParameters = parameters

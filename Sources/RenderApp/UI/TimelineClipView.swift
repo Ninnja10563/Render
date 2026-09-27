@@ -15,10 +15,10 @@ struct ClipTile: View {
         GeometryReader { geometry in
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 3).fill(tint.opacity(track.hidden || track.muted ? 0.5 : 1))
-                if track.kind == .video, let image = session.thumbnails[clip.assetID], geometry.size.width > 34 {
+                if track.kind == .video, let assetID = clip.assetID, let image = session.thumbnails[assetID], geometry.size.width > 34 {
                     Image(nsImage: image).resizable().scaledToFill().frame(width: min(90,geometry.size.width),height: 37).clipped().offset(y: 22).opacity(0.8)
                 }
-                if let peaks = session.waveforms[clip.assetID], let asset = session.project.assets.first(where: { $0.id == clip.assetID }) {
+                if let assetID = clip.assetID, let peaks = session.waveforms[assetID], let asset = session.project.assets.first(where: { $0.id == clip.assetID }) {
                     let clipOrigin = session.fps.seconds(clip.start) * session.pointsPerSecond
                     let localStart = max(0,visibleRange.lowerBound - clipOrigin)
                     let drawWidth = max(0,min(geometry.size.width,visibleRange.upperBound - clipOrigin) - localStart)
