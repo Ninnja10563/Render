@@ -49,6 +49,8 @@ Each substantial milestone gets tests, version, commits, tag, Release app, verif
 
 - 0.10.0: viewport-indexed filmstrip requests, source-time/speed mapping, cancellable bounded image decoding and persistent frame caches.
 
+- 0.11.0: six source-handle cut transitions, paired rendering, bounded overlapping composition tracks, audio crossfade envelopes, duration inspector and schema-7 transition links.
+
 The future milestone numbers above describe feature order only; actual versions follow the completed, verified scope. No project-format migration was needed for 0.2 or 0.3.
 
 ## Reproducible core benchmark
@@ -86,3 +88,7 @@ ClipGeometry is an optional payload; older clips retain centered anchors, unifor
 ## Timeline filmstrips
 
 FilmstripView derives cell indices from the visible timeline interval, so requests change at cell boundaries rather than every scroll pixel. MediaLibrary maps requested source times to 100 ms cache keys, returns frames in request order (including duplicates), and caps each batch at 128 frames. A shared two-permit actor limits poster/filmstrip AVAssetImageGenerator work. Cancelled work releases permits, and in-flight batches retain their cached images even if the bounded global image cache is evicted. No project schema change.
+
+## Transitions and schema 7
+
+Outgoing ClipTransition links to the adjacent right clip. Validation checks both source handles at clip speed; TransitionWindow straddles the unchanged cut. CompositionBuilder expands only rendering source ranges and reuses a second video/audio slot when intervals overlap, preserving sequence duration. Instructions include active transition handles. The compositor evaluates each pair once, combines transformed/effected inputs with the lower-layer canvas, and preserves the requested blend modes. AudioAutomation multiplies volume curves by bounded crossfade ramps. Broken links are pruned as part of structural-edit undo transactions; explicit transition authoring instead reports invalid handles.
