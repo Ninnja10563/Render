@@ -2,6 +2,7 @@ import Foundation
 
 public enum TrimEdge: Sendable { case leading, trailing }
 public enum TimelineCommand: Sendable {
+    case transition(clip: UUID,ClipTransition?)
     case storyline(enabled: Bool,track: UUID)
     case connection(clip: UUID,anchor: UUID?)
     case gap(track: UUID,at: Int64,duration: Int64)
@@ -38,6 +39,7 @@ public enum TimelineCommand: Sendable {
 
     public var label: String {
         switch self {
+        case .transition: return "Change Transition"
         case .storyline: return "Change Timeline Mode"
         case .connection: return "Change Clip Connection"
         case .gap: return "Insert Gap"
@@ -116,6 +118,10 @@ public enum TimelineCommand: Sendable {
             }
         }
         switch self {
+        case .transition(let id,let transition):
+            let (t,c) = try location(id)
+            guard project.tracks[t].kind == .video else { throw RenderError.invalid("Select a video clip for a transition.") }
+            project.tracks[t].clips[c].transition = transition
         case .storyline(let enabled,let track):
             let t = try trackIndex(track)
             guard project.tracks[t].kind == .video else { throw RenderError.invalid("Choose a video track for the storyline.") }
@@ -284,7 +290,7 @@ public enum TimelineCommand: Sendable {
             audioMedia.name = media.name + " (audio)"
             project.assets.append(audioMedia)
             var audioClip = clip; audioClip.id = UUID(); audioClip.assetID = audioMedia.id
-            audioClip.name = audioMedia.name; audioClip.effects = []; audioClip.properties = ClipProperties()
+            audioClip.name = audioMedia.name; audioClip.effects = []; audioClip.transition = nil; audioClip.properties = ClipProperties()
             audioClip.properties.volume = clip.properties.volume; audioClip.properties.muted = clip.properties.muted
             audioClip.properties.animations["volume"] = clip.properties.animations["volume"]
             var audioTrack = TimelineTrack(name: "Detached Audio",kind: .audio); audioTrack.clips = [audioClip]
@@ -300,6 +306,7 @@ public enum TimelineCommand: Sendable {
                 project.tracks[t].clips += lane.clips.map { original in
                     var clip = original; clip.id = copiedIDs[original.id]!; clip.start = at + original.start - origin
                     if let connection = clip.connection, let anchor = copiedIDs[connection.anchor] { clip.connection = ClipConnection(anchor: anchor,offset: connection.offset) }
+                    if let transition = clip.transition, let right = copiedIDs[transition.rightID] { clip.transition?.rightID = right }
                     return clip
                 }
             }
@@ -391,6 +398,8 @@ public enum TimelineCommand: Sendable {
             project.assets[a].variants = nil
         }
         try MagneticEditing.reconcile(&project,from: original)
+        if case .transition = self { /* Explicit authoring reports invalid handles instead of discarding the request. */ }
+        else { TransitionEditing.reconcile(&project) }
         try project.validate()
         return project
     }

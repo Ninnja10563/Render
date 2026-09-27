@@ -39,32 +39,39 @@ public actor CompositionBuilder {
         var sourceCache: [URL: SourceTracks] = [:]
         var stillCache: [URL: CIImage] = [:]
         for track in project.tracks {
-            var videoTarget: AVMutableCompositionTrack?
-            var audioTarget: AVMutableCompositionTrack?
-            var audioParameters: AVMutableAudioMixInputParameters?
+            var videoSlots: [(track: AVMutableCompositionTrack,end: CMTime)] = []
+            var audioSlots: [(track: AVMutableCompositionTrack,mix: AVMutableAudioMixInputParameters,end: CMTime)] = []
+            let windows = Dictionary(uniqueKeysWithValues: track.clips.compactMap { clip -> (UUID,TransitionWindow)? in
+                guard let transition = clip.transition else { return nil }
+                return (transition.rightID,TransitionWindow(left: clip,transition: transition))
+            })
             // Insert in time order: scaling a source segment must never displace a later edit.
             for clip in track.clips.sorted(by: { $0.start < $1.start }) {
                 try Task.checkCancellation()
+                let incoming = windows[clip.id]
+                let outgoing = clip.transition.map { TransitionWindow(left: clip,transition: $0) }
+                let renderStart = incoming?.start ?? clip.start, renderEnd = outgoing?.end ?? clip.end
+                let preroll = clip.start - renderStart
                 if clip.isGap == true {
-                    if !track.hidden { layers.append(RenderLayer(trackID: clock.trackID,clip: clip,preferredTransform: .identity,still: CIImage(color: .black).cropped(to: CGRect(x: 0,y: 0,width: project.settings.width,height: project.settings.height)))) }
+                    if !track.hidden { layers.append(RenderLayer(trackID: clock.trackID,clip: clip,preferredTransform: .identity,still: CIImage(color: .black).cropped(to: CGRect(x: 0,y: 0,width: project.settings.width,height: project.settings.height)),incoming: incoming,outgoing: outgoing)) }
                     continue
                 }
                 if let title = clip.title {
-                    if !track.hidden { layers.append(RenderLayer(trackID: clock.trackID,clip: clip,preferredTransform: .identity,still: nil,title: title)) }
+                    if !track.hidden { layers.append(RenderLayer(trackID: clock.trackID,clip: clip,preferredTransform: .identity,still: nil,title: title,incoming: incoming,outgoing: outgoing)) }
                     continue
                 }
                 guard let assetID = clip.assetID, let media = mediaByID[assetID] else { continue }
                 var selectedURL = MediaResolver.url(for: media,mode: mode)
                 if mode != .original && media.kind == .video && selectedURL == media.url { fallbacks.insert(media.name) }
                 guard FileManager.default.fileExists(atPath: selectedURL.path) else { throw RenderError.missingMedia(media.name) }
-                let start = time(rate.seconds(clip.start))
-                let targetDuration = time(rate.seconds(clip.duration))
-                let range = CMTimeRange(start: time(clip.sourceIn), duration: time(rate.seconds(clip.duration) * clip.speed))
+                let start = time(rate.seconds(renderStart))
+                let targetDuration = time(rate.seconds(renderEnd - renderStart))
+                let range = CMTimeRange(start: time(clip.sourceIn - rate.seconds(preroll) * clip.speed), duration: time(rate.seconds(renderEnd - renderStart) * clip.speed))
                 if media.kind == .image {
                     if !track.hidden {
                         guard let image = stillCache[media.url] ?? CIImage(contentsOf: media.url, options: [.applyOrientationProperty: true]) else { throw RenderError.invalid("Could not decode \(media.name).") }
                         stillCache[media.url] = image
-                        layers.append(RenderLayer(trackID: clock.trackID, clip: clip, preferredTransform: .identity, still: image))
+                        layers.append(RenderLayer(trackID: clock.trackID, clip: clip, preferredTransform: .identity, still: image,incoming: incoming,outgoing: outgoing))
                     }
                     continue
                 }
@@ -92,38 +99,46 @@ public actor CompositionBuilder {
                     else { audioSources = try await SourceTracks.load(media.url); sourceCache[media.url] = audioSources }
                 } else { audioSources = sources }
                 if track.kind == .video && !track.hidden, let source = sources.video {
-                    if videoTarget == nil { videoTarget = composition.addMutableTrack(withMediaType: .video,preferredTrackID: kCMPersistentTrackID_Invalid) }
-                    guard let target = videoTarget else { throw RenderError.invalid("Too many video tracks.") }
+                    let slot: Int
+                    if let available = videoSlots.firstIndex(where: { $0.end <= start }) { slot = available }
+                    else {
+                        guard let target = composition.addMutableTrack(withMediaType: .video,preferredTrackID: kCMPersistentTrackID_Invalid) else { throw RenderError.invalid("Too many video tracks.") }
+                        videoSlots.append((target,.zero)); slot = videoSlots.count - 1
+                    }
+                    let target = videoSlots[slot].track
+                    videoSlots[slot].end = start + targetDuration
                     try target.insertTimeRange(range, of: source, at: start)
                     target.scaleTimeRange(CMTimeRange(start: start, duration: range.duration), toDuration: targetDuration)
-                    layers.append(RenderLayer(trackID: target.trackID, clip: clip, preferredTransform: sources.transform, still: nil))
+                    layers.append(RenderLayer(trackID: target.trackID, clip: clip, preferredTransform: sources.transform, still: nil,incoming: incoming,outgoing: outgoing))
                 }
                 if !track.muted && !clip.properties.muted && (!anySolo || track.solo), let source = audioSources.audio, let available = audioSources.audioRange {
                     // Some camera files have audio shorter than their video stream.
-                    let safeEnd = min(CMTimeGetSeconds(available.end), clip.sourceIn + range.duration.seconds)
-                    let safeStart = max(clip.sourceIn, available.start.seconds)
+                    let safeEnd = min(CMTimeGetSeconds(available.end), range.end.seconds)
+                    let safeStart = max(range.start.seconds, available.start.seconds)
                     if safeEnd <= safeStart { continue }
-                    if audioTarget == nil {
-                        audioTarget = composition.addMutableTrack(withMediaType: .audio,preferredTrackID: kCMPersistentTrackID_Invalid)
-                        if let target = audioTarget {
-                            audioParameters = AVMutableAudioMixInputParameters(track: target)
-                            audioParameters?.audioTimePitchAlgorithm = .spectral
-                        }
-                    }
-                    guard let target = audioTarget, let mix = audioParameters else { throw RenderError.invalid("Too many audio tracks.") }
                     let audioRange = CMTimeRange(start: time(safeStart), duration: time(safeEnd - safeStart))
-                    let audioStart = start + time((safeStart - clip.sourceIn) / clip.speed)
+                    let audioStart = start + time((safeStart - range.start.seconds) / clip.speed)
+                    let slot: Int
+                    if let available = audioSlots.firstIndex(where: { $0.end <= start }) { slot = available }
+                    else {
+                        guard let target = composition.addMutableTrack(withMediaType: .audio,preferredTrackID: kCMPersistentTrackID_Invalid) else { throw RenderError.invalid("Too many audio tracks.") }
+                        let mix = AVMutableAudioMixInputParameters(track: target); mix.audioTimePitchAlgorithm = .spectral
+                        audioSlots.append((target,mix,.zero)); slot = audioSlots.count - 1
+                    }
+                    let target = audioSlots[slot].track, mix = audioSlots[slot].mix
+                    audioSlots[slot].end = start + targetDuration
                     try target.insertTimeRange(audioRange, of: source, at: audioStart)
                     target.scaleTimeRange(CMTimeRange(start: audioStart, duration: audioRange.duration), toDuration: time(audioRange.duration.seconds / clip.speed))
                     let curve = clip.properties.animations["volume"] ?? AnimationCurve()
-                    let ramps = AudioAutomation.ramps(curve: curve,offset: clip.animationOffset,duration: clip.duration,fallback: clip.properties.volume)
+                    let base = AudioAutomation.ramps(curve: curve,offset: clip.animationOffset - preroll,duration: renderEnd - renderStart,fallback: clip.properties.volume)
+                    let ramps = AudioAutomation.applyingFades(to: base,duration: renderEnd - renderStart,fadeIn: incoming?.duration ?? 0,fadeOut: outgoing?.duration ?? 0)
                     for ramp in ramps {
                         mix.setVolumeRamp(fromStartVolume: Float(ramp.from),toEndVolume: Float(ramp.to),
                                           timeRange: CMTimeRange(start: start + time(rate.seconds(ramp.start)),duration: time(rate.seconds(ramp.end - ramp.start))))
                     }
                 }
             }
-            if let mix = audioParameters { parameters.append(mix) }
+            parameters.append(contentsOf: audioSlots.map(\.mix))
         }
         let video = AVMutableVideoComposition()
         video.customVideoCompositorClass = VideoCompositor.self
@@ -133,8 +148,8 @@ public actor CompositionBuilder {
         var entering: [Int64: [Int]] = [:]
         var leaving: [Int64: [Int]] = [:]
         for (index,layer) in layers.enumerated() {
-            entering[layer.clip.start,default: []].append(index)
-            leaving[layer.clip.end,default: []].append(index)
+            entering[layer.start,default: []].append(index)
+            leaving[layer.end,default: []].append(index)
         }
         let boundaries = Set([Int64(0),project.duration] + Array(entering.keys) + Array(leaving.keys)).sorted()
         var active: Set<Int> = []

@@ -25,6 +25,7 @@ public struct TimelineClip: Codable, Equatable, Identifiable, Sendable {
     public var title: TitleContent?
     public var isGap: Bool?
     public var connection: ClipConnection?
+    public var transition: ClipTransition?
     public var name: String
     public var start: Int64
     public var duration: Int64
@@ -63,7 +64,7 @@ public struct ProjectSettings: Codable, Equatable, Sendable {
     public init() {}
 }
 public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
-    public static let currentSchema = 6
+    public static let currentSchema = 7
     public var schemaVersion = currentSchema
     public var id = UUID()
     public var name = "Untitled"
@@ -101,6 +102,7 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
         }
         let mediaByID = Dictionary(uniqueKeysWithValues: assets.map { ($0.id,$0) })
         for track in tracks {
+            let trackClips = track.clips.contains(where: { $0.transition != nil }) ? Dictionary(uniqueKeysWithValues: track.clips.map { ($0.id,$0) }) : [:]
             var previousEnd: Int64 = 0
             for clip in track.clips.sorted(by: { $0.start < $1.start }) {
                 guard clip.start >= 0, clip.duration > 0, clip.start < 100_000_000,
@@ -109,6 +111,10 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
                 else { throw RenderError.invalid("Invalid timing for \(clip.name).") }
                 guard clip.start >= previousEnd else { throw RenderError.invalid("Clips cannot overlap on the same track. Move the clip to another track.") }
                 previousEnd = clip.end
+                if let transition = clip.transition {
+                    guard track.kind == .video else { throw RenderError.invalid("Visual transitions belong on video tracks.") }
+                    try TransitionEditing.validate(transition,left: clip,right: trackClips[transition.rightID],project: self,assets: mediaByID)
+                }
                 if clip.isGap == true {
                     guard clip.assetID == nil, clip.title == nil, track.kind == .video else { throw RenderError.invalid("A gap must be a generated video clip.") }
                 } else if let title = clip.title {

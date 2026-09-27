@@ -40,3 +40,32 @@ public enum AudioAutomation {
         return result
     }
 }
+
+extension AudioAutomation {
+    /// Multiply clip automation by linear crossfade envelopes without per-sample allocations.
+    public static func applyingFades(to ramps: [AudioAutomationRamp],duration: Int64,fadeIn: Int64,fadeOut: Int64) -> [AudioAutomationRamp] {
+        guard fadeIn > 0 || fadeOut > 0 else { return ramps }
+        func envelope(_ frame: Int64) -> Double {
+            let incoming = fadeIn > 0 ? min(1,max(0,Double(frame) / Double(fadeIn))) : 1
+            let outgoing = fadeOut > 0 ? min(1,max(0,Double(duration - frame) / Double(fadeOut))) : 1
+            return incoming * outgoing
+        }
+        var result: [AudioAutomationRamp] = []
+        for ramp in ramps {
+            let boundaries = Set([ramp.start,ramp.end] + [fadeIn,duration - fadeOut].filter { $0 > ramp.start && $0 < ramp.end }).sorted()
+            func volume(_ frame: Int64) -> Double {
+                let ratio = Double(frame - ramp.start) / Double(max(1,ramp.end - ramp.start))
+                return (ramp.from + (ramp.to - ramp.from) * ratio) * envelope(frame)
+            }
+            for (a,b) in zip(boundaries,boundaries.dropFirst()) {
+                let varying = ramp.from != ramp.to && envelope(a) != envelope(b)
+                let parts = varying ? min(Int64(64),b - a) : 1
+                for index in 0..<parts {
+                    let lo = a + (b - a) * index / parts, hi = a + (b - a) * (index + 1) / parts
+                    result.append(AudioAutomationRamp(start: lo,end: hi,from: volume(lo),to: volume(hi)))
+                }
+            }
+        }
+        return result
+    }
+}

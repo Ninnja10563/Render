@@ -9,6 +9,10 @@ struct RenderLayer {
     var preferredTransform: CGAffineTransform
     var still: CIImage?
     var title: TitleContent? = nil
+    var incoming: TransitionWindow? = nil
+    var outgoing: TransitionWindow? = nil
+    var start: Int64 { incoming?.start ?? clip.start }
+    var end: Int64 { outgoing?.end ?? clip.end }
 }
 final class RenderInstruction: NSObject, AVVideoCompositionInstructionProtocol {
     var timeRange: CMTimeRange
@@ -48,30 +52,20 @@ public final class VideoCompositor: NSObject, AVVideoCompositing {
                 let outputBounds = CGRect(origin: .zero,size: request.renderContext.size)
                 let bounds = CGRect(origin: .zero,size: instruction.designSize)
                 var canvas = CIImage(color: .black).cropped(to: bounds)
-                for layer in instruction.layers.reversed() {
-                    let source: CIImage
-                    if let title = layer.title {
-                        do { source = try titles.image(title,size: instruction.designSize) }
-                        catch { request.finish(with: error); return }
+                let layers = Dictionary(uniqueKeysWithValues: instruction.layers.map { ($0.clip.id,$0) })
+                let frame = request.compositionTime.seconds * instruction.frameRate.value
+                do {
+                    for layer in instruction.layers.reversed() {
+                        if let incoming = layer.incoming, frame >= Double(incoming.start), frame < Double(incoming.end), layers[incoming.leftID] != nil { continue }
+                        let image = try layerImage(layer,request: request,instruction: instruction,bounds: bounds)
+                        if let transition = layer.outgoing, frame >= Double(transition.start), frame < Double(transition.end), let right = layers[transition.rightID] {
+                            let next = try layerImage(right,request: request,instruction: instruction,bounds: bounds)
+                            canvas = TransitionRenderer.composite(image,next,over: canvas,outMode: layer.clip.properties.geometry?.blend ?? .normal,inMode: right.clip.properties.geometry?.blend ?? .normal,kind: transition.kind,progress: transition.progress(at: frame),bounds: bounds)
+                        } else {
+                            canvas = ClipImageGeometry.blend(image,over: canvas,mode: layer.clip.properties.geometry?.blend ?? .normal).cropped(to: bounds)
+                        }
                     }
-                    else if let still = layer.still { source = still }
-                    else if let pixel = request.sourceFrame(byTrackID: layer.trackID) { source = CIImage(cvPixelBuffer: pixel).transformed(by: layer.preferredTransform) }
-                    else { request.finish(with: RenderError.invalid("A source video frame could not be decoded.")); return }
-                    let frame = request.compositionTime.seconds * instruction.frameRate.value - Double(layer.clip.start) + Double(layer.clip.animationOffset)
-                    let p = layer.clip.properties
-                    var image = source.transformed(by: CGAffineTransform(translationX: -source.extent.minX, y: -source.extent.minY))
-                    let sourceBounds = image.extent
-                    let transform = ClipImageGeometry.transform(source: sourceBounds,canvas: bounds,properties: p,frame: frame)
-                    let crop = ClipImageGeometry.crop(source: sourceBounds,properties: p,frame: frame)
-                    if crop.isEmpty { continue }
-                    image = image.cropped(to: crop).transformed(by: transform)
-                    for effect in layer.clip.effects where effect.enabled {
-                        do { image = try effects.apply(effect,to: image,at: frame,sourceBounds: sourceBounds,transform: transform) }
-                        catch { request.finish(with: error); return }
-                    }
-                    image = image.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: p.value("opacity", at: frame))])
-                    canvas = ClipImageGeometry.blend(image,over: canvas,mode: p.geometry?.blend ?? .normal).cropped(to: bounds)
-                }
+                } catch { request.finish(with: error); return }
                 let outputScale = min(outputBounds.width / bounds.width,outputBounds.height / bounds.height)
                 canvas = canvas.transformed(by: CGAffineTransform(scaleX: outputScale,y: outputScale))
                     .transformed(by: CGAffineTransform(translationX: (outputBounds.width - bounds.width * outputScale) / 2,y: (outputBounds.height - bounds.height * outputScale) / 2))
@@ -80,6 +74,23 @@ public final class VideoCompositor: NSObject, AVVideoCompositing {
                 request.finish(withComposedVideoFrame: buffer)
             }
         }
+    }
+    private func layerImage(_ layer: RenderLayer,request: AVAsynchronousVideoCompositionRequest,instruction: RenderInstruction,bounds: CGRect) throws -> CIImage {
+        let source: CIImage
+        if let title = layer.title { source = try titles.image(title,size: instruction.designSize) }
+        else if let still = layer.still { source = still }
+        else if let pixel = request.sourceFrame(byTrackID: layer.trackID) { source = CIImage(cvPixelBuffer: pixel).transformed(by: layer.preferredTransform) }
+        else { throw RenderError.invalid("A source video frame could not be decoded.") }
+        let frame = request.compositionTime.seconds * instruction.frameRate.value - Double(layer.clip.start) + Double(layer.clip.animationOffset)
+        let p = layer.clip.properties
+        var image = source.transformed(by: CGAffineTransform(translationX: -source.extent.minX,y: -source.extent.minY))
+        let sourceBounds = image.extent
+        let transform = ClipImageGeometry.transform(source: sourceBounds,canvas: bounds,properties: p,frame: frame)
+        let crop = ClipImageGeometry.crop(source: sourceBounds,properties: p,frame: frame)
+        if crop.isEmpty { return CIImage(color: .clear).cropped(to: bounds) }
+        image = image.cropped(to: crop).transformed(by: transform)
+        for effect in layer.clip.effects where effect.enabled { image = try effects.apply(effect,to: image,at: frame,sourceBounds: sourceBounds,transform: transform) }
+        return image.applyingFilter("CIColorMatrix",parameters: ["inputAVector": CIVector(x: 0,y: 0,z: 0,w: p.value("opacity",at: frame))])
     }
     public func cancelAllPendingVideoCompositionRequests() { queue.sync {} }
 }
