@@ -141,8 +141,8 @@ extension MediaIntegrationTests {
             return clip
         }.reversed())
         let built = try await CompositionBuilder().build(sequence)
-        let videoTracks = try await built.composition.loadTracks(withMediaType: .video)
-        let audioTracks = try await built.composition.loadTracks(withMediaType: .audio)
+        let videoTracks = built.composition.tracks.filter { $0.mediaType == .video }
+        let audioTracks = built.composition.tracks.filter { $0.mediaType == .audio }
         XCTAssertEqual(videoTracks.count,2) // One sequence track plus the gap/still clock.
         XCTAssertEqual(audioTracks.count,1)
         XCTAssertEqual(built.videoComposition.instructions.count,60)

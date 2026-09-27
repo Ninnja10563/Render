@@ -64,7 +64,7 @@ public actor CompositionBuilder {
                     let audio = try await asset.loadTracks(withMediaType: .audio).first
                     let transform = try await video?.load(.preferredTransform) ?? .identity
                     let audioRange = try await audio?.load(.timeRange)
-                    sources = SourceTracks(video: video,audio: audio,transform: transform,audioRange: audioRange)
+                    sources = SourceTracks(asset: asset,video: video,audio: audio,transform: transform,audioRange: audioRange)
                     sourceCache[media.url] = sources
                 }
                 if track.kind == .video && !track.hidden, let source = sources.video {
@@ -91,15 +91,12 @@ public actor CompositionBuilder {
                     let audioStart = start + time((safeStart - clip.sourceIn) / clip.speed)
                     try target.insertTimeRange(audioRange, of: source, at: audioStart)
                     target.scaleTimeRange(CMTimeRange(start: audioStart, duration: audioRange.duration), toDuration: time(audioRange.duration.seconds / clip.speed))
-                    let curve = clip.properties.animations["volume"]
-                    if curve?.keys.isEmpty == false {
-                        // Sample automation at frame boundaries, preserving hold/ease interpolation.
-                        for f in 0..<clip.duration {
-                            let a = Float(clip.properties.value("volume", at: Double(f + clip.animationOffset)))
-                            let b = Float(clip.properties.value("volume", at: Double(f + 1 + clip.animationOffset)))
-                            mix.setVolumeRamp(fromStartVolume: a, toEndVolume: b, timeRange: CMTimeRange(start: start + time(rate.seconds(f)), duration: time(rate.seconds(1))))
-                        }
-                    } else { mix.setVolume(Float(clip.properties.volume), at: audioStart) }
+                    let curve = clip.properties.animations["volume"] ?? AnimationCurve()
+                    let ramps = AudioAutomation.ramps(curve: curve,offset: clip.animationOffset,duration: clip.duration,fallback: clip.properties.volume)
+                    for ramp in ramps {
+                        mix.setVolumeRamp(fromStartVolume: Float(ramp.from),toEndVolume: Float(ramp.to),
+                                          timeRange: CMTimeRange(start: start + time(rate.seconds(ramp.start)),duration: time(rate.seconds(ramp.end - ramp.start))))
+                    }
                 }
             }
             if let mix = audioParameters { parameters.append(mix) }
@@ -130,6 +127,8 @@ public actor CompositionBuilder {
 }
 
 private struct SourceTracks {
+    // AVAssetTrack.asset is weak; keep the owner alive while its tracks are inserted.
+    let asset: AVURLAsset
     let video: AVAssetTrack?
     let audio: AVAssetTrack?
     let transform: CGAffineTransform
