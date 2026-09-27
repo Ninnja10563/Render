@@ -317,7 +317,7 @@ extension MediaIntegrationTests {
         let built = try await CompositionBuilder().build(project,outputSize: CGSize(width: 320,height: 180))
         let generator = AVAssetImageGenerator(asset: built.composition); generator.videoComposition = built.videoComposition
         let preview = try await generator.image(at: CMTime(value: 1,timescale: 30)).image
-        let a = pixel(preview), b = pixel(encoded)
-        for channel in 0..<3 { XCTAssertEqual(Double(a[channel]),Double(b[channel]),accuracy: 15) }
+        let a = pixel(try XCTUnwrap(preview.cropping(to: CGRect(x: 210,y: 90,width: 8,height: 8))))
+        for channel in 0..<3 { XCTAssertEqual(Double(a[channel]),Double(center[channel]),accuracy: 15) }
     }
 }

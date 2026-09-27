@@ -6,15 +6,13 @@ struct TitleInspectorView: View {
     @ObservedObject var session: EditorSession
     let clip: TimelineClip
     let title: TitleContent
-    @State private var text = ""
-    @FocusState private var editingText: Bool
     var body: some View {
         VStack(alignment: .leading,spacing: 10) {
             Text(title.role == .caption ? "Caption" : "Title").font(.system(size: 11,weight: .semibold))
-            TextEditor(text: $text).font(.system(size: 12)).frame(height: 80).focused($editingText)
+            TextEditor(text: Binding(get: { title.text },set: { value in change { $0.text = value } })).font(.system(size: 12)).frame(height: 80)
                 .overlay(Rectangle().stroke(Color.secondary.opacity(0.2),lineWidth: 1))
-            Button("Apply Text") { change { $0.text = text }; editingText = false }.controlSize(.mini).disabled(text == title.text)
             Picker("Font",selection: Binding(get: { title.fontFamily },set: { value in change { $0.fontFamily = value } })) {
+                if !FontFamilies.names.contains(title.fontFamily) { Text("\(title.fontFamily) (unavailable)").tag(title.fontFamily) }
                 ForEach(FontFamilies.names,id: \.self) { name in Text(name).tag(name) }
             }
             Picker("Weight",selection: Binding(get: { title.weight },set: { value in change { $0.weight = value } })) {
@@ -45,8 +43,6 @@ struct TitleInspectorView: View {
             }
             Divider()
         }.font(.system(size: 10))
-            .onAppear { text = title.text }.onChange(of: title.text) { _,value in text = value }
-            .onChange(of: clip.id) { _,_ in text = title.text; editingText = false }
     }
     private func change(_ edit: (inout TitleContent) -> Void) { var next = title; edit(&next); session.perform(.title(clip: clip.id,next)) }
     private func color(_ path: WritableKeyPath<TitleContent,RGBAColor>) -> Binding<Color> {

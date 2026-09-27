@@ -142,6 +142,9 @@ final class EditorSession: ObservableObject {
         guard snapshot.duration > 0 else { player.replaceCurrentItem(with: nil); playhead = 0; return }
         buildTask = Task {
             do {
+                // Coalesce rapid inspector/text edits before rebuilding the render graph.
+                try await Task.sleep(nanoseconds: 60_000_000)
+                try Task.checkCancellation()
                 let prepared = try await builder.build(snapshot,mode: mode)
                 try Task.checkCancellation()
                 guard token == generation else { return }

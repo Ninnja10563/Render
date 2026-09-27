@@ -41,6 +41,8 @@ Each substantial milestone gets tests, version, commits, tag, Release app, verif
 
 - 0.6.0: serial cancellable proxy/optimized generation queue, source fingerprint checks, playback selection/offline fallback, original-only exports, persistent bounded derived-media caches and schema-3 media variants.
 
+- 0.7.0: generated title/caption clips, Core Text rendering, typography/styling inspector, overlapping SRT cue import/export, schema-4 optional clip sources, and resolution-independent final compositing.
+
 The future milestone numbers above describe feature order only; actual versions follow the completed, verified scope. No project-format migration was needed for 0.2 or 0.3.
 
 ## Reproducible core benchmark
@@ -60,3 +62,9 @@ Schema 2 adds optional mask and keying payloads and effect kinds. ProjectStore e
 MediaVariant records a generated URL, representation type and source fingerprint (path, size, modification date). Playback resolves a matching existing variant; changed originals, missing or corrupt variants fall back to the original with a viewer notice. When online, audio remains at original quality. Export always invokes the builder in Original mode. Offline proxy editing is supported, but final export requires originals. Project schemas 1 and 2 migrate to schema 3 without dropping existing edits.
 
 BackgroundTasks serializes media generation, records progress/errors and supports queued/active cancellation. MediaTranscoder publishes an adjacent staging file only after encode/duration/source-identity checks. Switching documents cancels pending work; completion also verifies project/media identity before an undoable attachment. Generated files are durable references, not evictable cache entries. MediaCache separately stores disposable metadata/posters/waveforms, keyed with SHA-256 over source identity and generation options, capped at 256 MB and 4096 entries; a new import receives a fresh asset UUID.
+
+## Generated clips and schema 4
+
+TimelineClip holds either a media asset ID or embedded TitleContent, validated as mutually exclusive. Titles have no fake source file and occupy ordinary video tracks, retaining the same edit/animation/effect machinery. Schema-1 through schema-3 files migrate with their media IDs intact. TitleRenderer uses Core Text, rasterizes only active titles, and caches up to 64 MB of cropped text images.
+
+RenderInstruction retains the sequence design size separately from export render size. Clip positions, effect radii, title fonts and masks evaluate in design coordinates; the final image scales uniformly into the output rectangle with letterboxing where aspect ratios differ. This fixes position/effect-size drift across export resolutions.
