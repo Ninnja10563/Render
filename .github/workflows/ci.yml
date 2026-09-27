@@ -24,6 +24,8 @@ jobs:
         run: swift build --arch arm64
       - name: Core and media integration tests
         run: swift test --arch arm64
+      - name: Compare core editing performance
+        run: scripts/benchmark.sh
       - name: Release app, DMG, installation and launch
         run: scripts/package.sh
       - uses: actions/upload-artifact@v4
@@ -35,4 +37,5 @@ jobs:
             dist/*.sha256
             build/workspace*.png
             build/launch.log
+            build/*-benchmark.log
           if-no-files-found: ignore

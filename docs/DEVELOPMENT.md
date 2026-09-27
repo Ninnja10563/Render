@@ -36,3 +36,7 @@ Each substantial milestone gets tests, version, commits, tag, Release app, verif
 - 0.3.0: composition track reuse, per-build source cache, instruction boundary sweep, indexed command lookup, isolated transport state and viewport-limited clip/ruler/waveform rendering.
 
 The future milestone numbers above describe feature order only; actual versions follow the completed, verified scope. No project-format migration was needed for 0.2 or 0.3.
+
+## Reproducible core benchmark
+
+`scripts/benchmark.sh` builds only RenderCore in Release configuration for both v0.2.0 and the working tree, then applies the identical 1,000-clip group-move XCTest workload on the same machine. Logs are retained in `build/baseline-benchmark.log` and `build/current-benchmark.log` and uploaded by CI. This measures core transaction latency, not sustained playback, decoding throughput, GPU utilization or real editing-session memory.
