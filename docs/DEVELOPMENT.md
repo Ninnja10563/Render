@@ -35,6 +35,8 @@ Each substantial milestone gets tests, version, commits, tag, Release app, verif
 - 0.2.0: ripple/roll/slip/slide/range/overwrite editing, audio detach and synchronized multitrack paste; 42 tests including 400 deterministic mixed edits; ARM64 DMG published.
 - 0.3.0: composition track reuse, per-build source cache, instruction boundary sweep, indexed command lookup, isolated transport state and viewport-limited clip/ruler/waveform rendering.
 
+- 0.4.0: transactional keyframe timing/value/interpolation editing, key selection/copy/paste/removal, animated effect inspector, phase-preserving trim/split serialization tests and multi-frame preview/export parity.
+
 The future milestone numbers above describe feature order only; actual versions follow the completed, verified scope. No project-format migration was needed for 0.2 or 0.3.
 
 ## Reproducible core benchmark

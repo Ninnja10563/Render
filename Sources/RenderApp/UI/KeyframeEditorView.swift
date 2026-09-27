@@ -39,6 +39,7 @@ struct KeyframeEditorView: View {
                 Text("\(curve.keys.count) keys").foregroundStyle(.secondary)
             }.font(.system(size: 10)).buttonStyle(.plain)
             if !curve.keys.isEmpty {
+                AnimationCurvePlot(curve: curve,offset: clip.animationOffset,duration: clip.duration,playhead: frame) { local in session.seek(clip.start + local) }
                 Text("Frame within clip · value · outgoing curve").font(.system(size: 9)).foregroundStyle(.secondary)
                 // A bounded viewport keeps long automation curves inexpensive to inspect.
                 ScrollView {
@@ -134,5 +135,43 @@ struct EffectAmountView: View {
             } label: { Image(systemName: effect.animation.keys.contains { $0.frame == frame } ? "diamond.fill" : "diamond") }
                 .buttonStyle(.plain).help("Add / remove effect keyframe")
         }
+    }
+}
+
+private struct AnimationCurvePlot: View {
+    let curve: AnimationCurve
+    let offset: Int64
+    let duration: Int64
+    let playhead: Int64
+    let seek: (Int64) -> Void
+    var body: some View {
+        GeometryReader { geometry in
+            Canvas { context,size in
+                let lower = curve.keys.map(\.value).min() ?? 0
+                let upper = curve.keys.map(\.value).max() ?? 1
+                let span = max(0.001,upper - lower)
+                func point(_ frame: Double,_ value: Double) -> CGPoint {
+                    CGPoint(x: (frame - Double(offset)) / Double(max(1,duration - 1)) * size.width,
+                            y: size.height - 6 - (value - lower) / span * (size.height - 12))
+                }
+                var line = Path()
+                for step in 0...128 {
+                    let frame = Double(offset) + Double(max(1,duration - 1)) * Double(step) / 128
+                    let p = point(frame,curve.value(at: frame,fallback: 0))
+                    if step == 0 { line.move(to: p) } else { line.addLine(to: p) }
+                }
+                context.stroke(line,with: .color(.accentColor),lineWidth: 1.5)
+                for key in curve.keys where key.frame >= offset && key.frame < offset + duration {
+                    let p = point(Double(key.frame),key.value)
+                    context.fill(Path(ellipseIn: CGRect(x: p.x - 2.5,y: p.y - 2.5,width: 5,height: 5)),with: .color(.primary))
+                }
+                let x = point(Double(playhead),lower).x
+                var cursor = Path(); cursor.move(to: CGPoint(x: x,y: 0)); cursor.addLine(to: CGPoint(x: x,y: size.height))
+                context.stroke(cursor,with: .color(.secondary),lineWidth: 1)
+            }.contentShape(Rectangle()).gesture(DragGesture(minimumDistance: 0).onChanged { value in
+                let ratio = max(0,min(1,value.location.x / max(1,geometry.size.width)))
+                seek(Int64((ratio * Double(max(0,duration - 1))).rounded()))
+            })
+        }.frame(height: 64).accessibilityLabel("Animation curve. Drag to scrub within the clip.")
     }
 }

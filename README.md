@@ -13,7 +13,7 @@ Apple Silicon · macOS 14+ · Xcode 16.4+ for source builds. No external runtime
 1. Import video, audio or still images (⌘I or Finder drop).
 2. Double-click media to append, or drag it onto a compatible timeline track.
 3. Scrub the ruler, play with Space, select with A, blade with B, split with ⌘B. Drag selected clips to move, drag their edges to trim, Shift-click for multi-selection. R selects ripple trim, O roll, Y slip, U slide, G range and Z zoom (Shift-click zooms out). Select a range and press Delete or Shift-Delete to ripple it.
-4. Adjust transform, opacity, volume, speed and effects in the inspector. Diamonds create property keyframes. Undo/redo uses ⌘Z / ⇧⌘Z.
+4. Adjust transform, opacity, volume, speed and effects in the inspector. Diamonds create property and effect keyframes. The Animation inspector edits key timing, values, linear/ease/hold interpolation, and keyframe copy/paste. Undo/redo uses ⌘Z / ⇧⌘Z.
 5. Save a `.renderproject` document. Original media is referenced without copying. Right-click a media item to relink a moved file.
 6. Export H.264, HEVC or ProRes from the shared preview/export compositor.
 
@@ -34,7 +34,7 @@ The package script builds an ARM64 Release bundle, generates the icon, ad-hoc si
 
 ## Release status
 
-Version 0.3.0 adds composition track reuse, efficient instruction generation and viewport-limited timeline drawing to the track editor. Ripple/roll/slip/slide tools, range editing, overwrite, audio detach and synchronized multitrack paste arrived in 0.2.0. Advanced workflows are scheduled in the development plan; unsupported features are not represented by decorative controls. This release is ad-hoc signed and not notarized. Physical-device performance profiling and the manual release checklist remain required before production use.
+Version 0.4.0 adds keyframe timing/value editing, ease/hold interpolation, keyframe copy/paste and animated effect controls. Version 0.3.0 added composition track reuse, efficient instruction generation and viewport-limited timeline drawing. Ripple/roll/slip/slide tools, range editing, overwrite, audio detach and synchronized multitrack paste arrived in 0.2.0. Advanced workflows are scheduled in the development plan; unsupported features are not represented by decorative controls. This release is ad-hoc signed and not notarized. Physical-device performance profiling and the manual release checklist remain required before production use.
 
 MIT License.
 
