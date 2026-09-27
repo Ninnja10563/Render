@@ -33,6 +33,6 @@ jobs:
           path: |
             dist/*.dmg
             dist/*.sha256
-            build/workspace.png
+            build/workspace*.png
             build/launch.log
           if-no-files-found: ignore

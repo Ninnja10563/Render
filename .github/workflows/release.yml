@@ -40,5 +40,5 @@ jobs:
         with:
           name: release-validation
           path: |
-            build/workspace.png
+            build/workspace*.png
             build/launch.log

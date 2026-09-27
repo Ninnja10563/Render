@@ -2,7 +2,8 @@
 set -euo pipefail
 APP=${1:-"$(pwd)/dist/Render.app"}
 mkdir -p build
-export RENDER_SCREENSHOT="$(pwd)/build/workspace.png"
+export RENDER_APPEARANCE=${RENDER_APPEARANCE:-dark}
+export RENDER_SCREENSHOT="$(pwd)/build/workspace-$RENDER_APPEARANCE.png"
 "$APP/Contents/MacOS/Render" --smoke-test > build/launch.log 2>&1 &
 APP_PID=$!
 for _ in $(seq 1 30); do
@@ -14,4 +15,4 @@ wait "$APP_PID"
 cat build/launch.log
 grep -q RENDER_SMOKE_OK build/launch.log
 grep -q RENDER_EDIT_SMOKE_OK build/launch.log
-test -s build/workspace.png
+test -s "$RENDER_SCREENSHOT"
