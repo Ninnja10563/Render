@@ -376,10 +376,10 @@ final class EditorSession: ObservableObject {
             }
         }
     }
-    func setProperty(_ key: String, value: Double) {
-        guard let clip = selectedClip else { return }
+    func setProperty(_ key: String, value: Double,clipID: UUID? = nil) {
+        guard let clip = clipID == nil ? selectedClip : project.clip(clipID!) else { return }
         var p = clip.properties
-        switch key { case "x": p.x = value; case "y": p.y = value; case "scale": p.scale = value; case "rotation": p.rotation = value; case "opacity": p.opacity = value; case "volume": p.volume = value; default: return }
+        do { try p.setBaseValue(key,value: value) } catch { report(error); return }
         if var curve = p.animations[key], !curve.keys.isEmpty {
             let frame = max(0,min(clip.duration - 1,playhead - clip.start)) + clip.animationOffset
             do { curve = try AnimationEdit.set(frame: frame,value: value).applying(to: curve) }

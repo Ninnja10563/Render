@@ -8,7 +8,7 @@ public enum AnimationTarget: Hashable, Sendable {
     public func curve(in clip: TimelineClip) throws -> AnimationCurve {
         switch self {
         case .property(let name):
-            guard ["x", "y", "scale", "rotation", "opacity", "volume"].contains(name) else {
+            guard ClipProperties.animationRanges[name] != nil else {
                 throw RenderError.invalid("This property cannot be animated.")
             }
             return clip.properties.animations[name] ?? AnimationCurve()

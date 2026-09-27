@@ -11,18 +11,15 @@ struct KeyframeEditorView: View {
     private var curve: AnimationCurve { (try? target.curve(in: clip)) ?? AnimationCurve() }
     private var frame: Int64 { max(0,min(clip.duration - 1,session.playhead - clip.start)) + clip.animationOffset }
     private var visibleKeys: [Keyframe] { curve.keys.sorted { $0.frame < $1.frame } }
+    private let propertyNames = ["x","y","scale","scaleX","scaleY","anchorX","anchorY","rotation","opacity","cropLeft","cropRight","cropTop","cropBottom","volume"]
+    private let propertyLabels = ["x": "Position X","y": "Position Y","scale": "Scale","scaleX": "Scale X","scaleY": "Scale Y","anchorX": "Anchor X","anchorY": "Anchor Y","rotation": "Rotation","opacity": "Opacity","cropLeft": "Crop Left","cropRight": "Crop Right","cropTop": "Crop Top","cropBottom": "Crop Bottom","volume": "Volume"]
     private var availableTargets: [AnimationTarget] {
-        ["x","y","scale","rotation","opacity","volume"].map(AnimationTarget.property) + clip.effects.map { .effect($0.id) }
+        propertyNames.map(AnimationTarget.property) + clip.effects.map { .effect($0.id) }
     }
     var body: some View {
         VStack(alignment: .leading,spacing: 8) {
             Picker("Parameter",selection: $target) {
-                Text("Position X").tag(AnimationTarget.property("x"))
-                Text("Position Y").tag(AnimationTarget.property("y"))
-                Text("Scale").tag(AnimationTarget.property("scale"))
-                Text("Rotation").tag(AnimationTarget.property("rotation"))
-                Text("Opacity").tag(AnimationTarget.property("opacity"))
-                Text("Volume").tag(AnimationTarget.property("volume"))
+                ForEach(propertyNames,id: \.self) { key in Text(propertyLabels[key] ?? key).tag(AnimationTarget.property(key)) }
                 ForEach(Array(clip.effects.enumerated()),id: \.element.id) { index,effect in
                     Text("\(index + 1). \(effect.kind.label)").tag(AnimationTarget.effect(effect.id))
                 }

@@ -22,12 +22,31 @@ struct InspectorView: View {
                             Text("\(session.fps.timecode(clip.duration)) · \(Int(clip.speed * 100))% speed").font(.system(size: 10,design: .monospaced)).foregroundStyle(.secondary)
                         }
                         if let title = clip.title { TitleInspectorView(session: session,clip: clip,title: title) }
+                        if isVisual(clip) {
                         inspectorSection("Transform") {
                             property("Position X",key: "x",range: -1920...1920,reset: 0,clip: clip)
                             property("Position Y",key: "y",range: -1080...1080,reset: 0,clip: clip)
-                            property("Scale",key: "scale",range: 0.01...4,reset: 1,clip: clip)
+                            property("Scale (%)",key: "scale",range: 0.01...4,reset: 1,clip: clip,displayScale: 100)
+                            property("Scale X (%)",key: "scaleX",range: 0.01...4,reset: 1,clip: clip,displayScale: 100)
+                            property("Scale Y (%)",key: "scaleY",range: 0.01...4,reset: 1,clip: clip,displayScale: 100)
+                            property("Anchor X (%)",key: "anchorX",range: 0...1,reset: 0.5,clip: clip,displayScale: 100)
+                            property("Anchor Y (%)",key: "anchorY",range: 0...1,reset: 0.5,clip: clip,displayScale: 100)
                             property("Rotation",key: "rotation",range: -180...180,reset: 0,clip: clip)
-                            property("Opacity",key: "opacity",range: 0...1,reset: 1,clip: clip)
+                            Toggle("Flip Horizontal",isOn: Binding(get: { clip.properties.geometry?.flipHorizontal ?? false },set: { value in geometry(clip) { $0.flipHorizontal = value } }))
+                            Toggle("Flip Vertical",isOn: Binding(get: { clip.properties.geometry?.flipVertical ?? false },set: { value in geometry(clip) { $0.flipVertical = value } }))
+                        }
+                        inspectorSection("Compositing") {
+                            property("Opacity (%)",key: "opacity",range: 0...1,reset: 1,clip: clip,displayScale: 100)
+                            Picker("Blend Mode",selection: Binding(get: { clip.properties.geometry?.blend ?? .normal },set: { value in geometry(clip) { $0.blend = value } })) {
+                                ForEach(BlendMode.allCases,id: \.self) { mode in Text(mode.label).tag(mode) }
+                            }.font(.system(size: 10))
+                        }
+                        inspectorSection("Crop") {
+                            property("Left (%)",key: "cropLeft",range: 0...1,reset: 0,clip: clip,displayScale: 100)
+                            property("Right (%)",key: "cropRight",range: 0...1,reset: 0,clip: clip,displayScale: 100)
+                            property("Top (%)",key: "cropTop",range: 0...1,reset: 0,clip: clip,displayScale: 100)
+                            property("Bottom (%)",key: "cropBottom",range: 0...1,reset: 0,clip: clip,displayScale: 100)
+                        }
                         }
                         inspectorSection("Audio") {
                             property("Volume",key: "volume",range: 0...4,reset: 1,clip: clip)
@@ -39,6 +58,7 @@ struct InspectorView: View {
                                 ForEach([25,50,100,200,400],id: \.self) { speed in Button("\(speed)") { session.perform(.speed(clip: clip.id,Double(speed) / 100)) }.font(.system(size: 9)) }
                             }.controlSize(.mini)
                         }
+                        if isVisual(clip) {
                         inspectorSection("Effects") {
                             ForEach(Array(clip.effects.enumerated()),id: \.element.id) { index,effect in
                                 VStack(spacing: 6) {
@@ -56,6 +76,7 @@ struct InspectorView: View {
                                 }.padding(.bottom,4)
                             }
                             Menu { ForEach(EffectKind.allCases,id: \.self) { kind in Button(kind.label) { session.perform(.effects(clip: clip.id,clip.effects + [Effect(kind: kind)])) } } } label: { Label("Add Effect",systemImage: "plus") }
+                        }
                         }
                         inspectorSection("Animation") {
                             KeyframeEditorView(session: session,clip: clip,clipboard: $keyframeClipboard)
@@ -95,13 +116,18 @@ struct InspectorView: View {
             }
         }
     }
-    func property(_ label: String,key: String,range: ClosedRange<Double>,reset: Double,clip: TimelineClip) -> some View {
+    func isVisual(_ clip: TimelineClip) -> Bool { session.project.assets.first(where: { $0.id == clip.assetID })?.kind != .audio }
+    func property(_ label: String,key: String,range: ClosedRange<Double>,reset: Double,clip: TimelineClip,displayScale: Double = 1) -> some View {
         let frame = max(0,min(clip.duration - 1,session.playhead - clip.start)) + clip.animationOffset
         let keyed = clip.properties.animations[key]?.keys.contains { $0.frame == frame } ?? false
         return HStack(spacing: 7) {
-            InspectorNumber(label: label,value: clip.properties.value(key,at: Double(frame)),range: range,reset: reset) { session.setProperty(key,value: $0) }
+            InspectorNumber(label: label,value: clip.properties.value(key,at: Double(frame)) * displayScale,range: (range.lowerBound * displayScale)...(range.upperBound * displayScale),reset: reset * displayScale) { session.setProperty(key,value: $0 / displayScale,clipID: clip.id) }
             Button { session.toggleKeyframe(key) } label: { Image(systemName: keyed ? "diamond.fill" : "diamond").foregroundStyle(keyed ? Color.accentColor : Color.secondary) }.buttonStyle(.plain).help("Add / remove keyframe")
         }
+    }
+    func geometry(_ clip: TimelineClip,change: (inout ClipGeometry) -> Void) {
+        var p = clip.properties; var geometry = p.geometry ?? ClipGeometry(); change(&geometry); p.geometry = geometry
+        session.perform(.properties(clip: clip.id,p))
     }
     func changeEffect(_ clip: TimelineClip,index: Int,change: (inout Effect) -> Void) {
         var effects = clip.effects; change(&effects[index]); session.perform(.effects(clip: clip.id,effects))
@@ -122,18 +148,20 @@ struct InspectorNumber: View {
     let reset: Double
     let commit: (Double) -> Void
     @State private var draft: Double = 0
+    @FocusState private var fieldFocused: Bool
     var body: some View {
         VStack(spacing: 4) {
             HStack {
                 Text(label).foregroundStyle(.secondary)
                 Spacer(minLength: 4)
                 TextField(label,value: $draft,format: .number.precision(.fractionLength(0...2)))
-                    .multilineTextAlignment(.trailing).textFieldStyle(.plain).frame(width: 60)
+                    .multilineTextAlignment(.trailing).textFieldStyle(.plain).frame(width: 60).focused($fieldFocused)
                     .onSubmit { commit(draft) }
                 Button { draft = reset; commit(reset) } label: { Image(systemName: "arrow.counterclockwise").font(.system(size: 9)) }.buttonStyle(.plain).help("Reset \(label)")
             }.font(.system(size: 10))
-            Slider(value: $draft,in: range,onEditingChanged: { editing in if !editing { commit(draft) } }).controlSize(.mini)
+            Slider(value: Binding(get: { min(range.upperBound,max(range.lowerBound,draft)) },set: { draft = $0 }),in: range,onEditingChanged: { editing in if !editing { commit(draft) } }).controlSize(.mini)
         }.onAppear { draft = value }.onChange(of: value) { _,new in draft = new }
+            .onChange(of: fieldFocused) { wasFocused,isFocused in if wasFocused && !isFocused && draft != value { commit(draft) } }
     }
 }
 

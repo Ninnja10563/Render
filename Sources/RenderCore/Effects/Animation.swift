@@ -91,6 +91,7 @@ public struct ClipProperties: Codable, Equatable, Sendable {
     public var opacity: Double = 1
     public var volume: Double = 1
     public var muted = false
+    public var geometry: ClipGeometry?
     public var animations: [String: AnimationCurve] = [:]
     public init() {}
     public func value(_ property: String, at frame: Double) -> Double {
@@ -102,6 +103,14 @@ public struct ClipProperties: Codable, Equatable, Sendable {
         case "rotation": fallback = rotation
         case "opacity": fallback = opacity
         case "volume": fallback = volume
+        case "scaleX": fallback = geometry?.scaleX ?? 1
+        case "scaleY": fallback = geometry?.scaleY ?? 1
+        case "anchorX": fallback = geometry?.anchorX ?? 0.5
+        case "anchorY": fallback = geometry?.anchorY ?? 0.5
+        case "cropLeft": fallback = geometry?.cropLeft ?? 0
+        case "cropRight": fallback = geometry?.cropRight ?? 0
+        case "cropTop": fallback = geometry?.cropTop ?? 0
+        case "cropBottom": fallback = geometry?.cropBottom ?? 0
         default: fallback = 0
         }
         return animations[property]?.value(at: frame, fallback: fallback) ?? fallback

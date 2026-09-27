@@ -63,7 +63,7 @@ public struct ProjectSettings: Codable, Equatable, Sendable {
     public init() {}
 }
 public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
-    public static let currentSchema = 5
+    public static let currentSchema = 6
     public var schemaVersion = currentSchema
     public var id = UUID()
     public var name = "Untitled"
@@ -122,14 +122,13 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
                     }
                 }
                 let p = clip.properties
+                try p.geometry?.validate()
                 guard [p.x,p.y,p.scale,p.rotation,p.opacity,p.volume].allSatisfy(\.isFinite),
                       (0.01...10).contains(p.scale), (0...1).contains(p.opacity), (0...4).contains(p.volume),
                       abs(p.x) <= 32768, abs(p.y) <= 32768, abs(p.rotation) <= 3600 else { throw RenderError.invalid("Invalid clip properties.") }
                 for (name, curve) in p.animations {
-                    guard ["x","y","scale","rotation","opacity","volume"].contains(name) else { throw RenderError.invalid("Unknown animated property.") }
+                    guard let range = ClipProperties.animationRanges[name] else { throw RenderError.invalid("Unknown animated property.") }
                     try Self.validateCurve(curve)
-                    let range: ClosedRange<Double>
-                    switch name { case "scale": range = 0.01...10; case "opacity": range = 0...1; case "volume": range = 0...4; case "rotation": range = -3600...3600; default: range = -32768...32768 }
                     guard curve.keys.allSatisfy({ range.contains($0.value) }) else { throw RenderError.invalid("Keyframe value is outside the property range.") }
                 }
                 guard Set(clip.effects.map(\.id)).count == clip.effects.count else { throw RenderError.invalid("Duplicate effects.") }

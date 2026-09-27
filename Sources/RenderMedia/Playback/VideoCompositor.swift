@@ -60,20 +60,17 @@ public final class VideoCompositor: NSObject, AVVideoCompositing {
                     let frame = request.compositionTime.seconds * instruction.frameRate.value - Double(layer.clip.start) + Double(layer.clip.animationOffset)
                     let p = layer.clip.properties
                     var image = source.transformed(by: CGAffineTransform(translationX: -source.extent.minX, y: -source.extent.minY))
-                    let fit = min(bounds.width / image.extent.width, bounds.height / image.extent.height)
-                    let scale = fit * p.value("scale", at: frame)
                     let sourceBounds = image.extent
-                    let transform = CGAffineTransform(translationX: -image.extent.width / 2,y: -image.extent.height / 2)
-                        .concatenating(CGAffineTransform(scaleX: scale,y: scale))
-                        .concatenating(CGAffineTransform(rotationAngle: p.value("rotation",at: frame) * .pi / 180))
-                        .concatenating(CGAffineTransform(translationX: bounds.midX + p.value("x",at: frame),y: bounds.midY + p.value("y",at: frame)))
-                    image = image.transformed(by: transform)
+                    let transform = ClipImageGeometry.transform(source: sourceBounds,canvas: bounds,properties: p,frame: frame)
+                    let crop = ClipImageGeometry.crop(source: sourceBounds,properties: p,frame: frame)
+                    if crop.isEmpty { continue }
+                    image = image.cropped(to: crop).transformed(by: transform)
                     for effect in layer.clip.effects where effect.enabled {
                         do { image = try effects.apply(effect,to: image,at: frame,sourceBounds: sourceBounds,transform: transform) }
                         catch { request.finish(with: error); return }
                     }
                     image = image.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: p.value("opacity", at: frame))])
-                    canvas = image.composited(over: canvas).cropped(to: bounds)
+                    canvas = ClipImageGeometry.blend(image,over: canvas,mode: p.geometry?.blend ?? .normal).cropped(to: bounds)
                 }
                 let outputScale = min(outputBounds.width / bounds.width,outputBounds.height / bounds.height)
                 canvas = canvas.transformed(by: CGAffineTransform(scaleX: outputScale,y: outputScale))
