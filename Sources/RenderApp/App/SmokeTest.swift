@@ -64,6 +64,15 @@ extension EditorSession {
         let captions = try SRTCodec.decode("1\n00:00:02,000 --> 00:00:03,000\nCaption validation\n",rate: fps)
         perform(.captions(captions)); undo(); redo()
         selection = [titleClip.id]
+        guard let storylineTrack = project.tracks.first(where: { $0.clips.contains(where: { $0.id == original.id }) }) else { throw RenderError.invalid("Storyline track missing.") }
+        perform(.storyline(enabled: true,track: storylineTrack.id))
+        perform(.connection(clip: titleClip.id,anchor: original.id))
+        perform(.move(clips: [original.id],delta: 150))
+        guard project.clip(titleClip.id)?.start == project.clip(original.id)?.start else { throw RenderError.invalid("Connected title did not move with its anchor.") }
+        undo()
+        perform(.gap(track: storylineTrack.id,at: 60,duration: 15))
+        guard project.duration == 165 else { throw RenderError.invalid("Explicit magnetic gap failed.") }
+        undo()
         selectedAsset = asset.id
         if let image = try await library.thumbnail(asset) { thumbnails[asset.id] = NSImage(cgImage: image,size: .zero) }
         let deadline = Date().addingTimeInterval(15)

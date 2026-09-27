@@ -43,6 +43,8 @@ Each substantial milestone gets tests, version, commits, tag, Release app, verif
 
 - 0.7.0: generated title/caption clips, Core Text rendering, typography/styling inspector, overlapping SRT cue import/export, schema-4 optional clip sources, and resolution-independent final compositing.
 
+- 0.8.0: optional magnetic primary storyline, source-phase-aware connections, group reorder/delete, explicit gap clips, split/insert reconnection, copied-anchor remapping and schema-5 timeline settings.
+
 The future milestone numbers above describe feature order only; actual versions follow the completed, verified scope. No project-format migration was needed for 0.2 or 0.3.
 
 ## Reproducible core benchmark
@@ -68,3 +70,7 @@ BackgroundTasks serializes media generation, records progress/errors and support
 TimelineClip holds either a media asset ID or embedded TitleContent, validated as mutually exclusive. Titles have no fake source file and occupy ordinary video tracks, retaining the same edit/animation/effect machinery. Schema-1 through schema-3 files migrate with their media IDs intact. TitleRenderer uses Core Text, rasterizes only active titles, and caches up to 64 MB of cropped text images.
 
 RenderInstruction retains the sequence design size separately from export render size. Clip positions, effect radii, title fonts and masks evaluate in design coordinates; the final image scales uniformly into the output rectangle with letterboxing where aspect ratios differ. This fixes position/effect-size drift across export resolutions.
+
+## Magnetic editing and schema 5
+
+StorylineSettings names a primary video track independently of track order. MagneticEditing reconciles primary packing and one-level connections before normal transaction validation, so lock/overlap/source errors remain atomic. Connections store anchor IDs and timeline-relative offsets; leading trims account for animation/source phase changes. Splitting an anchor reconnects later children to the right segment, and multitrack paste remaps copied anchor identities. Gap clips are generated black sources with explicit duration. Traditional mode keeps gaps and may retain explicit connections; disconnect commands remove grouping.

@@ -9,6 +9,7 @@ CI checks are automated, not a claim that this checklist was performed by a huma
 - Play/pause/J-K-L and frame-step; rapidly scrub then edit while composition preparation is pending.
 - Verify range delete across clips and gaps, ripple leading/trailing trims, rolls at both edges, slips at source boundaries, slides with/without neighbors, overwrite preserving both sides, audio detach and synchronized multitrack paste.
 - Select multiple clips, drag, trim handles, split, cut/copy/paste, insert, delete and ripple delete. Check lock, mute, solo and visibility. Undo/redo each action.
+- Toggle magnetic mode on a video track, choose another primary track, preserve explicit gaps, reorder groups left/right, insert through a connected anchor, split/trim anchors and verify attachments. Delete anchors with connected/locked tracks, undo/redo, copy/paste groups, disconnect and return to traditional editing. Collisions on connected tracks should reject the transaction without changing the project.
 - Inspect source boundaries at 23.976/29.97 fps; confirm non-drop-frame display and no A/V drift on long files.
 - Animate transform/opacity/volume and effect amounts; edit key times/values and all interpolation modes, select/copy/paste/delete keys, reject occupied destinations, undo/redo, save/reopen; split and trim animated clips and verify continuity. Stack/reorder/disable/reset/remove effects.
 - Key green/blue-screen footage, adjust tolerance/softness/spill, check thin edges and semi-transparent foregrounds. Compare preview/export. Test rectangle/ellipse/polygon masks, vertex edits, inversion, feather/expansion, rotated/scaled clips and mask undo. Test old schema-1 projects and save/reopen the migrated document.
@@ -20,10 +21,12 @@ CI checks are automated, not a claim that this checklist was performed by a huma
 
 ## Current limitations needing development
 
-No magnetic/connected clips, compound clips, multicam, transitions, reverse export, speed ramps, pan/EQ/compressor, meters, customizable shortcuts, full filmstrip generation. No HDR/color-management workflow beyond SDR sRGB compositing. No advanced bitrate controls. Preview zoom is relative to fit. One project window and one recovery slot. Snapshot undo history needs memory profiling on large projects. Composition reuses tracks per timeline lane; physical-device large-timeline and long-duration testing is still required.
+No compound clips, multicam, transitions, reverse export, speed ramps, pan/EQ/compressor, meters, customizable shortcuts, full filmstrip generation. No HDR/color-management workflow beyond SDR sRGB compositing. No advanced bitrate controls. Preview zoom is relative to fit. One project window and one recovery slot. Snapshot undo history needs memory profiling on large projects. Composition reuses tracks per timeline lane; physical-device large-timeline and long-duration testing is still required.
 
 Effect masks use a bounded 1024-pixel raster before GPU feathering/expansion and scaling; very detailed high-resolution mattes require further work. The chroma key uses a 32³ lookup table with a bounded cache; it is not yet a production keyer with matte cleanup/tracking. Mask geometry and key colour/softness/spill are static; effect amount supports keyframes.
 
 Generated media lives in Application Support/Render/Generated Media and is referenced by projects. It is not automatically garbage-collected: keep referenced files, or remove unused generated files in Finder. Derived metadata/poster/waveform caches in Caches/Render/Media are capped at 256 MB / 4096 entries and may be discarded. Generation processes one media item at a time; originals remain required for final export.
 
 Titles use Core Text and installed fonts, with a 64 MB raster cache and a 128 MB single-raster limit. Subtitle export writes text/timing from caption clips on visible tracks; SRT does not preserve Render styling. No transcription or karaoke/word-level subtitle system yet.
+
+Magnetic connections are one level deep and anchor to primary-storyline clips. Moving a clip off the primary track detaches its dependents; deleting an anchor in magnetic mode removes its connected clips. Connected-track overlaps are rejected rather than automatically creating new lanes. Reassigning the primary track clears existing connections as one undoable operation.

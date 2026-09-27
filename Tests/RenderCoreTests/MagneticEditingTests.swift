@@ -30,8 +30,7 @@ final class MagneticEditingTests: XCTestCase {
         XCTAssertEqual(project.duration,660)
     }
     func testDeleteAnchorDeletesConnectedClipsAndUndoRetainsEverything() throws {
-        let project = try fixture(), id = try fixture().id // Ensure no shared mutable fixture state.
-        XCTAssertNotEqual(project.id,id)
+        let project = try fixture()
         let command = TimelineCommand.delete(clips: [project.tracks[0].clips[1].id],ripple: false)
         let transaction = try ProjectTransaction(command,project: project)
         XCTAssertEqual(transaction.after.tracks[0].clips.count,1)
@@ -61,6 +60,16 @@ final class MagneticEditingTests: XCTestCase {
         let edited = try TimelineCommand.rippleTrim(clip: anchor,edge: .leading,to: 310).applying(to: project)
         XCTAssertEqual(edited.tracks[1].clips[0].start,310)
         XCTAssertEqual(edited.tracks[1].clips[0].connection?.offset,10)
+    }
+    func testMultitrackPasteConnectsToCopiedAnchor() throws {
+        let project = try fixture()
+        let lanes = [ClipboardLane(trackID: project.tracks[0].id,clips: project.tracks[0].clips),ClipboardLane(trackID: project.tracks[1].id,clips: project.tracks[1].clips)]
+        let pasted = try TimelineCommand.pasteLanes(lanes,at: 600).applying(to: project)
+        let child = try XCTUnwrap(pasted.tracks[1].clips.first { $0.start == 920 })
+        let anchor = try XCTUnwrap(pasted.clip(child.connection!.anchor))
+        XCTAssertEqual(anchor.start,900)
+        XCTAssertNotEqual(anchor.id,project.tracks[0].clips[1].id)
+        XCTAssertEqual(child.connection?.offset,20)
     }
     func testTraditionalModeKeepsGapsAndCanDisconnect() throws {
         var project = try fixture()

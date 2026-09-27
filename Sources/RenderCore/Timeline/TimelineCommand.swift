@@ -291,11 +291,16 @@ public enum TimelineCommand: Sendable {
             project.tracks.append(audioTrack)
             project.tracks[t].clips[c].properties.muted = true
         case .pasteLanes(let lanes,let at):
+            let sourceIDs = lanes.flatMap(\.clips).map(\.id)
+            guard Set(sourceIDs).count == sourceIDs.count else { throw RenderError.invalid("Clipboard contains duplicate clips.") }
+            let copiedIDs = Dictionary(uniqueKeysWithValues: sourceIDs.map { ($0,UUID()) })
             let origin = lanes.flatMap(\.clips).map(\.start).min() ?? 0
             for lane in lanes {
                 let t = try trackIndex(lane.trackID)
                 project.tracks[t].clips += lane.clips.map { original in
-                    var clip = original; clip.id = UUID(); clip.start = at + original.start - origin; return clip
+                    var clip = original; clip.id = copiedIDs[original.id]!; clip.start = at + original.start - origin
+                    if let connection = clip.connection, let anchor = copiedIDs[connection.anchor] { clip.connection = ClipConnection(anchor: anchor,offset: connection.offset) }
+                    return clip
                 }
             }
         case .move(let ids, let delta):
