@@ -45,6 +45,8 @@ Each substantial milestone gets tests, version, commits, tag, Release app, verif
 
 - 0.8.0: optional magnetic primary storyline, source-phase-aware connections, group reorder/delete, explicit gap clips, split/insert reconnection, copied-anchor remapping and schema-5 timeline settings.
 
+- 0.9.0: independently animated scale/anchor/crop, flips, blend modes, sequence-space geometry tests, actual-pixel viewer zoom/panning and schema-6 geometry payload.
+
 The future milestone numbers above describe feature order only; actual versions follow the completed, verified scope. No project-format migration was needed for 0.2 or 0.3.
 
 ## Reproducible core benchmark
@@ -74,3 +76,7 @@ RenderInstruction retains the sequence design size separately from export render
 ## Magnetic editing and schema 5
 
 StorylineSettings names a primary video track independently of track order. MagneticEditing reconciles primary packing and one-level connections before normal transaction validation, so lock/overlap/source errors remain atomic. Connections store anchor IDs and timeline-relative offsets; leading trims account for animation/source phase changes. Splitting an anchor reconnects later children to the right segment, and multitrack paste remaps copied anchor identities. Gap clips are generated black sources with explicit duration. Traditional mode keeps gaps and may retain explicit connections; disconnect commands remove grouping.
+
+## Geometry and schema 6
+
+ClipGeometry is an optional payload; older clips retain centered anchors, uniform scale, no crop/flip and Normal blending. Animation parameter ranges are shared by core validation and editing. Crop removes source-relative pixels without reframing; fully cropped layers are skipped. Anchor movement alone retains unscaled placement, while rotation and scaling pivot around the selected source-relative anchor. The viewer interprets 100% as one sequence pixel per physical display pixel and updates backing scale when moving between displays.

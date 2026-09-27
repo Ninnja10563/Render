@@ -73,6 +73,10 @@ extension EditorSession {
         perform(.gap(track: storylineTrack.id,at: 60,duration: 15))
         guard project.duration == 165 else { throw RenderError.invalid("Explicit magnetic gap failed.") }
         undo()
+        setProperty("cropLeft",value: 0.03,clipID: original.id)
+        setProperty("scaleX",value: 0.95,clipID: original.id)
+        guard project.clip(original.id)?.properties.geometry?.cropLeft == 0.03,
+              project.clip(titleClip.id)?.properties.geometry == nil else { throw RenderError.invalid("Inspector property edit targeted the wrong selection.") }
         selectedAsset = asset.id
         if let image = try await library.thumbnail(asset) { thumbnails[asset.id] = NSImage(cgImage: image,size: .zero) }
         let deadline = Date().addingTimeInterval(15)
