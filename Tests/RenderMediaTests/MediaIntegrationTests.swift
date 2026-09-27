@@ -294,3 +294,30 @@ extension MediaIntegrationTests {
         queue.clearFinished(); XCTAssertTrue(queue.tasks.isEmpty)
     }
 }
+
+extension MediaIntegrationTests {
+    @MainActor
+    func testGeneratedTitleExportAndResolutionIndependentPosition() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder,withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        var title = TitleContent(text: "Render"); title.fontSize = 30; title.background = RGBAColor(1,0,0)
+        title.padding = 5; title.shadow.alpha = 0
+        var project = RenderProject(); project.settings.width = 640; project.settings.height = 360
+        project = try TimelineCommand.addTitle(title,at: 0,duration: 6).applying(to: project)
+        project.tracks[0].clips[0].properties.x = 120
+        var config = ExportConfiguration(); config.width = 320; config.height = 180
+        let output = folder.appendingPathComponent("title.mp4")
+        try await ExportService().export(project: project,configuration: config,to: output)
+        let encoded = try await AVAssetImageGenerator(asset: AVURLAsset(url: output)).image(at: CMTime(value: 1,timescale: 30)).image
+        // The title center moves 60 output pixels, preserving the 120-pixel sequence offset.
+        let center = pixel(try XCTUnwrap(encoded.cropping(to: CGRect(x: 210,y: 90,width: 8,height: 8))))
+        let wrongPosition = pixel(try XCTUnwrap(encoded.cropping(to: CGRect(x: 280,y: 90,width: 8,height: 8))))
+        XCTAssertGreaterThan(center[0],180); XCTAssertLessThan(wrongPosition[0],30)
+        let built = try await CompositionBuilder().build(project,outputSize: CGSize(width: 320,height: 180))
+        let generator = AVAssetImageGenerator(asset: built.composition); generator.videoComposition = built.videoComposition
+        let preview = try await generator.image(at: CMTime(value: 1,timescale: 30)).image
+        let a = pixel(preview), b = pixel(encoded)
+        for channel in 0..<3 { XCTAssertEqual(Double(a[channel]),Double(b[channel]),accuracy: 15) }
+    }
+}

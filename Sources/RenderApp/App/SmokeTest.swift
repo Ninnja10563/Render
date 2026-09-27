@@ -57,6 +57,13 @@ extension EditorSession {
         guard project.clip(original.id)?.effects.last?.mask != nil else { throw RenderError.invalid("Mask command failed.") }
         undo(); redo()
         perform(.marker(.init(frame: 60,name: "Edit point")))
+        var title = TitleContent(text: "Native titles, real timelines"); title.fontSize = 48
+        perform(.addTitle(title,at: 0,duration: 60))
+        guard let titleClip = project.tracks.first?.clips.first, titleClip.title != nil else { throw RenderError.invalid("Title creation failed.") }
+        selection = [titleClip.id]; setProperty("y",value: -360)
+        let captions = try SRTCodec.decode("1\n00:00:02,000 --> 00:00:03,000\nCaption validation\n",rate: fps)
+        perform(.captions(captions)); undo(); redo()
+        selection = [titleClip.id]
         selectedAsset = asset.id
         if let image = try await library.thumbnail(asset) { thumbnails[asset.id] = NSImage(cgImage: image,size: .zero) }
         let deadline = Date().addingTimeInterval(15)
