@@ -68,7 +68,10 @@ public final class BackgroundTasks: ObservableObject {
                 work.complete(.failure(error))
             }
             activeID = nil
-            if tasks.count > 100 { tasks.removeAll { $0.state == .completed || $0.state == .cancelled } }
+            while tasks.count > 100 {
+                guard let index = tasks.firstIndex(where: { $0.state != .running && $0.state != .queued }) else { break }
+                tasks.remove(at: index)
+            }
         }
         worker = nil
     }

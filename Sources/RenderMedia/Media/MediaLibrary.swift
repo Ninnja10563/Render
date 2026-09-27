@@ -4,14 +4,22 @@ import AppKit
 import RenderCore
 
 public actor MediaLibrary {
-    private var thumbnails: [URL: CGImage] = [:]
-    private var waveforms: [URL: [Float]] = [:]
-    public init() {}
+    private var thumbnails: [String: CGImage] = [:]
+    private var waveforms: [String: [Float]] = [:]
+    private let cache: MediaCache
+    public init(cacheFolder: URL? = nil) { cache = MediaCache(folder: cacheFolder) }
     public func analyze(_ url: URL) async throws -> MediaAsset {
         guard FileManager.default.fileExists(atPath: url.path) else { throw RenderError.missingMedia(url.lastPathComponent) }
+        let cacheKey = try cache.key(url,operation: "metadata-v1")
+        if let data = cache.read(cacheKey), var cached = try? JSONDecoder().decode(MediaAsset.self,from: data), cached.duration.isFinite, cached.duration > 0 {
+            cached.id = UUID(); cached.url = url; cached.variants = nil
+            return cached
+        }
         if ["png","jpg","jpeg","tif","tiff"].contains(url.pathExtension.lowercased()) {
             guard let source = CGImageSourceCreateWithURL(url as CFURL, nil), let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { throw RenderError.invalid("Cannot decode \(url.lastPathComponent).") }
-            return MediaAsset(url: url, kind: .image, duration: 5, width: image.width, height: image.height, codec: url.pathExtension.uppercased())
+            let result = MediaAsset(url: url, kind: .image, duration: 5, width: image.width, height: image.height, codec: url.pathExtension.uppercased())
+            if let data = try? JSONEncoder().encode(result) { cache.write(data,key: cacheKey) }
+            return result
         }
         let asset = AVURLAsset(url: url)
         let duration = try await asset.load(.duration).seconds
@@ -34,11 +42,14 @@ public actor MediaLibrary {
                 result.codec = String(bytes: [UInt8((code >> 24) & 255), UInt8((code >> 16) & 255), UInt8((code >> 8) & 255), UInt8(code & 255)], encoding: .ascii) ?? "Video"
             }
         } else { result.codec = url.pathExtension.uppercased() }
+        if let data = try? JSONEncoder().encode(result) { cache.write(data,key: cacheKey) }
         return result
     }
     public func thumbnail(_ asset: MediaAsset) async throws -> CGImage? {
-        if let cached = thumbnails[asset.url] { return cached }
         guard asset.kind != .audio else { return nil }
+        let key = try cache.key(asset.url,operation: "thumbnail-v1")
+        if let cached = thumbnails[key] { return cached }
+        if let image = cache.image(key) { if thumbnails.count >= 200 { thumbnails.removeAll(keepingCapacity: true) }; thumbnails[key] = image; return image }
         let image: CGImage
         if asset.kind == .image {
             guard let source = CGImageSourceCreateWithURL(asset.url as CFURL, nil),
@@ -51,11 +62,16 @@ public actor MediaLibrary {
             image = try await generator.image(at: CMTime(seconds: min(0.25,asset.duration / 2), preferredTimescale: 600)).image
         }
         if thumbnails.count >= 200 { thumbnails.removeAll(keepingCapacity: true) }
-        thumbnails[asset.url] = image
+        thumbnails[key] = image; cache.write(image,key: key)
         return image
     }
     public func waveform(_ media: MediaAsset, bins: Int = 400) async throws -> [Float] {
-        if let cached = waveforms[media.url] { return cached }
+        guard (1...100_000).contains(bins), media.duration.isFinite, media.duration > 0 else { throw RenderError.invalid("Invalid waveform dimensions.") }
+        let key = try cache.key(media.url,operation: "waveform-v2-\(bins)-\(media.duration)")
+        if let cached = waveforms[key] { return cached }
+        if let data = cache.read(key), let values = try? JSONDecoder().decode([Float].self,from: data), values.count == bins, values.allSatisfy({ $0.isFinite && (0...1).contains($0) }) {
+            if waveforms.count >= 200 { waveforms.removeAll(keepingCapacity: true) }; waveforms[key] = values; return values
+        }
         let asset = AVURLAsset(url: media.url)
         guard let track = try await asset.loadTracks(withMediaType: .audio).first else { return [] }
         let reader = try AVAssetReader(asset: asset)
@@ -83,8 +99,9 @@ public actor MediaLibrary {
         }
         if reader.status == .failed { throw reader.error ?? RenderError.invalid("Audio waveform decoding failed.") }
         if waveforms.count >= 200 { waveforms.removeAll(keepingCapacity: true) }
-        waveforms[media.url] = peaks
+        waveforms[key] = peaks
+        if let data = try? JSONEncoder().encode(peaks) { cache.write(data,key: key) }
         return peaks
     }
-    public func invalidate(_ url: URL) { thumbnails[url] = nil; waveforms[url] = nil }
+    public func invalidate(_ url: URL) { thumbnails.removeAll(); waveforms.removeAll() }
 }
