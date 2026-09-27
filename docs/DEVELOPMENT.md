@@ -47,6 +47,8 @@ Each substantial milestone gets tests, version, commits, tag, Release app, verif
 
 - 0.9.0: independently animated scale/anchor/crop, flips, blend modes, sequence-space geometry tests, actual-pixel viewer zoom/panning and schema-6 geometry payload.
 
+- 0.10.0: viewport-indexed filmstrip requests, source-time/speed mapping, cancellable bounded image decoding and persistent frame caches.
+
 The future milestone numbers above describe feature order only; actual versions follow the completed, verified scope. No project-format migration was needed for 0.2 or 0.3.
 
 ## Reproducible core benchmark
@@ -80,3 +82,7 @@ StorylineSettings names a primary video track independently of track order. Magn
 ## Geometry and schema 6
 
 ClipGeometry is an optional payload; older clips retain centered anchors, uniform scale, no crop/flip and Normal blending. Animation parameter ranges are shared by core validation and editing. Crop removes source-relative pixels without reframing; fully cropped layers are skipped. Anchor movement alone retains unscaled placement, while rotation and scaling pivot around the selected source-relative anchor. The viewer interprets 100% as one sequence pixel per physical display pixel and updates backing scale when moving between displays.
+
+## Timeline filmstrips
+
+FilmstripView derives cell indices from the visible timeline interval, so requests change at cell boundaries rather than every scroll pixel. MediaLibrary maps requested source times to 100 ms cache keys, returns frames in request order (including duplicates), and caps each batch at 128 frames. A shared two-permit actor limits poster/filmstrip AVAssetImageGenerator work. Cancelled work releases permits, and in-flight batches retain their cached images even if the bounded global image cache is evicted. No project schema change.

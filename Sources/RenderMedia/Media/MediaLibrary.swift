@@ -58,10 +58,18 @@ public actor MediaLibrary {
                   let decoded = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 320, kCGImageSourceCreateThumbnailWithTransform: true] as CFDictionary) else { throw RenderError.invalid("Could not create image thumbnail.") }
             image = decoded
         } else {
-            let generator = AVAssetImageGenerator(asset: AVURLAsset(url: asset.url))
-            generator.appliesPreferredTrackTransform = true
-            generator.maximumSize = CGSize(width: 320, height: 180)
-            image = try await generator.image(at: CMTime(seconds: min(0.25,asset.duration / 2), preferredTimescale: 600)).image
+            await decodeGate.acquire()
+            do {
+                try Task.checkCancellation()
+                let generator = AVAssetImageGenerator(asset: AVURLAsset(url: asset.url))
+                generator.appliesPreferredTrackTransform = true
+                generator.maximumSize = CGSize(width: 320,height: 180)
+                image = try await withTaskCancellationHandler {
+                    try await generator.image(at: CMTime(seconds: min(0.25,asset.duration / 2),preferredTimescale: 600)).image
+                } onCancel: { generator.cancelAllCGImageGeneration() }
+                await decodeGate.release()
+            } catch { await decodeGate.release(); throw error }
+
         }
         if thumbnails.count >= 200 { thumbnails.removeAll(keepingCapacity: true) }
         thumbnails[key] = image; cache.write(image,key: key)
@@ -107,21 +115,23 @@ public actor MediaLibrary {
     }
     /// Requests are limited to visible cells. Source time is quantized to 100 ms for cache reuse.
     public func filmstrip(_ media: MediaAsset,seconds: [Double],mode: PlaybackMediaMode = .original) async throws -> [CGImage] {
-        guard media.kind == .video, seconds.count <= 128, seconds.allSatisfy({ $0.isFinite && $0 >= 0 }) else { throw RenderError.invalid("Invalid filmstrip request.") }
+        guard media.kind == .video, media.duration.isFinite, media.duration > 0, media.duration <= 604800, seconds.count <= 128, seconds.allSatisfy({ $0.isFinite && $0 >= 0 }) else { throw RenderError.invalid("Invalid filmstrip request.") }
+        try Task.checkCancellation()
         let url = MediaResolver.url(for: media,mode: mode)
         let prefix = try cache.key(url,operation: "filmstrip-v1")
         let times = seconds.map { min(max(0,media.duration - 0.001),(min($0,media.duration) * 10).rounded() / 10) }
         var result: [CGImage] = []
         var missing = false
+        var cachedFrames: [String: CGImage] = [:]
         for time in times {
             let key = prefix + "-" + String(Int64((time * 1000).rounded()))
             if filmstripFrames[key] == nil, let image = cache.image(key) {
                 if filmstripFrames.count >= 400 { filmstripFrames.removeAll(keepingCapacity: true) }
                 filmstripFrames[key] = image
             }
-            if filmstripFrames[key] == nil { missing = true }
+            if let image = filmstripFrames[key] { cachedFrames[key] = image } else { missing = true }
         }
-        if !missing { return times.compactMap { filmstripFrames[prefix + "-" + String(Int64(($0 * 1000).rounded()))] } }
+        if !missing { return times.map { cachedFrames[prefix + "-" + String(Int64(($0 * 1000).rounded()))]! } }
         await decodeGate.acquire()
         do {
             try Task.checkCancellation()
@@ -132,7 +142,7 @@ public actor MediaLibrary {
             for time in times {
                 try Task.checkCancellation()
                 let key = prefix + "-" + String(Int64((time * 1000).rounded()))
-                if let image = filmstripFrames[key] { result.append(image); continue }
+                if let image = cachedFrames[key] ?? filmstripFrames[key] { result.append(image); continue }
                 let image = try await withTaskCancellationHandler {
                     try await generator.image(at: CMTime(seconds: time,preferredTimescale: 600)).image
                 } onCancel: { generator.cancelAllCGImageGeneration() }

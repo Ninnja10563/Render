@@ -18,11 +18,12 @@ CI checks are automated, not a claim that this checklist was performed by a huma
 - Queue proxy and optimized media, cancel queued/active work, edit during generation, switch/open projects mid-job, quit during encoding. Switch playback modes; delete/corrupt proxies or move originals; verify fallback notices and offline proxy playback. Export while Proxy is selected and verify original quality. Confirm persistent thumbnail/waveform reuse and source-change invalidation.
 - Add/edit title and caption clips, Unicode/RTL/multiline text, missing fonts, font weight, outline/shadow/background, transforms/effect masks/keyframes and copy/paste. Verify SRT UTF-8 BOM/CRLF import, overlapping cues, timing trims, hidden-track exclusion on SRT export, and Unicode round trips. Compare 720p/4K and different-aspect exports for preserved positions/effect sizes.
 - Export H.264/HEVC/ProRes at each size and rate. Compare frames and audio to preview. Cancel export and verify no partial final file. Try a destination matching source media and an existing file.
+- Verify filmstrip frames across cuts, trimmed and sped-up clips; scroll and zoom rapidly, cancel/reopen projects, switch proxy modes and go offline. Confirm bounded decoding and cache reuse with Instruments, including many simultaneous visible tracks.
 - Stress long projects with many tracks/clips. Profile CPU, GPU, memory and disk with Instruments. Document limits before describing Render as production ready.
 
 ## Current limitations needing development
 
-No compound clips, multicam, transitions, reverse export, speed ramps, pan/EQ/compressor, meters, customizable shortcuts, full filmstrip generation. No HDR/color-management workflow beyond SDR sRGB compositing. No advanced bitrate controls. One project window and one recovery slot. Snapshot undo history needs memory profiling on large projects. Composition reuses tracks per timeline lane; physical-device large-timeline and long-duration testing is still required.
+No compound clips, multicam, transitions, reverse export, speed ramps, pan/EQ/compressor, meters, customizable shortcuts. No HDR/color-management workflow beyond SDR sRGB compositing. No advanced bitrate controls. One project window and one recovery slot. Snapshot undo history needs memory profiling on large projects. Composition reuses tracks per timeline lane; physical-device large-timeline and long-duration testing is still required.
 
 Effect masks use a bounded 1024-pixel raster before GPU feathering/expansion and scaling; very detailed high-resolution mattes require further work. The chroma key uses a 32³ lookup table with a bounded cache; it is not yet a production keyer with matte cleanup/tracking. Mask geometry and key colour/softness/spill are static; effect amount supports keyframes.
 
@@ -31,3 +32,5 @@ Generated media lives in Application Support/Render/Generated Media and is refer
 Titles use Core Text and installed fonts, with a 64 MB raster cache and a 128 MB single-raster limit. Subtitle export writes text/timing from caption clips on visible tracks; SRT does not preserve Render styling. No transcription or karaoke/word-level subtitle system yet.
 
 Magnetic connections are one level deep and anchor to primary-storyline clips. Moving a clip off the primary track detaches its dependents; deleting an anchor in magnetic mode removes its connected clips. Connected-track overlaps are rejected rather than automatically creating new lanes. Reassigning the primary track clears existing connections as one undoable operation.
+
+Filmstrip requests decode visible cells only, quantize source time to 100 ms, and share a two-decoder limit with media posters. Generated thumbnails are indicative source frames, not effect-rendered previews. Still images repeat their poster; titles and gaps retain labeled timeline tiles.
