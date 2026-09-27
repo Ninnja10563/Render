@@ -82,7 +82,7 @@ struct PlayerSurface: NSViewRepresentable {
 private struct ViewerView: View {
     @ObservedObject var session: EditorSession
     @ObservedObject private var transport: TransportState
-    @State private var zoom: Double = 1
+    @State private var zoom: Double = 0
     init(session: EditorSession) { self.session = session; transport = session.transport }
     var body: some View {
         VStack(spacing: 0) {
@@ -92,10 +92,11 @@ private struct ViewerView: View {
                 Picker("Playback media",selection: $session.playbackMode) {
                     ForEach(PlaybackMediaMode.allCases,id: \.self) { mode in Text(mode.label).tag(mode) }
                 }.labelsHidden().frame(width: 100).controlSize(.mini).help("Final export always uses originals")
-                Menu(zoom == 1 ? "Fit" : "\(Int(zoom * 100))%") {
-                    Button("Fit") { zoom = 1 }
-                    Button("200% of Fit") { zoom = 2 }
-                    Button("400% of Fit") { zoom = 4 }
+                Menu(zoom == 0 ? "Fit" : "\(Int(zoom * 100))%") {
+                    Button("Fit") { zoom = 0 }
+                    Button("100% · Actual Pixels") { zoom = 1 }
+                    Button("200%") { zoom = 2 }
+                    Button("400%") { zoom = 4 }
                 }.menuStyle(.borderlessButton).frame(width: 70)
             }.padding(.horizontal,12).frame(height: 32)
             if let notice = session.playbackNotice {
@@ -104,7 +105,7 @@ private struct ViewerView: View {
             ZStack {
                 Color.black
                 if session.project.duration > 0 {
-                    PlayerSurface(player: session.player).scaleEffect(zoom)
+                    ZoomedPlayerSurface(player: session.player,sequenceSize: CGSize(width: session.project.settings.width,height: session.project.settings.height),zoom: zoom)
                     if let error = session.previewError {
                         VStack(spacing: 12) {
                             Image(systemName: "exclamationmark.triangle").font(.title2)
