@@ -59,6 +59,7 @@ struct InspectorView: View {
                             }.controlSize(.mini)
                         }
                         if isVisual(clip) {
+                        TransitionInspectorView(session: session,clip: clip)
                         inspectorSection("Effects") {
                             ForEach(Array(clip.effects.enumerated()),id: \.element.id) { index,effect in
                                 VStack(spacing: 6) {

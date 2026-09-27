@@ -46,6 +46,13 @@ struct ClipTile: View {
             }.frame(width: max(3,geometry.size.width + session.fps.seconds(trimEdge == .leading ? -trimDelta : trimDelta) * session.pointsPerSecond),height: geometry.size.height)
                 .clipShape(RoundedRectangle(cornerRadius: 3))
                 .overlay { RoundedRectangle(cornerRadius: 3).strokeBorder(selected ? Color.accentColor : .white.opacity(0.12),lineWidth: selected ? 2 : 0.5) }
+                .overlay(alignment: .bottomTrailing) {
+                    if let transition = clip.transition {
+                        Text("⇄").font(.system(size: 9)).foregroundStyle(.white)
+                            .frame(width: max(12,session.fps.seconds(transition.duration / 2) * session.pointsPerSecond),height: 14)
+                            .background(Color.gray.opacity(0.85)).padding(2).help("\(transition.kind.label) · \(session.fps.seconds(transition.duration).formatted()) seconds")
+                    }
+                }
                 .overlay(alignment: .bottomLeading) {
                     if dragFrames != 0, session.tool != .select {
                         Text("\(session.tool.rawValue) \(dragFrames > 0 ? "+" : "")\(dragFrames)f")
