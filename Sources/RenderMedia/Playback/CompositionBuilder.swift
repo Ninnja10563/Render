@@ -122,6 +122,8 @@ public actor CompositionBuilder {
         }
         video.instructions = instructions
         let audio = AVMutableAudioMix(); audio.inputParameters = parameters
+        // Keep source owners alive through all insertions even under Release ARC optimization.
+        withExtendedLifetime(sourceCache) {}
         return PreparedComposition(composition: composition, videoComposition: video, audioMix: audio)
     }
 }

@@ -40,3 +40,5 @@ The future milestone numbers above describe feature order only; actual versions 
 ## Reproducible core benchmark
 
 `scripts/benchmark.sh` builds only RenderCore in Release configuration for both v0.2.0 and the working tree, then applies the identical 1,000-clip group-move XCTest workload on the same machine. Logs are retained in `build/baseline-benchmark.log` and `build/current-benchmark.log` and uploaded by CI. This measures core transaction latency, not sustained playback, decoding throughput, GPU utilization or real editing-session memory.
+
+Measured on the same Apple Silicon macOS 15 runner in [validation run 36354803548](https://github.com/Ninnja10563/Render/actions/runs/36354803548): mean 1,000-clip group-edit latency was 19.3539 ms at v0.2.0 and 1.3819 ms after indexing, approximately 14× faster. These are ten-iteration Release-build core-logic measurements; they do not quantify playback FPS or GPU throughput.

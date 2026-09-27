@@ -2,6 +2,8 @@
 
 A native, non-destructive macOS video editor built with SwiftUI, AppKit, AVFoundation and a Metal-backed Core Image compositor. Render is an early-stage long-term editor project, not yet a production replacement for an established NLE.
 
+![Render running on macOS with an automated composition test project](docs/assets/workspace.png)
+
 ## Requirements
 
 Apple Silicon · macOS 14+ · Xcode 16.4+ for source builds. No external runtime packages.
