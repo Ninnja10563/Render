@@ -131,7 +131,8 @@ public actor CompositionBuilder {
                     target.scaleTimeRange(CMTimeRange(start: audioStart, duration: audioRange.duration), toDuration: time(audioRange.duration.seconds / clip.speed))
                     let curve = clip.properties.animations["volume"] ?? AnimationCurve()
                     let base = AudioAutomation.ramps(curve: curve,offset: clip.animationOffset - preroll,duration: renderEnd - renderStart,fallback: clip.properties.volume)
-                    let ramps = AudioAutomation.applyingFades(to: base,duration: renderEnd - renderStart,fadeIn: incoming?.duration ?? 0,fadeOut: outgoing?.duration ?? 0)
+                    let faded = AudioAutomation.applying(clip.properties.audioFades,to: base,offset: clip.animationOffset - preroll)
+                    let ramps = AudioAutomation.applyingFades(to: faded,duration: renderEnd - renderStart,fadeIn: incoming?.duration ?? 0,fadeOut: outgoing?.duration ?? 0)
                     for ramp in ramps {
                         mix.setVolumeRamp(fromStartVolume: Float(ramp.from),toEndVolume: Float(ramp.to),
                                           timeRange: CMTimeRange(start: start + time(rate.seconds(ramp.start)),duration: time(rate.seconds(ramp.end - ramp.start))))

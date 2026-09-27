@@ -48,9 +48,12 @@ struct InspectorView: View {
                             property("Bottom (%)",key: "cropBottom",range: 0...1,reset: 0,clip: clip,displayScale: 100)
                         }
                         }
+                        if hasAudio(clip) {
                         inspectorSection("Audio") {
                             property("Volume",key: "volume",range: 0...4,reset: 1,clip: clip)
                             Toggle("Mute clip",isOn: Binding(get: { clip.properties.muted },set: { value in var p = clip.properties; p.muted = value; session.perform(.properties(clip: clip.id,p)) })).font(.system(size: 11))
+                        }
+                            AudioFadeInspectorView(session: session,clip: clip)
                         }
                         inspectorSection("Timing") {
                             InspectorNumber(label: "Speed (%)",value: clip.speed * 100,range: 5...1600,reset: 100) { session.perform(.speed(clip: clip.id,$0 / 100)) }
@@ -116,6 +119,10 @@ struct InspectorView: View {
                 }
             }
         }
+    }
+    func hasAudio(_ clip: TimelineClip) -> Bool {
+        guard let media = session.project.assets.first(where: { $0.id == clip.assetID }) else { return false }
+        return media.kind == .audio || media.audioChannels > 0
     }
     func isVisual(_ clip: TimelineClip) -> Bool { session.project.assets.first(where: { $0.id == clip.assetID })?.kind != .audio }
     func property(_ label: String,key: String,range: ClosedRange<Double>,reset: Double,clip: TimelineClip,displayScale: Double = 1) -> some View {

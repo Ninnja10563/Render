@@ -64,7 +64,7 @@ public struct ProjectSettings: Codable, Equatable, Sendable {
     public init() {}
 }
 public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
-    public static let currentSchema = 7
+    public static let currentSchema = 8
     public var schemaVersion = currentSchema
     public var id = UUID()
     public var name = "Untitled"
@@ -129,6 +129,7 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
                 }
                 let p = clip.properties
                 try p.geometry?.validate()
+                try p.audioFades?.validate()
                 guard [p.x,p.y,p.scale,p.rotation,p.opacity,p.volume].allSatisfy(\.isFinite),
                       (0.01...10).contains(p.scale), (0...1).contains(p.opacity), (0...4).contains(p.volume),
                       abs(p.x) <= 32768, abs(p.y) <= 32768, abs(p.rotation) <= 3600 else { throw RenderError.invalid("Invalid clip properties.") }
