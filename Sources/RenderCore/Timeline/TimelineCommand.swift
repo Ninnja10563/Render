@@ -363,9 +363,13 @@ public enum TimelineCommand: Sendable {
             }
         case .paste(let clips, let track, let at):
             let t = try trackIndex(track)
+            guard Set(clips.map(\.id)).count == clips.count else { throw RenderError.invalid("Clipboard contains duplicate clips.") }
+            let copiedIDs = Dictionary(uniqueKeysWithValues: clips.map { ($0.id,UUID()) })
             let origin = clips.map(\.start).min() ?? 0
             project.tracks[t].clips += clips.map { source in
-                var clip = source; clip.id = UUID(); clip.start = at + source.start - origin; return clip
+                var clip = source; clip.id = copiedIDs[source.id]!; clip.start = at + source.start - origin
+                if let transition = clip.transition, let right = copiedIDs[transition.rightID] { clip.transition?.rightID = right }
+                return clip
             }
         case .properties(let id, let properties):
             let (t, c) = try location(id); project.tracks[t].clips[c].properties = properties

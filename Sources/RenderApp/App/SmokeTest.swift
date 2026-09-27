@@ -77,6 +77,11 @@ extension EditorSession {
         setProperty("scaleX",value: 0.95,clipID: original.id)
         guard project.clip(original.id)?.properties.geometry?.cropLeft == 0.03,
               project.clip(titleClip.id)?.properties.geometry == nil else { throw RenderError.invalid("Inspector property edit targeted the wrong selection.") }
+        if let left = project.clip(original.id), let track = project.tracks.first(where: { $0.clips.contains(where: { $0.id == original.id }) }), let right = track.clips.first(where: { $0.start == left.end }) {
+            perform(.transition(clip: left.id,ClipTransition(rightID: right.id,kind: .crossDissolve,duration: 20)))
+            guard project.clip(left.id)?.transition != nil else { throw RenderError.invalid("Transition authoring failed.") }
+            undo(); redo()
+        }
         selectedAsset = asset.id
         if let image = try await library.thumbnail(asset) { thumbnails[asset.id] = NSImage(cgImage: image,size: .zero) }
         let deadline = Date().addingTimeInterval(15)
