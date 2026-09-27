@@ -37,6 +37,8 @@ public final class ExportService: ObservableObject {
         exporter.outputURL = temporary
         exporter.outputFileType = configuration.codec == .proRes ? .mov : .mp4
         exporter.videoComposition = prepared.videoComposition; exporter.audioMix = prepared.audioMix
+        // Bound the output explicitly; time-pitch processing can otherwise expose an audio tail.
+        exporter.timeRange = CMTimeRange(start: .zero,duration: CMTime(value: project.duration * Int64(project.settings.frameRate.denominator),timescale: project.settings.frameRate.numerator))
         exporter.shouldOptimizeForNetworkUse = true
         let monitor = Task { @MainActor in
             while !Task.isCancelled {
