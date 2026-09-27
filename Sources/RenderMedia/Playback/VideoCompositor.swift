@@ -27,6 +27,7 @@ final class RenderInstruction: NSObject, AVVideoCompositionInstructionProtocol {
 public final class VideoCompositor: NSObject, AVVideoCompositing {
     public let sourcePixelBufferAttributes: [String: any Sendable]? = [kCVPixelBufferPixelFormatTypeKey as String: [kCVPixelFormatType_32BGRA, kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange, kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]]
     public let requiredPixelBufferAttributesForRenderContext: [String: any Sendable] = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA, kCVPixelBufferMetalCompatibilityKey as String: true]
+    private let effects = EffectRenderer()
     private let queue = DispatchQueue(label: "app.render.compositor", qos: .userInteractive)
     private let context: CIContext = {
         let options: [CIContextOption: Any] = [.cacheIntermediates: false, .workingColorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!]
@@ -53,21 +54,14 @@ public final class VideoCompositor: NSObject, AVVideoCompositing {
                     var image = source.transformed(by: CGAffineTransform(translationX: -source.extent.minX, y: -source.extent.minY))
                     let fit = min(bounds.width / image.extent.width, bounds.height / image.extent.height)
                     let scale = fit * p.value("scale", at: frame)
-                    image = image.transformed(by: CGAffineTransform(translationX: -image.extent.width / 2, y: -image.extent.height / 2))
-                        .transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-                        .transformed(by: CGAffineTransform(rotationAngle: p.value("rotation", at: frame) * .pi / 180))
-                        .transformed(by: CGAffineTransform(translationX: bounds.midX + p.value("x", at: frame), y: bounds.midY + p.value("y", at: frame)))
+                    let sourceBounds = image.extent
+                    let transform = CGAffineTransform(translationX: -image.extent.width / 2,y: -image.extent.height / 2)
+                        .concatenating(CGAffineTransform(scaleX: scale,y: scale))
+                        .concatenating(CGAffineTransform(rotationAngle: p.value("rotation",at: frame) * .pi / 180))
+                        .concatenating(CGAffineTransform(translationX: bounds.midX + p.value("x",at: frame),y: bounds.midY + p.value("y",at: frame)))
+                    image = image.transformed(by: transform)
                     for effect in layer.clip.effects where effect.enabled {
-                        let value = effect.animation.value(at: frame, fallback: effect.amount)
-                        switch effect.kind {
-                        case .exposure: image = image.applyingFilter("CIExposureAdjust", parameters: [kCIInputEVKey: value])
-                        case .brightness: image = image.applyingFilter("CIColorControls", parameters: [kCIInputBrightnessKey: value])
-                        case .contrast: image = image.applyingFilter("CIColorControls", parameters: [kCIInputContrastKey: value])
-                        case .saturation: image = image.applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: value])
-                        case .gaussianBlur: image = image.clampedToExtent().applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: value]).cropped(to: image.extent)
-                        case .sharpen: image = image.applyingFilter("CISharpenLuminance", parameters: [kCIInputSharpnessKey: value])
-                        case .vignette: image = image.applyingFilter("CIVignette", parameters: [kCIInputIntensityKey: value])
-                        }
+                        image = effects.apply(effect,to: image,at: frame,sourceBounds: sourceBounds,transform: transform)
                     }
                     image = image.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: p.value("opacity", at: frame))])
                     canvas = image.composited(over: canvas).cropped(to: bounds)

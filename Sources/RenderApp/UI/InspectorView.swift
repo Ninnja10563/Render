@@ -48,6 +48,7 @@ struct InspectorView: View {
                                         Button { var effects = clip.effects; effects.remove(at: index); session.perform(.effects(clip: clip.id,effects)) } label: { Image(systemName: "xmark") }.help("Remove effect")
                                     }.buttonStyle(.plain)
                                     EffectAmountView(session: session,clip: clip,effect: effect)
+                                    EffectDetailsView(session: session,clip: clip,effect: effect)
                                 }.padding(.bottom,4)
                             }
                             Menu { ForEach(EffectKind.allCases,id: \.self) { kind in Button(kind.label) { session.perform(.effects(clip: clip.id,clip.effects + [Effect(kind: kind)])) } } } label: { Label("Add Effect",systemImage: "plus") }

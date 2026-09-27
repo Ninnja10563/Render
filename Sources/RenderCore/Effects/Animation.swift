@@ -39,9 +39,15 @@ public struct AnimationCurve: Codable, Equatable, Sendable {
 }
 
 public enum EffectKind: String, Codable, CaseIterable, Sendable {
-    case exposure, brightness, contrast, saturation, gaussianBlur, sharpen, vignette
+    case exposure, brightness, contrast, saturation, gaussianBlur, sharpen, vignette, highlights, shadows, temperature, tint, chromaKey, opacity
     public var label: String {
         switch self {
+        case .highlights: return "Highlights"
+        case .shadows: return "Shadows"
+        case .temperature: return "Temperature"
+        case .tint: return "Tint"
+        case .chromaKey: return "Chroma Key"
+        case .opacity: return "Opacity"
         case .exposure: return "Exposure"
         case .brightness: return "Brightness"
         case .contrast: return "Contrast"
@@ -53,6 +59,9 @@ public enum EffectKind: String, Codable, CaseIterable, Sendable {
     }
     public var range: ClosedRange<Double> {
         switch self {
+        case .highlights, .shadows, .chromaKey, .opacity: return 0...1
+        case .temperature: return 2000...12000
+        case .tint: return -150...150
         case .exposure: return -4...4
         case .brightness: return -1...1
         case .contrast, .saturation: return 0...2
@@ -61,7 +70,7 @@ public enum EffectKind: String, Codable, CaseIterable, Sendable {
         }
     }
     public var defaultValue: Double {
-        switch self { case .contrast, .saturation: return 1; case .gaussianBlur: return 5; case .sharpen, .vignette: return 0.5; default: return 0 }
+        switch self { case .temperature: return 6500; case .chromaKey: return 0.15; case .highlights, .contrast, .saturation: return 1; case .gaussianBlur: return 5; case .sharpen, .vignette: return 0.5; default: return 0 }
     }
 }
 public struct Effect: Codable, Equatable, Identifiable, Sendable {
@@ -69,6 +78,8 @@ public struct Effect: Codable, Equatable, Identifiable, Sendable {
     public var kind: EffectKind
     public var enabled = true
     public var amount: Double
+    public var mask: EffectMask?
+    public var keying: ChromaKeySettings?
     public var animation = AnimationCurve()
     public init(kind: EffectKind) { self.kind = kind; amount = kind.defaultValue }
 }

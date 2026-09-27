@@ -11,8 +11,10 @@ public actor ProjectStore {
         struct Header: Decodable { var schemaVersion: Int }
         let decoder = JSONDecoder()
         let header = try decoder.decode(Header.self, from: data)
-        guard header.schemaVersion == RenderProject.currentSchema else { throw RenderError.unsupportedVersion(header.schemaVersion) }
-        let project = try decoder.decode(RenderProject.self, from: data)
+        guard (1...RenderProject.currentSchema).contains(header.schemaVersion) else { throw RenderError.unsupportedVersion(header.schemaVersion) }
+        var project = try decoder.decode(RenderProject.self, from: data)
+        // Schema 2 adds optional effect masks/keying; schema-1 curves and edits remain unchanged.
+        project.schemaVersion = RenderProject.currentSchema
         try project.validate()
         return project
     }

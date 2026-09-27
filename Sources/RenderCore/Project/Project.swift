@@ -59,7 +59,7 @@ public struct ProjectSettings: Codable, Equatable, Sendable {
     public init() {}
 }
 public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
-    public static let currentSchema = 1
+    public static let currentSchema = 2
     public var schemaVersion = currentSchema
     public var id = UUID()
     public var name = "Untitled"
@@ -117,6 +117,8 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
                 }
                 guard Set(clip.effects.map(\.id)).count == clip.effects.count else { throw RenderError.invalid("Duplicate effects.") }
                 for effect in clip.effects {
+                    try effect.mask?.validate()
+                    try effect.keying?.validate()
                     guard effect.amount.isFinite, effect.kind.range.contains(effect.amount) else { throw RenderError.invalid("Effect value is out of range.") }
                     try Self.validateCurve(effect.animation)
                     guard effect.animation.keys.allSatisfy({ effect.kind.range.contains($0.value) }) else { throw RenderError.invalid("Effect keyframe is out of range.") }
