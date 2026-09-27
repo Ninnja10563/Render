@@ -13,4 +13,5 @@ if kill -0 "$APP_PID" 2>/dev/null; then kill "$APP_PID"; cat build/launch.log; e
 wait "$APP_PID"
 cat build/launch.log
 grep -q RENDER_SMOKE_OK build/launch.log
+grep -q RENDER_EDIT_SMOKE_OK build/launch.log
 test -s build/workspace.png

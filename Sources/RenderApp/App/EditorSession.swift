@@ -9,6 +9,7 @@ import RenderMedia
 final class EditorSession: ObservableObject {
     @Published var project = RenderProject()
     @Published var selection: Set<UUID> = []
+    @Published var movePreview: Int64 = 0
     @Published var selectedAsset: UUID?
     @Published var selectedTrack: UUID?
     @Published var playhead: Int64 = 0
@@ -55,6 +56,8 @@ final class EditorSession: ObservableObject {
     var canRedo: Bool { history.canRedo }
     init() {
         savedProject = project
+        history.groupsByEvent = false
+        history.levelsOfUndo = 200
         recentURLs = (UserDefaults.standard.stringArray(forKey: "recentProjects") ?? []).map { URL(fileURLWithPath: $0) }
         player.actionAtItemEnd = .pause
         observer = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 60), queue: .main) { [weak self] time in
@@ -95,8 +98,14 @@ final class EditorSession: ObservableObject {
         do { try next.validate() } catch { report(error); return }
         guard next != project else { return }
         let previous = project
-        history.registerUndo(withTarget: self) { target in target.commit(previous, name: name) }
+        let explicitGroup = !history.isUndoing && !history.isRedoing
+        if explicitGroup { history.beginUndoGrouping() }
+        history.registerUndo(withTarget: self) { target in
+            // UndoManager is owned and invoked exclusively by this main-actor session.
+            MainActor.assumeIsolated { target.commit(previous, name: name) }
+        }
         history.setActionName(name)
+        if explicitGroup { history.endUndoGrouping() }
         project = next; isDirty = project != savedProject
         selection = selection.filter { project.clip($0) != nil }
         scheduleRecovery()

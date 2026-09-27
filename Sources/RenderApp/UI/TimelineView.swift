@@ -151,9 +151,10 @@ private struct ClipTile: View {
                     if !selected { session.selectClip(clip.id) }
                     let proposed = clip.start + session.fps.frames(value.translation.width / session.pointsPerSecond)
                     dragFrames = session.snap(proposed,excluding: session.selection) - clip.start
+                    session.movePreview = dragFrames
                 }.onEnded { _ in
                     if dragFrames != 0 { session.perform(.move(clips: session.selection,delta: dragFrames)) }
-                    dragFrames = 0
+                    dragFrames = 0; session.movePreview = 0
                 })
                 .onTapGesture { location in
                     if session.tool == .blade { session.perform(.split(clips: [clip.id],at: clip.start + session.fps.frames(location.x / session.pointsPerSecond))) }
@@ -169,7 +170,7 @@ private struct ClipTile: View {
                     Button("Delete") { session.perform(.delete(clips: [clip.id],ripple: false)) }
                     Button("Ripple Delete") { session.perform(.delete(clips: [clip.id],ripple: true)) }
                 }
-                .offset(x: session.fps.seconds(dragFrames) * session.pointsPerSecond)
+                .offset(x: session.fps.seconds(selected ? session.movePreview : 0) * session.pointsPerSecond)
         }.help("\(clip.name) · \(session.fps.timecode(clip.duration))\(track.locked ? " · Locked" : "")")
     }
     func trimHandle(_ edge: TrimEdge) -> some View {

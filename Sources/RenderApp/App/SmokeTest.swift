@@ -1,0 +1,50 @@
+import AppKit
+import AVFoundation
+import RenderCore
+
+extension EditorSession {
+    /// Runs only when explicitly requested by the packaging script; no user document is touched.
+    func runSmokeTest() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Render-Smoke-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder,withIntermediateDirectories: true)
+        let url = folder.appendingPathComponent("Composition test card.png")
+        let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil,pixelsWide: 1920,pixelsHigh: 1080,bitsPerSample: 8,samplesPerPixel: 4,hasAlpha: true,isPlanar: false,colorSpaceName: .deviceRGB,bytesPerRow: 0,bitsPerPixel: 0)!
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+        NSColor(calibratedRed: 0.08,green: 0.13,blue: 0.18,alpha: 1).setFill()
+        NSBezierPath(rect: NSRect(x: 0,y: 0,width: 1920,height: 1080)).fill()
+        let colors: [NSColor] = [.init(calibratedRed: 0.65,green: 0.84,blue: 0.82,alpha: 1),.init(calibratedRed: 0.33,green: 0.53,blue: 0.64,alpha: 1),.init(calibratedRed: 0.85,green: 0.54,blue: 0.36,alpha: 1)]
+        for (index,color) in colors.enumerated() { color.setFill(); NSBezierPath(rect: NSRect(x: 220 + index * 500,y: 210,width: 440,height: 280)).fill() }
+        NSString(string: "Render").draw(at: NSPoint(x: 220,y: 660),withAttributes: [.font: NSFont.systemFont(ofSize: 124,weight: .medium),.foregroundColor: NSColor.white])
+        NSString(string: "COMPOSITION VALIDATION  /  1920 × 1080").draw(at: NSPoint(x: 230,y: 570),withAttributes: [.font: NSFont.monospacedSystemFont(ofSize: 26,weight: .regular),.foregroundColor: NSColor.lightGray])
+        NSGraphicsContext.restoreGraphicsState()
+        try bitmap.representation(using: .png,properties: [:])!.write(to: url)
+        let asset = try await library.analyze(url)
+        perform(.addAsset(asset))
+        append(asset.id)
+        guard let original = project.tracks[0].clips.first else { throw RenderError.invalid("Smoke import did not produce a clip.") }
+        selection = [original.id]
+        seek(60); split()
+        guard project.tracks[0].clips.count == 2 else { throw RenderError.invalid("Smoke split failed.") }
+        undo()
+        guard project.tracks[0].clips.count == 1 else { throw RenderError.invalid("Smoke undo failed.") }
+        redo()
+        guard project.tracks[0].clips.count == 2 else { throw RenderError.invalid("Smoke redo failed.") }
+        selection = [original.id]
+        setProperty("scale",value: 0.9)
+        toggleKeyframe("opacity")
+        perform(.marker(.init(frame: 60,name: "Edit point")))
+        selectedAsset = asset.id
+        if let image = try await library.thumbnail(asset) { thumbnails[asset.id] = NSImage(cgImage: image,size: .zero) }
+        let deadline = Date().addingTimeInterval(15)
+        while !previewReady || player.currentItem?.status != .readyToPlay {
+            if let error = previewError { throw RenderError.invalid(error) }
+            guard Date() < deadline else { throw RenderError.invalid("Playback never became ready during launch validation.") }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        seek(30)
+        try await Task.sleep(nanoseconds: 500_000_000)
+        guard errorMessage == nil else { throw RenderError.invalid(errorMessage!) }
+        print("RENDER_EDIT_SMOKE_OK import split undo redo transform keyframe playback")
+    }
+}

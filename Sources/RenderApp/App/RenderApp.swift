@@ -27,12 +27,18 @@ final class RenderAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
             NSApp.windows.first(where: { $0.canBecomeMain })?.delegate = self
             if CommandLine.arguments.contains("--smoke-test") {
-                guard let window = NSApp.windows.first(where: { $0.isVisible }), let view = window.contentView,
-                      let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { exit(2) }
-                view.cacheDisplay(in: view.bounds, to: bitmap)
-                if let path = ProcessInfo.processInfo.environment["RENDER_SCREENSHOT"], let png = bitmap.representation(using: .png, properties: [:]) { try? png.write(to: URL(fileURLWithPath: path)) }
-                print("RENDER_SMOKE_OK \(window.frame.width)x\(window.frame.height)")
-                fflush(stdout); NSApp.terminate(nil)
+                Task { @MainActor in
+                    do {
+                        guard let session = self?.session else { throw NSError(domain: "RenderSmoke",code: 1) }
+                        try await session.runSmokeTest()
+                        guard let window = NSApp.windows.first(where: { $0.isVisible }), let view = window.contentView,
+                              let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { exit(2) }
+                        view.cacheDisplay(in: view.bounds, to: bitmap)
+                        if let path = ProcessInfo.processInfo.environment["RENDER_SCREENSHOT"], let png = bitmap.representation(using: .png, properties: [:]) { try png.write(to: URL(fileURLWithPath: path)) }
+                        print("RENDER_SMOKE_OK \(window.frame.width)x\(window.frame.height)")
+                        fflush(stdout); NSApp.terminate(nil)
+                    } catch { print("RENDER_SMOKE_FAILED \(error.localizedDescription)"); fflush(stdout); exit(3) }
+                }
             }
         }
     }
