@@ -4,6 +4,8 @@ import AppKit
 import RenderCore
 
 public actor MediaLibrary {
+    private let decodeGate = MediaDecodeGate()
+    private var filmstripFrames: [String: CGImage] = [:]
     private var thumbnails: [String: CGImage] = [:]
     private var waveforms: [String: [Float]] = [:]
     private let cache: MediaCache
@@ -103,5 +105,42 @@ public actor MediaLibrary {
         if let data = try? JSONEncoder().encode(peaks) { cache.write(data,key: key) }
         return peaks
     }
-    public func invalidate(_ url: URL) { thumbnails.removeAll(); waveforms.removeAll() }
+    /// Requests are limited to visible cells. Source time is quantized to 100 ms for cache reuse.
+    public func filmstrip(_ media: MediaAsset,seconds: [Double],mode: PlaybackMediaMode = .original) async throws -> [CGImage] {
+        guard media.kind == .video, seconds.count <= 128, seconds.allSatisfy({ $0.isFinite && $0 >= 0 }) else { throw RenderError.invalid("Invalid filmstrip request.") }
+        let url = MediaResolver.url(for: media,mode: mode)
+        let prefix = try cache.key(url,operation: "filmstrip-v1")
+        let times = seconds.map { min(max(0,media.duration - 0.001),(min($0,media.duration) * 10).rounded() / 10) }
+        var result: [CGImage] = []
+        var missing = false
+        for time in times {
+            let key = prefix + "-" + String(Int64((time * 1000).rounded()))
+            if filmstripFrames[key] == nil, let image = cache.image(key) {
+                if filmstripFrames.count >= 400 { filmstripFrames.removeAll(keepingCapacity: true) }
+                filmstripFrames[key] = image
+            }
+            if filmstripFrames[key] == nil { missing = true }
+        }
+        if !missing { return times.compactMap { filmstripFrames[prefix + "-" + String(Int64(($0 * 1000).rounded()))] } }
+        await decodeGate.acquire()
+        do {
+            try Task.checkCancellation()
+            let generator = AVAssetImageGenerator(asset: AVURLAsset(url: url))
+            generator.appliesPreferredTrackTransform = true; generator.maximumSize = CGSize(width: 160,height: 90)
+            generator.requestedTimeToleranceBefore = CMTime(seconds: 0.1,preferredTimescale: 600)
+            generator.requestedTimeToleranceAfter = CMTime(seconds: 0.1,preferredTimescale: 600)
+            for time in times {
+                try Task.checkCancellation()
+                let key = prefix + "-" + String(Int64((time * 1000).rounded()))
+                if let image = filmstripFrames[key] { result.append(image); continue }
+                let image = try await withTaskCancellationHandler {
+                    try await generator.image(at: CMTime(seconds: time,preferredTimescale: 600)).image
+                } onCancel: { generator.cancelAllCGImageGeneration() }
+                if filmstripFrames.count >= 400 { filmstripFrames.removeAll(keepingCapacity: true) }
+                filmstripFrames[key] = image; cache.write(image,key: key); result.append(image)
+            }
+            await decodeGate.release(); return result
+        } catch { await decodeGate.release(); throw error }
+    }
+    public func invalidate(_ url: URL) { thumbnails.removeAll(); waveforms.removeAll(); filmstripFrames.removeAll() }
 }
