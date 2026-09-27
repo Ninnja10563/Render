@@ -8,7 +8,7 @@ final class EffectRenderer {
     private var cubes: [CubeKey: Data] = [:]
     private var masks: [MaskKey: CIImage] = [:]
 
-    func apply(_ effect: Effect,to input: CIImage,at frame: Double,sourceBounds: CGRect,transform: CGAffineTransform) -> CIImage {
+    func apply(_ effect: Effect,to input: CIImage,at frame: Double,sourceBounds: CGRect,transform: CGAffineTransform) throws -> CIImage {
         let value = effect.animation.value(at: frame,fallback: effect.amount)
         let filtered: CIImage
         switch effect.kind {
@@ -42,17 +42,18 @@ final class EffectRenderer {
             }
             filtered = input.applyingFilter("CIColorCubeWithColorSpace",parameters: ["inputCubeDimension": 32,"inputCubeData": data,"inputColorSpace": CGColorSpace(name: CGColorSpace.sRGB)!])
         }
-        guard let mask = effect.mask, let image = maskImage(mask,bounds: sourceBounds) else { return filtered }
+        guard let mask = effect.mask else { return filtered }
+        let image = try maskImage(mask,bounds: sourceBounds)
         let positioned = image.transformed(by: transform).composited(over: CIImage(color: .black))
         return filtered.applyingFilter("CIBlendWithMask",parameters: [kCIInputBackgroundImageKey: input,kCIInputMaskImageKey: positioned]).cropped(to: input.extent)
     }
 
-    private func maskImage(_ mask: EffectMask,bounds: CGRect) -> CIImage? {
+    private func maskImage(_ mask: EffectMask,bounds: CGRect) throws -> CIImage {
         let key = MaskKey(mask: mask,width: Int(bounds.width),height: Int(bounds.height))
         if let cached = masks[key] { return cached }
         let factor = min(1,1024 / max(bounds.width,bounds.height))
         let width = max(1,Int(bounds.width * factor)), height = max(1,Int(bounds.height * factor))
-        guard let context = CGContext(data: nil,width: width,height: height,bitsPerComponent: 8,bytesPerRow: width,space: CGColorSpaceCreateDeviceGray(),bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return nil }
+        guard let context = CGContext(data: nil,width: width,height: height,bitsPerComponent: 8,bytesPerRow: width,space: CGColorSpaceCreateDeviceGray(),bitmapInfo: CGImageAlphaInfo.none.rawValue) else { throw RenderError.invalid("Unable to allocate an effect mask.") }
         context.setFillColor(gray: 0,alpha: 1); context.fill(CGRect(x: 0,y: 0,width: width,height: height))
         context.setFillColor(gray: 1,alpha: 1)
         let rect = CGRect(x: (mask.x - mask.width / 2) * Double(width),y: (mask.y - mask.height / 2) * Double(height),width: mask.width * Double(width),height: mask.height * Double(height))
@@ -66,14 +67,16 @@ final class EffectRenderer {
             }
             context.closePath(); context.fillPath()
         }
-        guard let bitmap = context.makeImage() else { return nil }
-        var image = CIImage(cgImage: bitmap).transformed(by: CGAffineTransform(scaleX: bounds.width / Double(width),y: bounds.height / Double(height)))
-        let shortSide = min(bounds.width,bounds.height)
+        guard let bitmap = context.makeImage() else { throw RenderError.invalid("Unable to allocate an effect mask.") }
+        var image = CIImage(cgImage: bitmap)
+        let rasterBounds = image.extent
+        let shortSide = min(rasterBounds.width,rasterBounds.height)
         if mask.expansion != 0 {
-            image = image.clampedToExtent().applyingFilter(mask.expansion > 0 ? "CIMorphologyMaximum" : "CIMorphologyMinimum",parameters: [kCIInputRadiusKey: abs(mask.expansion) * shortSide]).cropped(to: bounds)
+            image = image.clampedToExtent().applyingFilter(mask.expansion > 0 ? "CIMorphologyMaximum" : "CIMorphologyMinimum",parameters: [kCIInputRadiusKey: abs(mask.expansion) * shortSide]).cropped(to: rasterBounds)
         }
-        if mask.feather > 0 { image = image.clampedToExtent().applyingFilter("CIGaussianBlur",parameters: [kCIInputRadiusKey: mask.feather * shortSide]).cropped(to: bounds) }
+        if mask.feather > 0 { image = image.clampedToExtent().applyingFilter("CIGaussianBlur",parameters: [kCIInputRadiusKey: mask.feather * shortSide]).cropped(to: rasterBounds) }
         if mask.inverted { image = image.applyingFilter("CIColorInvert") }
+        image = image.transformed(by: CGAffineTransform(scaleX: bounds.width / Double(width),y: bounds.height / Double(height)))
         if masks.count >= 16 { masks.removeAll(keepingCapacity: true) }
         masks[key] = image
         return image

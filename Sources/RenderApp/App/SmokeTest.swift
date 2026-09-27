@@ -51,6 +51,11 @@ extension EditorSession {
         perform(.animation(clip: original.id,target: .effect(effect.id),edit: .move(key: key.id,to: 5)))
         undo()
         guard project.clip(original.id)?.effects.first?.animation.keys.first?.frame == 0 else { throw RenderError.invalid("Keyframe undo failed.") }
+        var masked = Effect(kind: .saturation)
+        masked.amount = 0.5; masked.mask = EffectMask()
+        perform(.effects(clip: original.id,(project.clip(original.id)?.effects ?? []) + [masked]))
+        guard project.clip(original.id)?.effects.last?.mask != nil else { throw RenderError.invalid("Mask command failed.") }
+        undo(); redo()
         perform(.marker(.init(frame: 60,name: "Edit point")))
         selectedAsset = asset.id
         if let image = try await library.thumbnail(asset) { thumbnails[asset.id] = NSImage(cgImage: image,size: .zero) }

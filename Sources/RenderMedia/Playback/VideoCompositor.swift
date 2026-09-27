@@ -61,7 +61,8 @@ public final class VideoCompositor: NSObject, AVVideoCompositing {
                         .concatenating(CGAffineTransform(translationX: bounds.midX + p.value("x",at: frame),y: bounds.midY + p.value("y",at: frame)))
                     image = image.transformed(by: transform)
                     for effect in layer.clip.effects where effect.enabled {
-                        image = effects.apply(effect,to: image,at: frame,sourceBounds: sourceBounds,transform: transform)
+                        do { image = try effects.apply(effect,to: image,at: frame,sourceBounds: sourceBounds,transform: transform) }
+                        catch { request.finish(with: error); return }
                     }
                     image = image.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: p.value("opacity", at: frame))])
                     canvas = image.composited(over: canvas).cropped(to: bounds)
