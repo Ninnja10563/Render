@@ -32,6 +32,7 @@ struct WorkspaceView: View {
                 }
             }
             ToolbarItemGroup(placement: .primaryAction) {
+                BackgroundTasksButton(queue: session.backgroundTasks)
                 Button { session.showInspector.toggle() } label: { Image(systemName: "sidebar.right") }.help("Show or hide inspector")
                 Button { session.showExport = true } label: { Label("Export", systemImage: "square.and.arrow.up") }.disabled(session.project.duration == 0)
             }
@@ -88,12 +89,18 @@ private struct ViewerView: View {
             HStack {
                 Text("VIEWER").font(.system(size: 10,weight: .semibold)).foregroundStyle(.secondary)
                 Spacer()
+                Picker("Playback media",selection: $session.playbackMode) {
+                    ForEach(PlaybackMediaMode.allCases,id: \.self) { mode in Text(mode.label).tag(mode) }
+                }.labelsHidden().frame(width: 100).controlSize(.mini).help("Final export always uses originals")
                 Menu(zoom == 1 ? "Fit" : "\(Int(zoom * 100))%") {
                     Button("Fit") { zoom = 1 }
                     Button("200% of Fit") { zoom = 2 }
                     Button("400% of Fit") { zoom = 4 }
                 }.menuStyle(.borderlessButton).frame(width: 70)
             }.padding(.horizontal,12).frame(height: 32)
+            if let notice = session.playbackNotice {
+                Text(notice).font(.system(size: 9)).foregroundStyle(.secondary).padding(.horizontal,8).padding(.bottom,4)
+            }
             ZStack {
                 Color.black
                 if session.project.duration > 0 {

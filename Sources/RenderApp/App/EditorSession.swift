@@ -33,6 +33,9 @@ final class EditorSession: ObservableObject {
     @Published var previewError: String?
     @Published var previewReady = false
     @Published var importing = false
+    @Published var playbackMode: PlaybackMediaMode = .original { didSet { if oldValue != playbackMode { rebuild() } } }
+    @Published var playbackNotice: String?
+    let backgroundTasks = BackgroundTasks()
     let player = AVPlayer()
     let history = UndoManager()
     let exporter = ExportService()
@@ -134,13 +137,15 @@ final class EditorSession: ObservableObject {
         generation = UUID(); let token = generation
         buildTask?.cancel(); pause(); previewReady = false
         let snapshot = project
-        previewError = nil
+        let mode = playbackMode
+        previewError = nil; playbackNotice = nil
         guard snapshot.duration > 0 else { player.replaceCurrentItem(with: nil); playhead = 0; return }
         buildTask = Task {
             do {
-                let prepared = try await builder.build(snapshot)
+                let prepared = try await builder.build(snapshot,mode: mode)
                 try Task.checkCancellation()
                 guard token == generation else { return }
+                playbackNotice = prepared.originalFallbacks.isEmpty ? nil : "\(mode.label) unavailable for \(prepared.originalFallbacks.count) media items; using originals."
                 let item = prepared.playerItem()
                 player.replaceCurrentItem(with: item)
                 playbackObservation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
@@ -354,6 +359,18 @@ final class EditorSession: ObservableObject {
         guard snapping else { return max(0,frame) }
         let targets = [Int64(0),playhead] + project.markers.map(\.frame) + project.tracks.flatMap(\.clips).filter { !ids.contains($0.id) }.flatMap { [$0.start,$0.end] }
         return max(0,TimelineSnap.frame(frame, targets: targets, threshold: max(1,Int64(8 / pointsPerSecond * fps.value))))
+    }
+    func generateMedia(_ media: MediaAsset,mode: PlaybackMediaMode) {
+        let document = project.id
+        backgroundTasks.enqueue(media,mode: mode) { [weak self] result in
+            guard let self, self.project.id == document else { return }
+            switch result {
+            case .success(let variant):
+                guard self.project.assets.contains(where: { $0.id == media.id && $0.url == media.url }) else { return }
+                self.perform(.mediaVariant(asset: media.id,variant))
+            case .failure(let error): self.report(error)
+            }
+        }
     }
     func setProperty(_ key: String, value: Double) {
         guard let clip = selectedClip else { return }

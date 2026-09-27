@@ -44,6 +44,10 @@ struct MediaBrowserView: View {
                             Button("Append to Timeline") { session.append(media.id) }
                             Button("Insert at Playhead") { session.append(media.id,atPlayhead: true,insert: true) }
                             Button("Overwrite at Playhead") { session.append(media.id,atPlayhead: true,overwrite: true) }
+                            if media.kind == .video {
+                                Button("Generate Proxy (720p H.264)") { session.generateMedia(media,mode: .proxy) }
+                                Button("Generate Optimized (ProRes)") { session.generateMedia(media,mode: .optimized) }
+                            }
                             Button("Relink Media…") { session.relink(media) }
                             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([media.url]) }
                         }

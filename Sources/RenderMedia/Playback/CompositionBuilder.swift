@@ -7,6 +7,7 @@ public struct PreparedComposition {
     public let composition: AVMutableComposition
     public let videoComposition: AVMutableVideoComposition
     public let audioMix: AVMutableAudioMix
+    public let originalFallbacks: [String]
     public func playerItem() -> AVPlayerItem {
         let item = AVPlayerItem(asset: composition)
         item.videoComposition = videoComposition; item.audioMix = audioMix
@@ -18,7 +19,7 @@ public struct PreparedComposition {
 public actor CompositionBuilder {
     public init() {}
     private func time(_ seconds: Double) -> CMTime { CMTime(seconds: seconds, preferredTimescale: 600_000) }
-    public func build(_ project: RenderProject) async throws -> PreparedComposition {
+    public func build(_ project: RenderProject,mode: PlaybackMediaMode = .original) async throws -> PreparedComposition {
         try project.validate()
         guard project.duration > 0 else { throw RenderError.invalid("Add a clip to the timeline first.") }
         let rate = project.settings.frameRate
@@ -31,6 +32,7 @@ public actor CompositionBuilder {
               let clock = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else { throw RenderError.invalid("Cannot create the timeline clock.") }
         try clock.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: clockSource, at: .zero)
         var layers: [RenderLayer] = []
+        var fallbacks: Set<String> = []
         var parameters: [AVMutableAudioMixInputParameters] = []
         let anySolo = project.tracks.contains { $0.solo }
         let mediaByID = Dictionary(uniqueKeysWithValues: project.assets.map { ($0.id,$0) })
@@ -44,7 +46,9 @@ public actor CompositionBuilder {
             for clip in track.clips.sorted(by: { $0.start < $1.start }) {
                 try Task.checkCancellation()
                 guard let media = mediaByID[clip.assetID] else { continue }
-                guard FileManager.default.fileExists(atPath: media.url.path) else { throw RenderError.missingMedia(media.name) }
+                let selectedURL = MediaResolver.url(for: media,mode: mode)
+                if mode != .original && media.kind == .video && selectedURL == media.url { fallbacks.insert(media.name) }
+                guard FileManager.default.fileExists(atPath: selectedURL.path) else { throw RenderError.missingMedia(media.name) }
                 let start = time(rate.seconds(clip.start))
                 let targetDuration = time(rate.seconds(clip.duration))
                 let range = CMTimeRange(start: time(clip.sourceIn), duration: time(rate.seconds(clip.duration) * clip.speed))
@@ -57,16 +61,14 @@ public actor CompositionBuilder {
                     continue
                 }
                 let sources: SourceTracks
-                if let cached = sourceCache[media.url] { sources = cached }
-                else {
-                    let asset = AVURLAsset(url: media.url)
-                    let video = try await asset.loadTracks(withMediaType: .video).first
-                    let audio = try await asset.loadTracks(withMediaType: .audio).first
-                    let transform = try await video?.load(.preferredTransform) ?? .identity
-                    let audioRange = try await audio?.load(.timeRange)
-                    sources = SourceTracks(asset: asset,video: video,audio: audio,transform: transform,audioRange: audioRange)
-                    sourceCache[media.url] = sources
-                }
+                if let cached = sourceCache[selectedURL] { sources = cached }
+                else { sources = try await SourceTracks.load(selectedURL); sourceCache[selectedURL] = sources }
+                // Keep audio at source quality when originals are online, even in proxy video mode.
+                let audioSources: SourceTracks
+                if selectedURL != media.url && FileManager.default.fileExists(atPath: media.url.path) {
+                    if let cached = sourceCache[media.url] { audioSources = cached }
+                    else { audioSources = try await SourceTracks.load(media.url); sourceCache[media.url] = audioSources }
+                } else { audioSources = sources }
                 if track.kind == .video && !track.hidden, let source = sources.video {
                     if videoTarget == nil { videoTarget = composition.addMutableTrack(withMediaType: .video,preferredTrackID: kCMPersistentTrackID_Invalid) }
                     guard let target = videoTarget else { throw RenderError.invalid("Too many video tracks.") }
@@ -74,7 +76,7 @@ public actor CompositionBuilder {
                     target.scaleTimeRange(CMTimeRange(start: start, duration: range.duration), toDuration: targetDuration)
                     layers.append(RenderLayer(trackID: target.trackID, clip: clip, preferredTransform: sources.transform, still: nil))
                 }
-                if !track.muted && !clip.properties.muted && (!anySolo || track.solo), let source = sources.audio, let available = sources.audioRange {
+                if !track.muted && !clip.properties.muted && (!anySolo || track.solo), let source = audioSources.audio, let available = audioSources.audioRange {
                     // Some camera files have audio shorter than their video stream.
                     let safeEnd = min(CMTimeGetSeconds(available.end), clip.sourceIn + range.duration.seconds)
                     let safeStart = max(clip.sourceIn, available.start.seconds)
@@ -124,7 +126,7 @@ public actor CompositionBuilder {
         let audio = AVMutableAudioMix(); audio.inputParameters = parameters
         // Keep source owners alive through all insertions even under Release ARC optimization.
         withExtendedLifetime(sourceCache) {}
-        return PreparedComposition(composition: composition, videoComposition: video, audioMix: audio)
+        return PreparedComposition(composition: composition, videoComposition: video, audioMix: audio, originalFallbacks: fallbacks.sorted())
     }
 }
 
@@ -135,6 +137,14 @@ private struct SourceTracks {
     let audio: AVAssetTrack?
     let transform: CGAffineTransform
     let audioRange: CMTimeRange?
+    static func load(_ url: URL) async throws -> SourceTracks {
+        let asset = AVURLAsset(url: url)
+        let video = try await asset.loadTracks(withMediaType: .video).first
+        let audio = try await asset.loadTracks(withMediaType: .audio).first
+        let transform = try await video?.load(.preferredTransform) ?? .identity
+        let audioRange = try await audio?.load(.timeRange)
+        return SourceTracks(asset: asset,video: video,audio: audio,transform: transform,audioRange: audioRange)
+    }
 }
 
 private enum ClockMovie {

@@ -27,6 +27,7 @@ public enum TimelineCommand: Sendable {
     case trackState(track: UUID, locked: Bool, hidden: Bool, muted: Bool, solo: Bool)
     case marker(TimelineMarker)
     case removeMarker(UUID)
+    case mediaVariant(asset: UUID, MediaVariant)
     case relink(asset: UUID, URL)
 
     public var label: String {
@@ -55,6 +56,7 @@ public enum TimelineCommand: Sendable {
         case .trackState: return "Change Track"
         case .marker: return "Add Marker"
         case .removeMarker: return "Delete Marker"
+        case .mediaVariant: return "Attach Generated Media"
         case .relink: return "Relink Media"
         }
     }
@@ -293,9 +295,15 @@ public enum TimelineCommand: Sendable {
             project.tracks[t].muted = muted; project.tracks[t].solo = solo
         case .marker(let marker): project.markers.append(marker)
         case .removeMarker(let id): project.markers.removeAll { $0.id == id }
+        case .mediaVariant(let id,let variant):
+            guard let a = project.assets.firstIndex(where: { $0.id == id }), project.assets[a].url.standardizedFileURL == variant.source.url else { throw RenderError.invalid("The source changed while media was being generated.") }
+            var variants = project.assets[a].variants ?? []
+            variants.removeAll { $0.mode == variant.mode }; variants.append(variant)
+            project.assets[a].variants = variants
         case .relink(let id, let url):
             guard let a = project.assets.firstIndex(where: { $0.id == id }) else { throw RenderError.invalid("Media no longer exists.") }
             project.assets[a].url = url
+            project.assets[a].variants = nil
         }
         try project.validate()
         return project
