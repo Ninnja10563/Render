@@ -317,7 +317,19 @@ extension MediaIntegrationTests {
         let built = try await CompositionBuilder().build(project,outputSize: CGSize(width: 320,height: 180))
         let generator = AVAssetImageGenerator(asset: built.composition); generator.videoComposition = built.videoComposition
         let preview = try await generator.image(at: CMTime(value: 1,timescale: 30)).image
-        let a = pixel(try XCTUnwrap(preview.cropping(to: CGRect(x: 210,y: 90,width: 8,height: 8))))
-        for channel in 0..<3 { XCTAssertEqual(Double(a[channel]),Double(center[channel]),accuracy: 15) }
+        // Compare a region mean, not a single resampled pixel on a glyph edge: H.264 chroma
+        // subsampling legitimately changes individual red/white edge pixels.
+        func mean(_ image: CGImage) -> [Double] {
+            var bytes = [UInt8](repeating: 0,count: image.width * image.height * 4)
+            bytes.withUnsafeMutableBytes { data in
+                let context = CGContext(data: data.baseAddress,width: image.width,height: image.height,bitsPerComponent: 8,bytesPerRow: image.width * 4,space: CGColorSpaceCreateDeviceRGB(),bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                context.draw(image,in: CGRect(x: 0,y: 0,width: image.width,height: image.height))
+            }
+            return (0..<3).map { channel in stride(from: channel,to: bytes.count,by: 4).reduce(0.0) { $0 + Double(bytes[$1]) } / Double(image.width * image.height) }
+        }
+        let region = CGRect(x: 205,y: 85,width: 24,height: 16)
+        let a = mean(try XCTUnwrap(preview.cropping(to: region)))
+        let b = mean(try XCTUnwrap(encoded.cropping(to: region)))
+        for channel in 0..<3 { XCTAssertEqual(a[channel],b[channel],accuracy: 15) }
     }
 }
