@@ -72,33 +72,14 @@ private struct PolygonMaskEditor: View {
     var body: some View {
         VStack(alignment: .leading,spacing: 6) {
             GeometryReader { geometry in
-                Canvas { context,size in
-                    let current = draft ?? points
-                    var path = Path()
-                    for (index,point) in current.enumerated() {
-                        let p = CGPoint(x: point.x * size.width,y: (1 - point.y) * size.height)
-                        if index == 0 { path.move(to: p) } else { path.addLine(to: p) }
-                    }
-                    path.closeSubpath()
-                    context.fill(path,with: .color(.accentColor.opacity(0.15)))
-                    context.stroke(path,with: .color(.accentColor),lineWidth: 1)
-                    for (index,point) in current.enumerated() {
-                        let rect = CGRect(x: point.x * size.width - 3,y: (1 - point.y) * size.height - 3,width: 6,height: 6)
-                        context.fill(Path(ellipseIn: rect),with: .color(index == selected ? .accentColor : .primary))
-                    }
-                }.contentShape(Rectangle()).gesture(DragGesture(minimumDistance: 0).onChanged { event in
-                    let size = geometry.size
-                    if dragged == nil {
-                        let distances = points.enumerated().map { index,point in
-                            (index,hypot(point.x * size.width - event.startLocation.x,(1 - point.y) * size.height - event.startLocation.y))
-                        }
-                        guard let nearest = distances.min(by: { $0.1 < $1.1 }), nearest.1 <= 18 else { return }
-                        dragged = nearest.0; selected = nearest.0; draft = points
-                    }
-                    if let index = dragged {
-                        draft?[index] = MaskPoint(x: max(0,min(1,event.location.x / max(1,size.width))),y: max(0,min(1,1 - event.location.y / max(1,size.height))))
-                    }
-                }.onEnded { _ in if let draft { commit(draft) }; draft = nil; dragged = nil })
+                Canvas { context,size in draw(context: context,size: size) }
+                    .contentShape(Rectangle())
+                    .gesture(DragGesture(minimumDistance: 0).onChanged { event in
+                        drag(event,size: geometry.size)
+                    }.onEnded { _ in
+                        if let draft { commit(draft) }
+                        draft = nil; dragged = nil
+                    })
             }.frame(height: 120).background(Color.primary.opacity(0.04))
             HStack {
                 Button("Add Point") {
@@ -115,4 +96,40 @@ private struct PolygonMaskEditor: View {
             Text("Drag a vertex to reshape. Add inserts a vertex after the selected point.").font(.system(size: 9)).foregroundStyle(.secondary)
         }.onChange(of: points) { _,_ in if let selected, !points.indices.contains(selected) { self.selected = nil } }
     }
+    private func draw(context: GraphicsContext,size: CGSize) {
+        let current = draft ?? points
+        var path = Path()
+        for (index,point) in current.enumerated() {
+            let position = CGPoint(x: point.x * size.width,y: (1 - point.y) * size.height)
+            if index == 0 { path.move(to: position) } else { path.addLine(to: position) }
+        }
+        path.closeSubpath()
+        context.fill(path,with: .color(Color.accentColor.opacity(0.15)))
+        context.stroke(path,with: .color(Color.accentColor),lineWidth: 1)
+        for (index,point) in current.enumerated() {
+            let rect = CGRect(x: point.x * size.width - 3,y: (1 - point.y) * size.height - 3,width: 6,height: 6)
+            let color: Color = index == selected ? .accentColor : .primary
+            context.fill(Path(ellipseIn: rect),with: .color(color))
+        }
+    }
+    private func drag(_ event: DragGesture.Value,size: CGSize) {
+        if dragged == nil {
+            var nearest: Int?
+            var distance: Double = 18
+            for (index,point) in points.enumerated() {
+                let dx = point.x * size.width - event.startLocation.x
+                let dy = (1 - point.y) * size.height - event.startLocation.y
+                let candidate = hypot(dx,dy)
+                if candidate <= distance { nearest = index; distance = candidate }
+            }
+            guard let nearest else { return }
+            dragged = nearest; selected = nearest; draft = points
+        }
+        if let index = dragged {
+            let x = max(0,min(1,event.location.x / max(1,size.width)))
+            let y = max(0,min(1,1 - event.location.y / max(1,size.height)))
+            draft?[index] = MaskPoint(x: x,y: y)
+        }
+    }
+
 }
