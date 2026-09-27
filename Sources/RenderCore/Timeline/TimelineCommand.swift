@@ -6,6 +6,14 @@ public enum TimelineCommand: Sendable {
     case addTrack(TrackKind)
     case append(asset: UUID, track: UUID, at: Int64)
     case insert(asset: UUID, track: UUID, at: Int64)
+    case overwrite(asset: UUID, track: UUID, at: Int64)
+    case rippleTrim(clip: UUID, edge: TrimEdge, to: Int64)
+    case roll(clip: UUID, boundary: Int64)
+    case slip(clip: UUID, delta: Int64)
+    case slide(clip: UUID, delta: Int64)
+    case detachAudio(clip: UUID)
+    case deleteRange(track: UUID, start: Int64, end: Int64, ripple: Bool)
+    case pasteLanes([ClipboardLane], at: Int64)
     case move(clips: Set<UUID>, delta: Int64)
     case moveToTrack(clip: UUID, track: UUID, at: Int64)
     case trim(clip: UUID, edge: TrimEdge, to: Int64)
@@ -26,6 +34,14 @@ public enum TimelineCommand: Sendable {
         case .addTrack: return "Add Track"
         case .append: return "Add Clip"
         case .insert: return "Insert Clip"
+        case .overwrite: return "Overwrite Edit"
+        case .rippleTrim: return "Ripple Trim"
+        case .roll: return "Roll Edit"
+        case .slip: return "Slip Edit"
+        case .slide: return "Slide Edit"
+        case .detachAudio: return "Detach Audio"
+        case .deleteRange: return "Delete Range"
+        case .pasteLanes: return "Paste Clips"
         case .move, .moveToTrack: return "Move Clips"
         case .trim: return "Trim Clip"
         case .split: return "Split Clips"
@@ -43,7 +59,8 @@ public enum TimelineCommand: Sendable {
     public func applying(to original: RenderProject) throws -> RenderProject {
         try original.validate()
         switch self {
-        case .append(_,_,let frame), .insert(_,_,let frame), .moveToTrack(_,_,let frame),
+        case .append(_,_,let frame), .insert(_,_,let frame), .overwrite(_,_,let frame), .moveToTrack(_,_,let frame),
+             .rippleTrim(_,_,let frame), .roll(_,let frame), .pasteLanes(_,let frame),
              .trim(_,_,let frame), .split(_,let frame), .paste(_,_,let frame):
             guard frame >= 0, frame < 100_000_000 else { throw RenderError.invalid("Edit position is outside timeline bounds.") }
         default: break
@@ -91,6 +108,110 @@ public enum TimelineCommand: Sendable {
                 clips.append(clip)
             }
             project.tracks[t].clips = clips + [inserted]
+        case .overwrite(let asset,let track,let at):
+            let t = try trackIndex(track)
+            let replacement = try newClip(asset,at)
+            var remaining: [TimelineClip] = []
+            for clip in project.tracks[t].clips {
+                if clip.end <= at || clip.start >= replacement.end { remaining.append(clip); continue }
+                if clip.start < at {
+                    var left = clip; left.duration = at - clip.start; remaining.append(left)
+                }
+                if clip.end > replacement.end {
+                    var right = clip
+                    if clip.start < at { right.id = UUID() }
+                    let delta = replacement.end - clip.start
+                    right.sourceIn += project.settings.frameRate.seconds(delta) * clip.speed
+                    right.animationOffset += delta; right.start = replacement.end
+                    right.duration = clip.end - replacement.end; remaining.append(right)
+                }
+            }
+            project.tracks[t].clips = remaining + [replacement]
+        case .rippleTrim(let id,let edge,let frame):
+            let (t,c) = try location(id)
+            let original = project.tracks[t].clips[c]
+            var edited = original
+            let shift: Int64
+            switch edge {
+            case .leading:
+                let delta = frame - original.start
+                edited.sourceIn += project.settings.frameRate.seconds(delta) * original.speed
+                edited.animationOffset += delta; edited.duration -= delta; shift = -delta
+            case .trailing:
+                shift = frame - original.end; edited.duration += shift
+            }
+            project.tracks[t].clips[c] = edited
+            for index in project.tracks[t].clips.indices where index != c && project.tracks[t].clips[index].start >= original.end {
+                project.tracks[t].clips[index].start += shift
+            }
+        case .roll(let id,let boundary):
+            let (t,c) = try location(id)
+            let left = project.tracks[t].clips[c]
+            guard let n = project.tracks[t].clips.firstIndex(where: { $0.id != id && $0.start == left.end }) else { throw RenderError.invalid("Roll needs an adjacent clip on the right.") }
+            let delta = boundary - left.end
+            project.tracks[t].clips[c].duration += delta
+            project.tracks[t].clips[n].start += delta
+            project.tracks[t].clips[n].sourceIn += project.settings.frameRate.seconds(delta) * project.tracks[t].clips[n].speed
+            project.tracks[t].clips[n].animationOffset += delta
+            project.tracks[t].clips[n].duration -= delta
+        case .slip(let id,let delta):
+            guard abs(Double(delta)) < 100_000_000 else { throw RenderError.invalid("Slip exceeds timeline bounds.") }
+            let (t,c) = try location(id)
+            guard project.assets.first(where: { $0.id == project.tracks[t].clips[c].assetID })?.kind != .image else { throw RenderError.invalid("Still images do not have a moving source window.") }
+            project.tracks[t].clips[c].sourceIn += project.settings.frameRate.seconds(delta) * project.tracks[t].clips[c].speed
+        case .slide(let id,let delta):
+            guard abs(Double(delta)) < 100_000_000 else { throw RenderError.invalid("Slide exceeds timeline bounds.") }
+            let (t,c) = try location(id)
+            let clip = project.tracks[t].clips[c]
+            guard let before = project.tracks[t].clips.firstIndex(where: { $0.id != id && $0.end == clip.start }),
+                  let after = project.tracks[t].clips.firstIndex(where: { $0.id != id && $0.start == clip.end }) else { throw RenderError.invalid("Slide needs adjacent clips on both sides.") }
+            project.tracks[t].clips[before].duration += delta
+            project.tracks[t].clips[c].start += delta
+            project.tracks[t].clips[after].start += delta
+            project.tracks[t].clips[after].sourceIn += project.settings.frameRate.seconds(delta) * project.tracks[t].clips[after].speed
+            project.tracks[t].clips[after].animationOffset += delta
+            project.tracks[t].clips[after].duration -= delta
+        case .deleteRange(let track,let start,let end,let ripple):
+            guard start >= 0, end > start, end < 100_000_000 else { throw RenderError.invalid("Select a valid timeline range.") }
+            let t = try trackIndex(track)
+            var remaining: [TimelineClip] = []
+            for clip in project.tracks[t].clips {
+                if clip.end <= start { remaining.append(clip); continue }
+                if clip.start >= end {
+                    var later = clip; if ripple { later.start -= end - start }; remaining.append(later); continue
+                }
+                if clip.start < start { var left = clip; left.duration = start - clip.start; remaining.append(left) }
+                if clip.end > end {
+                    var right = clip
+                    if clip.start < start { right.id = UUID() }
+                    right.sourceIn += project.settings.frameRate.seconds(end - clip.start) * clip.speed
+                    right.animationOffset += end - clip.start
+                    right.start = ripple ? start : end; right.duration = clip.end - end; remaining.append(right)
+                }
+            }
+            project.tracks[t].clips = remaining
+        case .detachAudio(let id):
+            let (t,c) = try location(id)
+            let clip = project.tracks[t].clips[c]
+            guard let media = project.assets.first(where: { $0.id == clip.assetID }), media.kind == .video, media.audioChannels > 0 else { throw RenderError.invalid("This clip has no embedded audio to detach.") }
+            var audioMedia = media; audioMedia.id = UUID(); audioMedia.kind = .audio
+            audioMedia.name = media.name + " (audio)"
+            project.assets.append(audioMedia)
+            var audioClip = clip; audioClip.id = UUID(); audioClip.assetID = audioMedia.id
+            audioClip.name = audioMedia.name; audioClip.effects = []; audioClip.properties = ClipProperties()
+            audioClip.properties.volume = clip.properties.volume; audioClip.properties.muted = clip.properties.muted
+            audioClip.properties.animations["volume"] = clip.properties.animations["volume"]
+            var audioTrack = TimelineTrack(name: "Detached Audio",kind: .audio); audioTrack.clips = [audioClip]
+            project.tracks.append(audioTrack)
+            project.tracks[t].clips[c].properties.muted = true
+        case .pasteLanes(let lanes,let at):
+            let origin = lanes.flatMap(\.clips).map(\.start).min() ?? 0
+            for lane in lanes {
+                let t = try trackIndex(lane.trackID)
+                project.tracks[t].clips += lane.clips.map { original in
+                    var clip = original; clip.id = UUID(); clip.start = at + original.start - origin; return clip
+                }
+            }
         case .move(let ids, let delta):
             guard abs(Double(delta)) < 100_000_000 else { throw RenderError.invalid("Move exceeds timeline bounds.") }
             for id in ids {
