@@ -9,6 +9,14 @@ public struct FrameRate: Codable, Hashable, Sendable {
     public var value: Double { Double(numerator) / Double(denominator) }
     public func seconds(_ frames: Int64) -> Double { Double(frames) / value }
     public func frames(_ seconds: Double) -> Int64 { Int64((seconds * value).rounded()) }
+    /// Validate user-entered timeline times before converting floating point to integer frames.
+    public func editingFrames(_ seconds: Double) throws -> Int64 {
+        let frames = (seconds * value).rounded()
+        guard numerator > 0, denominator > 0, seconds.isFinite, frames.isFinite, frames >= 0, frames < 100_000_000 else {
+            throw RenderError.invalid("Time is outside the supported timeline range.")
+        }
+        return Int64(frames)
+    }
     /// Non-drop-frame timecode; the rational rate is retained for media timing.
     public func timecode(_ frame: Int64) -> String {
         let nominal = max(1, Int64(value.rounded()))

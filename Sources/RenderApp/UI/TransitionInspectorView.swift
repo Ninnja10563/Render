@@ -23,7 +23,8 @@ struct TransitionInspectorView: View {
                 }.font(.system(size: 10)).disabled(min(clip.duration,next.duration) < 2)
                 if let transition = clip.transition {
                     InspectorNumber(label: "Duration (seconds)",value: session.fps.seconds(transition.duration),range: session.fps.seconds(2)...session.fps.seconds(min(clip.duration,next.duration)),reset: min(1,session.fps.seconds(min(clip.duration,next.duration)))) { seconds in
-                        var changed = transition; changed.duration = max(2,session.fps.frames(seconds)); session.perform(.transition(clip: clip.id,changed))
+                        do { var changed = transition; changed.duration = max(2,try session.fps.editingFrames(seconds)); session.perform(.transition(clip: clip.id,changed)) }
+                        catch { session.report(error) }
                     }
                 }
                 Text("Transitions straddle the cut without changing sequence length. Moving video needs spare source frames on both sides; trim the clips first if handles are unavailable. Audio crossfades over the same interval.").font(.system(size: 9)).foregroundStyle(.secondary)
