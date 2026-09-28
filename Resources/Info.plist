@@ -6,7 +6,7 @@
 <key>CFBundleExecutable</key><string>Render</string>
 <key>CFBundleIdentifier</key><string>app.render.editor</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.13.0</string>
+<key>CFBundleShortVersionString</key><string>0.14.0</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>CFBundleIconFile</key><string>Render</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>

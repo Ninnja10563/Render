@@ -12,6 +12,8 @@ struct ExportView: View {
     @State private var height = 1080
     @State private var fps = 30
     @State private var custom = false
+    @State private var quality = ExportQuality.automatic
+    @State private var bitrateMbps = 20.0
     @State private var finished: URL?
     @State private var failure: String?
     var body: some View {
@@ -19,6 +21,9 @@ struct ExportView: View {
             HStack { Text("Export \(session.project.name)").font(.system(size: 18,weight: .semibold)); Spacer(); if !exporter.isExporting { Button { dismiss() } label: { Image(systemName: "xmark") }.buttonStyle(.plain) } }
             if let finished {
                 Label("Export complete",systemImage: "checkmark.circle").foregroundStyle(.green)
+                if let size = (try? FileManager.default.attributesOfItem(atPath: finished.path)[.size]) as? NSNumber {
+                    LabeledContent("Output size",value: ByteCountFormatter.string(fromByteCount: size.int64Value,countStyle: .file))
+                }
                 Text(finished.path).font(.system(size: 11)).textSelection(.enabled)
                 HStack { Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([finished]) }; Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.defaultAction) }
             } else {
@@ -31,7 +36,17 @@ struct ExportView: View {
                         TextField("Height",value: $height,format: .number)
                     }
                     Picker("Frame rate",selection: $fps) { Text("Project frame rate").tag(0); ForEach([24,25,30,50,60],id: \.self) { Text("\($0) fps").tag($0) } }
-                    LabeledContent("Quality",value: "Highest quality · codec-managed bitrate")
+                    Picker("Quality",selection: $quality) {
+                        ForEach(ExportQuality.allCases,id: \.self) { Text($0.rawValue).tag($0) }
+                    }.disabled(codec == .proRes)
+                    if quality == .custom { TextField("Video bitrate (Mbps)",value: $bitrateMbps,format: .number.precision(.fractionLength(1...2))) }
+                    if let bitrate = configuration.videoBitrate {
+                        LabeledContent("Target video bitrate",value: String(format: "%.1f Mbps",Double(bitrate) / 1_000_000))
+                        LabeledContent("Audio",value: "Stereo AAC · 48 kHz · 320 kbps")
+                    }
+                    if let bytes = configuration.estimatedBytes(duration: session.fps.seconds(session.project.duration)) {
+                        LabeledContent("Estimated size",value: ByteCountFormatter.string(fromByteCount: Int64(bytes),countStyle: .file))
+                    }
                     LabeledContent("Duration",value: session.fps.timecode(session.project.duration))
                 }.disabled(exporter.isExporting)
                 Text("Export uses original media and the same compositor as the viewer. Existing files and source media are never overwritten.").font(.system(size: 11)).foregroundStyle(.secondary)
@@ -51,14 +66,24 @@ struct ExportView: View {
                 }
             }
         }.padding(26).frame(width: 470).interactiveDismissDisabled(exporter.isExporting)
-            .onAppear { width = session.project.settings.width; height = session.project.settings.height; fps = 0 }
+            .onAppear {
+                let settings = session.project.settings
+                custom = ![1280,1920,2560,3840].contains(settings.width) || settings.height != settings.width * 9 / 16
+                width = settings.width; height = settings.height; fps = 0
+            }
+            .onChange(of: codec) { _,new in if new == .proRes { quality = .automatic } }
             .onChange(of: width) { _,new in if !custom { height = new * 9 / 16 } }
     }
-    func begin() {
-        failure = nil
+    private var configuration: ExportConfiguration {
         var configuration = ExportConfiguration()
         configuration.codec = codec; configuration.width = width; configuration.height = height
         configuration.frameRate = fps == 0 ? session.fps : FrameRate(Int32(fps))
+        configuration.quality = quality; configuration.customBitrateMbps = bitrateMbps
+        return configuration
+    }
+    func begin() {
+        failure = nil
+        let configuration = configuration
         do { try configuration.validate() } catch { failure = error.localizedDescription; return }
         let panel = NSSavePanel(); panel.allowedContentTypes = codec == .proRes ? [.quickTimeMovie] : [.mpeg4Movie]
         panel.nameFieldStringValue = session.project.name + (codec == .proRes ? ".mov" : ".mp4")

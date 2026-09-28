@@ -100,3 +100,9 @@ ClipProperties optionally carries ClipAudioFades, whose frame interval shares th
 ## Audio synchronization
 
 AudioSyncAnalyzer reads source in-point windows into 100 Hz RMS envelopes with a two-minute cap, using decoded timestamps and channel energy without polarity cancellation. AudioSynchronization uses normalized correlation over bounded offsets, then full-sample refinement of separated candidates. Ambiguous or weak matches fail explicitly. AudioSyncView retains the analyzed project snapshot, validates a proposed normal move transaction, and only applies a reviewed result when the snapshot still matches. Cancellation stops analysis; no decoded media or derived envelope enters project storage.
+
+## Controlled export
+
+ExportQuality computes bitrate targets independently of encoder setup. Codec-managed export retains AVAssetExportSession; explicit-quality H.264/HEVC uses ControlledEncoder, an actor owning AVAssetReader/AVAssetWriter. VideoCompositionOutput invokes the same compositor used by preview, and AudioMixOutput applies automation before stereo AAC encoding. The loop services both ready inputs, yields under backpressure, and never accumulates decoded frames. ExportService cancellation propagates to the encoder task and keeps partial files private until completion.
+
+Apple API references: [reader/writer composition export](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/AVFoundationPG/Articles/05_Export.html), [custom compositor](https://developer.apple.com/documentation/avfoundation/avassetreadervideocompositionoutput/customvideocompositor), [bitrate](https://developer.apple.com/documentation/avfoundation/avvideoaveragebitratekey).
