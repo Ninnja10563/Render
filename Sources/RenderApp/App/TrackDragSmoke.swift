@@ -37,6 +37,10 @@ extension EditorSession {
         try editor.timelineDrag.begin(project: editor.project,selection: [clip.id])
         editor.timelineDrag.update(delta: 30,trackOffset: 1); editor.timelineDrag.cancel()
         guard try editor.timelineDrag.finish() == nil,editor.document == fixture else { throw RenderError.invalid("Cancelling a drag changed the project.") }
+        var locked = fixture; locked.tracks[0].locked = true
+        var rejected = false
+        do { try editor.timelineDrag.begin(project: locked,selection: [clip.id]) } catch { rejected = true }
+        guard rejected,!editor.timelineDrag.active else { throw RenderError.invalid("A rejected drag left active preview state.") }
         print("RENDER_TRACK_DRAG_OK native-mouse time lane undo redo cancel")
     }
 }

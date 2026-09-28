@@ -12,9 +12,11 @@ final class TimelineDragState: ObservableObject {
     private var ids: Set<UUID> = []
     private var cancelled = false
     func begin(project: RenderProject,selection: Set<UUID>) throws {
-        plan = try TrackMovePlan(project: project,clips: selection); ids = selection
+        let snapshot = try TrackMovePlan(project: project,clips: selection)
+        let initial = try snapshot.placements(delta: 0,trackOffset: 0)
+        plan = snapshot; ids = selection
         cancelled = false; active = true; issue = nil; delta = 0; trackOffset = 0
-        positions = try plan!.placements(delta: 0,trackOffset: 0)
+        positions = initial
     }
     func update(delta proposed: Int64,trackOffset offset: Int) {
         guard active,!cancelled,let plan else { return }

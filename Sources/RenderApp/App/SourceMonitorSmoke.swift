@@ -30,7 +30,7 @@ extension EditorSession {
             if let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
                 view.cacheDisplay(in: view.bounds,to: bitmap)
                 if let png = bitmap.representation(using: .png,properties: [:]) {
-                    try png.write(to: URL(fileURLWithPath: path).deletingLastPathComponent().appendingPathComponent("workspace-source.png"))
+                    try png.write(to: URL(fileURLWithPath: path).deletingLastPathComponent().appendingPathComponent("workspace-source-\(ProcessInfo.processInfo.environment["RENDER_APPEARANCE"] ?? "dark").png"))
                 }
             }
         }

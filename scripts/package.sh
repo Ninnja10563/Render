@@ -37,4 +37,5 @@ test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$MOUNT/R
 mkdir -p build/Installed/Applications
 ditto "$MOUNT/Render.app" build/Installed/Applications/Render.app
 scripts/smoke.sh "$(pwd)/build/Installed/Applications/Render.app"
+RENDER_APPEARANCE=light scripts/smoke.sh "$(pwd)/build/Installed/Applications/Render.app"
 (cd dist && shasum -a 256 "Render-$VERSION-Apple-Silicon.dmg" > "Render-$VERSION-Apple-Silicon.dmg.sha256")

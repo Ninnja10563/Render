@@ -38,6 +38,15 @@ struct SourceViewer: View {
                 VStack(spacing: 8) {
                     Slider(value: Binding(get: { Double(source.frame) },set: { source.seek(Int64($0.rounded())) }),in: 0...Double(max(1,source.totalFrames - 1)))
                         .controlSize(.mini).help("Scrub source media")
+                    GeometryReader { geometry in
+                        let duration = max(0.000001,source.asset?.duration ?? 1)
+                        ZStack(alignment: .leading) {
+                            Rectangle().fill(Color.secondary.opacity(0.2))
+                            Rectangle().fill(Color.accentColor)
+                                .frame(width: geometry.size.width * (source.range.end - source.range.start) / duration)
+                                .offset(x: geometry.size.width * source.range.start / duration)
+                        }
+                    }.frame(height: 3).help("Marked source range")
                     HStack(spacing: 14) {
                         Text(source.rate.timecode(source.frame)).font(.system(size: 11,design: .monospaced))
                         Spacer(minLength: 0)
