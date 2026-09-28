@@ -354,7 +354,7 @@ final class EditorSession: ObservableObject {
                 var replacement = try await library.analyze(url)
                 guard project.id == projectID else { return }
                 guard replacement.kind == media.kind else { throw RenderError.invalid("Replacement media must have the same type.") }
-                replacement.id = media.id
+                replacement.id = media.id; replacement.selection = media.selection
                 var next = project
                 guard let index = next.assets.firstIndex(where: { $0.id == media.id }) else { return }
                 next.assets[index] = replacement; try next.validate()

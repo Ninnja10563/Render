@@ -1,0 +1,43 @@
+import AppKit
+import SwiftUI
+import RenderCore
+
+extension EditorSession {
+    func checkSourceMonitor(folder: URL) async throws {
+        let asset = try await library.analyze(folder.appendingPathComponent("Meter playback.wav"))
+        let editor = EditorSession()
+        var fixture = RenderProject(); fixture.settings.width = 320; fixture.settings.height = 180; fixture.assets = [asset]
+        fixture.tracks[1].clips = [TimelineClip(assetID: asset.id,name: "Existing edit",start: 0,duration: 30)]
+        editor.commit(fixture,name: "Source fixture")
+        let deadline = Date().addingTimeInterval(8)
+        while !editor.previewReady { guard Date() < deadline else { throw RenderError.invalid("Source test timeline did not prepare.") }; try await Task.sleep(nanoseconds: 30_000_000) }
+        let timelineItem = editor.player.currentItem
+        editor.openSource(asset.id)
+        let window = NSWindow(contentRect: NSRect(x: 140,y: 140,width: 600,height: 380),styleMask: [.titled],backing: .buffered,defer: false)
+        window.isReleasedWhenClosed = false; window.contentView = NSHostingView(rootView: SourceViewer(session: editor)); window.makeKeyAndOrderFront(nil)
+        defer { editor.sourceMonitor.pause(); editor.pause(); window.close() }
+        while !editor.sourceMonitor.ready {
+            if let error = editor.sourceMonitor.error { throw RenderError.invalid(error) }
+            guard Date() < deadline else { throw RenderError.invalid("Source media did not become ready.") }
+            try await Task.sleep(nanoseconds: 30_000_000)
+        }
+        editor.sourceMonitor.seek(30); editor.markSource(incoming: true)
+        editor.sourceMonitor.seek(59); editor.markSource(incoming: false)
+        guard editor.sourceMonitor.range == SourceSelection(start: 1,end: 2),editor.player.currentItem === timelineItem,editor.project.tracks == fixture.tracks else { throw RenderError.invalid("Source marks rebuilt or changed the existing timeline.") }
+        let saved = folder.appendingPathComponent("Source Marks.renderproject")
+        try await ProjectStore().save(editor.document,to: saved)
+        let reopened = try await ProjectStore().load(saved)
+        guard reopened.assets[0].selection == SourceSelection(start: 1,end: 2) else { throw RenderError.invalid("Source marks were not saved.") }
+        editor.sourceMonitor.seek(30); editor.sourceMonitor.togglePlayback()
+        try await Task.sleep(nanoseconds: 180_000_000)
+        guard editor.sourceMonitor.frame > 30,editor.playhead == 0 else { throw RenderError.invalid("Source transport did not stay independent of the timeline playhead.") }
+        editor.sourceMonitor.pause(); editor.editSource()
+        guard editor.project.tracks[1].clips.count == 2,editor.project.tracks[1].clips.last?.sourceIn == 1,editor.project.tracks[1].clips.last?.duration == 30 else { throw RenderError.invalid("Append did not use the source marks.") }
+        editor.undo()
+        guard editor.project.tracks == fixture.tracks else { throw RenderError.invalid("Source range insertion did not undo atomically.") }
+        editor.clearSourceMarks(); guard editor.sourceMonitor.asset?.selection == nil else { throw RenderError.invalid("Clear marks failed.") }
+        editor.undo(); guard editor.sourceMonitor.range == SourceSelection(start: 1,end: 2) else { throw RenderError.invalid("Source mark undo failed.") }
+        editor.closeSource(); guard !editor.showingSource,!editor.sourceMonitor.playing else { throw RenderError.invalid("Returning to the timeline left source playback active.") }
+        print("RENDER_SOURCE_OK native-view playback marks append undo save independent-transport")
+    }
+}
