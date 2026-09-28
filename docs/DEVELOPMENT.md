@@ -138,3 +138,7 @@ API references: [Apple audio-tap placement semantics](https://developer.apple.co
 ## Reverse preview — 0.21.0
 
 Native AVPlayer reverse playback remains preferred. Unsupported compositions use a cancellable main-actor seek loop driven by a monotonic elapsed-time clock at 1×/2×/4×. Only one seek is awaited at a time; overdue target frames are skipped. Pause, scrub, rebuild and forward transport cancel the task and pending seeks. TransportState owns the separate playback flag, so AVPlayer's zero rate during seek-based preview does not falsely report that the editor is stopped. Audio is muted and meters clear. This does not alter clip source timing or exported content.
+
+## Leading-handle reliability — 0.21.1
+
+TimelineClip.moveAnimationOrigin rebases property/effect curves and fade coordinates when a leading extension would otherwise produce a negative animationOffset. TimelineCommand records logical origin deltas separately for MagneticEditing reconciliation, so this internal coordinate translation does not change clip-connection timing. Generated-source inpoints clamp at zero while media/compound bounds remain validated. No additional persistent fields are required.

@@ -75,3 +75,9 @@ Vertical timeline: build a sequence with hundreds of video/audio tracks, scroll 
 - Use J/K/L and Space on long-GOP video, still/title sequences, compounds and proxy media. Test 1×/2×/4× reverse, scrubbing during reverse, and stopping at the beginning.
 - Confirm the viewer and playhead stay synchronized when decoding cannot maintain the requested rate. Reverse fallback must show muted audio and clear meters.
 - Change an inspector property, switch timelines, open another project, and close the app during reverse; no pending seek should affect the new item.
+
+## Leading handles
+
+- Extend a clip with unused leading source media and animated transform, effect and volume. Compare the retained material before/after, then undo/redo.
+- Repeat with roll, slide and ripple-leading tools, connected titles and locked tracks. Real source underruns must still fail atomically.
+- Extend a title, still and explicit gap earlier; slip a trimmed compound through its available source range.

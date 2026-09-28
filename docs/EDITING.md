@@ -33,3 +33,7 @@ Parent effects and opacity apply after its children composite. Audio volume, fad
 Save, recovery and video export always capture the full root document, including edits made inside sources. Compound instances share their source: editing one source changes every instance. Deleting inner clips retains source duration, so an empty source remains a valid transparent/silent interval. Extending contents grows the source without automatically changing existing instances.
 
 Break Apart generates fresh child IDs, preserves source timing and automation phase, and keeps the reusable source definition. Group transforms/effects/speed, non-Normal child blending, solo state, differing sequence settings, or trims through transitions can prevent lossless flattening; reset those conditions first or retain the compound. Track locks remain in force. Cycles are rejected and nesting is limited to eight sources.
+
+## Leading handles and animation
+
+Extending a leading edge preserves the animation and audio-fade phase of the material already in the edit. When needed, internal keyframe/fade coordinates translate together so the new origin remains nonnegative. Existing fade positions are retained; adjusting a fade in the inspector reattaches it to the current clip edges. Media and compound clips still need real source handles. Generated titles, gaps and stills have no finite source boundary. Connected children stay aligned with retained content; ripple trims move that content and its connections together.
