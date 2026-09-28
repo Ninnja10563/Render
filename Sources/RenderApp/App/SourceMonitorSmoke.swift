@@ -29,7 +29,8 @@ extension EditorSession {
         let reopened = try await ProjectStore().load(saved)
         guard reopened.assets[0].selection == SourceSelection(start: 1,end: 2) else { throw RenderError.invalid("Source marks were not saved.") }
         editor.sourceMonitor.seek(30); editor.sourceMonitor.togglePlayback()
-        try await Task.sleep(nanoseconds: 180_000_000)
+        let playingDeadline = Date().addingTimeInterval(3)
+        while editor.sourceMonitor.frame <= 30 && Date() < playingDeadline { try await Task.sleep(nanoseconds: 30_000_000) }
         guard editor.sourceMonitor.frame > 30,editor.playhead == 0 else { throw RenderError.invalid("Source transport did not stay independent of the timeline playhead.") }
         editor.sourceMonitor.pause(); editor.editSource()
         guard editor.project.tracks[1].clips.count == 2,editor.project.tracks[1].clips.last?.sourceIn == 1,editor.project.tracks[1].clips.last?.duration == 30 else { throw RenderError.invalid("Append did not use the source marks.") }
