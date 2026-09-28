@@ -13,6 +13,7 @@ extension EditorSession {
         while !editor.previewReady { guard Date() < deadline else { throw RenderError.invalid("Source test timeline did not prepare.") }; try await Task.sleep(nanoseconds: 30_000_000) }
         let timelineItem = editor.player.currentItem
         editor.openSource(asset.id)
+        editor.waveforms[asset.id] = try await library.waveform(asset,bins: 300)
         let window = NSWindow(contentRect: NSRect(x: 140,y: 140,width: 600,height: 380),styleMask: [.titled],backing: .buffered,defer: false)
         window.isReleasedWhenClosed = false; window.contentView = NSHostingView(rootView: SourceViewer(session: editor)); window.makeKeyAndOrderFront(nil)
         defer { editor.sourceMonitor.pause(); editor.pause(); window.close() }
@@ -24,6 +25,15 @@ extension EditorSession {
         editor.sourceMonitor.seek(30); editor.markSource(incoming: true)
         editor.sourceMonitor.seek(59); editor.markSource(incoming: false)
         guard editor.sourceMonitor.range == SourceSelection(start: 1,end: 2),editor.player.currentItem === timelineItem,editor.project.tracks == fixture.tracks else { throw RenderError.invalid("Source marks rebuilt or changed the existing timeline.") }
+        if let path = ProcessInfo.processInfo.environment["RENDER_SCREENSHOT"],let view = window.contentView {
+            try await Task.sleep(nanoseconds: 100_000_000)
+            if let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                view.cacheDisplay(in: view.bounds,to: bitmap)
+                if let png = bitmap.representation(using: .png,properties: [:]) {
+                    try png.write(to: URL(fileURLWithPath: path).deletingLastPathComponent().appendingPathComponent("workspace-source.png"))
+                }
+            }
+        }
         let saved = folder.appendingPathComponent("Source Marks.renderproject")
         try await ProjectStore().save(editor.document,to: saved)
         let reopened = try await ProjectStore().load(saved)
