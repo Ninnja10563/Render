@@ -56,6 +56,7 @@ struct TimelineView: View {
                             TimelinePlayhead(transport: session.transport,frameRate: session.fps,pointsPerSecond: session.pointsPerSecond)
                         }
                         .background(NativeScrollViewport { origin,size in
+                            TimelineRenderProbe.horizontalOffset(origin.x,project: session.project.id)
                             if scrollOffset != origin.x { scrollOffset = origin.x }
                             if viewportWidth != size.width { viewportWidth = size.width }
                         }.frame(width: 0,height: 0))
