@@ -4,6 +4,8 @@ import RenderCore
 import RenderAudioDSP
 
 public struct AudioMeterReading: Sendable {
+    public var start: Double
+    public var end: Double
     public var peaks: [Float]
     public var rms: [Float]
 }
@@ -37,6 +39,6 @@ public final class AudioMeterSource: @unchecked Sendable, Identifiable {
         let count = Int(value.channels)
         let peaks = withUnsafeBytes(of: &value.peak) { Array($0.bindMemory(to: Float.self).prefix(count)) }
         let rms = withUnsafeBytes(of: &value.rms) { Array($0.bindMemory(to: Float.self).prefix(count)) }
-        return AudioMeterReading(peaks: peaks,rms: rms)
+        return AudioMeterReading(start: value.start,end: value.end,peaks: peaks,rms: rms)
     }
 }

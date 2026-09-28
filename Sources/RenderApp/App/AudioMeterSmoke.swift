@@ -31,6 +31,7 @@ extension EditorSession {
                 guard reading.peaks[0] < 0.12, reading.peaks[1] > 0.035, reading.peaks[1] < 0.065 else { throw RenderError.invalid("Playback meter does not reflect post-volume channels.") }
                 editor.pause()
                 guard editor.audioMeters.inputs.first?.peaks.allSatisfy({ $0 == 0 }) == true else { throw RenderError.invalid("Pause did not clear meter levels.") }
+                perform(.addAsset(asset)); append(asset.id); loadPreview(asset)
                 print("RENDER_AUDIO_METER_OK real-playback stereo post-fader clock-alignment pause")
                 return
             }

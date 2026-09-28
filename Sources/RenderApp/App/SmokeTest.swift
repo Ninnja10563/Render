@@ -101,7 +101,7 @@ extension EditorSession {
             guard Date() < deadline else { throw RenderError.invalid("Playback never became ready during launch validation.") }
             try await Task.sleep(nanoseconds: 50_000_000)
         }
-        seek(30)
+        seek(30); togglePlayback()
         try await Task.sleep(nanoseconds: 500_000_000)
         guard errorMessage == nil else { throw RenderError.invalid(errorMessage!) }
         print("RENDER_EDIT_SMOKE_OK import split undo redo roll ripple range transform keyframe playback")

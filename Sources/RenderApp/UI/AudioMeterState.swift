@@ -17,7 +17,10 @@ final class AudioMeterState: ObservableObject {
         inputs = sources.map { AudioMeterDisplay(id: $0.id,name: $0.name,peaks: [],rms: []) }
     }
     func clearLevels() {
-        for index in inputs.indices { inputs[index].peaks = inputs[index].peaks.map { _ in 0 }; inputs[index].rms = inputs[index].rms.map { _ in 0 } }
+        guard inputs.contains(where: { $0.peaks.contains(where: { $0 != 0 }) || $0.rms.contains(where: { $0 != 0 }) }) else { return }
+        var cleared = inputs
+        for index in cleared.indices { cleared[index].peaks = cleared[index].peaks.map { _ in 0 }; cleared[index].rms = cleared[index].rms.map { _ in 0 } }
+        inputs = cleared
     }
     func update(seconds: Double,playing: Bool) {
         let now = Date.timeIntervalSinceReferenceDate
@@ -28,17 +31,19 @@ final class AudioMeterState: ObservableObject {
             return
         }
         let decay = Float(pow(10,-elapsed)) // 20 dB per second peak falloff; samples are measured, not synthesized.
+        var updated = inputs
         for index in sources.indices {
-            inputs[index].name = sources[index].displayName(at: seconds)
+            updated[index].name = sources[index].displayName(at: seconds)
             if let reading = sources[index].read(at: seconds) {
-                let previous = inputs[index].peaks
-                inputs[index].peaks = reading.peaks.enumerated().map { channel,peak in max(peak,channel < previous.count ? previous[channel] * decay : 0) }
-                inputs[index].rms = reading.rms
+                let previous = updated[index].peaks
+                updated[index].peaks = reading.peaks.enumerated().map { channel,peak in max(peak,channel < previous.count ? previous[channel] * decay : 0) }
+                updated[index].rms = reading.rms
             } else {
-                inputs[index].peaks = inputs[index].peaks.map { $0 * decay }
-                inputs[index].rms = inputs[index].rms.map { _ in 0 }
+                updated[index].peaks = inputs[index].peaks.map { $0 * decay }
+                updated[index].rms = inputs[index].rms.map { _ in 0 }
             }
         }
+        inputs = updated
     }
 }
 

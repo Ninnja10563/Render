@@ -22,7 +22,10 @@ extension MediaIntegrationTests {
         var clip = TimelineClip(assetID: media.id,name: "Stereo",start: 0,duration: 60); clip.properties.volume = 0.5
         project.tracks[1].clips = [clip]
         let nested = try CompoundEditing.create([clip.id],name: "Audio group",in: project)
-        for edit in [project,nested] {
+        var animated = nested
+        let parentLocation = try XCTUnwrap(animated.tracks.indices.first(where: { !animated.tracks[$0].clips.isEmpty }))
+        animated.tracks[parentLocation].clips[0].properties.animations["volume"] = AnimationCurve(keys: [Keyframe(frame: 0,value: 0.25),Keyframe(frame: 60,value: 0.75)])
+        for (index,edit) in [project,nested,animated].enumerated() {
             let prepared = try await CompositionBuilder().build(edit,metering: true)
             let meter = try XCTUnwrap(prepared.audioMeters.first)
             XCTAssertNil(meter.read(at: 1)); XCTAssertNil(meter.read(at: .nan))
@@ -48,9 +51,11 @@ extension MediaIntegrationTests {
             XCTAssertEqual(reader.status,.completed,reader.error?.localizedDescription ?? "")
             let reading = try XCTUnwrap(measured)
             XCTAssertEqual(reading.peaks.count,2)
-            XCTAssertEqual(reading.peaks[0],0.2,accuracy: 0.005); XCTAssertEqual(reading.peaks[1],0.1,accuracy: 0.005)
-            XCTAssertEqual(reading.rms[0],Float(0.2 / sqrt(2)),accuracy: 0.008)
-            XCTAssertEqual(samplePeak,0.2,accuracy: 0.005,"The meter must not alter samples")
+            let parentGain = index == 2 ? 0.25 + (reading.start + reading.end) / 2 * 0.25 : 1
+            XCTAssertEqual(reading.peaks[0],Float(0.2 * parentGain),accuracy: 0.008)
+            XCTAssertEqual(reading.peaks[1],Float(0.1 * parentGain),accuracy: 0.008)
+            XCTAssertEqual(reading.rms[0],Float(0.2 * parentGain / sqrt(2)),accuracy: 0.008)
+            XCTAssertEqual(samplePeak,index == 2 ? 0.15 : 0.2,accuracy: 0.005,"The meter must not alter samples")
             XCTAssertNil(meter.read(at: -1)); XCTAssertNil(meter.read(at: 4))
             let exportComposition = try await CompositionBuilder().build(edit)
             XCTAssertTrue(exportComposition.audioMeters.isEmpty,"Export does not allocate playback meters")
