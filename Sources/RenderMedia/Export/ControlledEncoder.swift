@@ -10,7 +10,7 @@ actor ControlledEncoder {
         reader.timeRange = CMTimeRange(start: .zero,duration: duration)
         let writer = try AVAssetWriter(outputURL: url,fileType: .mp4)
         writer.shouldOptimizeForNetworkUse = true
-        let tracks = try await prepared.composition.loadTracks(withMediaType: .video)
+        let tracks = prepared.composition.tracks.filter { $0.mediaType == .video }
         let video = AVAssetReaderVideoCompositionOutput(videoTracks: tracks,videoSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,kCVPixelBufferIOSurfacePropertiesKey as String: [:]])
         video.videoComposition = prepared.videoComposition; video.alwaysCopiesSampleData = false
         let settings: [String: Any] = [AVVideoCodecKey: configuration.codec == .hevc ? AVVideoCodecType.hevc : AVVideoCodecType.h264,
@@ -23,7 +23,7 @@ actor ControlledEncoder {
         guard reader.canAdd(video), writer.canAdd(videoInput) else { throw RenderError.invalid("Cannot prepare the video encoder.") }
         reader.add(video); writer.add(videoInput)
         var pairs: [(output: AVAssetReaderOutput,input: AVAssetWriterInput,finished: Bool)] = [(video,videoInput,false)]
-        let audioTracks = try await prepared.composition.loadTracks(withMediaType: .audio)
+        let audioTracks = prepared.composition.tracks.filter { $0.mediaType == .audio }
         if !audioTracks.isEmpty {
             let audio = AVAssetReaderAudioMixOutput(audioTracks: audioTracks,audioSettings: [AVFormatIDKey: kAudioFormatLinearPCM,AVSampleRateKey: 48000,AVNumberOfChannelsKey: 2,AVLinearPCMBitDepthKey: 32,AVLinearPCMIsFloatKey: true,AVLinearPCMIsNonInterleaved: false])
             audio.audioMix = prepared.audioMix; audio.alwaysCopiesSampleData = false

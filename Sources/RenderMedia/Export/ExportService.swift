@@ -19,8 +19,10 @@ public final class ExportService: ObservableObject {
         guard !FileManager.default.fileExists(atPath: destination.path) else { throw RenderError.invalid("Choose a new output filename; Render does not overwrite existing files.") }
         isExporting = true; cancelled = false; progress = 0; elapsed = 0
         let start = Date()
-        let temporary = destination.deletingLastPathComponent().appendingPathComponent(".render-export-\(UUID().uuidString).\(configuration.codec == .proRes ? "mov" : "mp4")")
-        defer { isExporting = false; session = nil; encodingTask = nil; try? FileManager.default.removeItem(at: temporary) }
+        let staging = destination.deletingLastPathComponent().appendingPathComponent(".render-export-\(UUID().uuidString)",isDirectory: true)
+        let temporary = staging.appendingPathComponent("output.\(configuration.codec == .proRes ? "mov" : "mp4")")
+        defer { isExporting = false; session = nil; encodingTask = nil; try? FileManager.default.removeItem(at: staging) }
+        try FileManager.default.createDirectory(at: staging,withIntermediateDirectories: false)
         // Preserve sequence coordinates for transforms, masks, effects and titles at every output size.
         let prepared = try await CompositionBuilder().build(project,outputSize: CGSize(width: configuration.width,height: configuration.height))
         if cancelled { throw CancellationError() }

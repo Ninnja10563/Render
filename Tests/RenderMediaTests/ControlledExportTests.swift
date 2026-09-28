@@ -23,6 +23,10 @@ extension MediaIntegrationTests {
         project.tracks[0].clips = [visual]
         var sound = TimelineClip(assetID: audio.id,name: "Quiet",start: 0,duration: 30); sound.properties.volume = 0.5
         project.tracks[1].clips = [sound]
+        let prepared = try await CompositionBuilder().build(project)
+        let preview = AVAssetImageGenerator(asset: prepared.composition); preview.videoComposition = prepared.videoComposition
+        let previewImage = try await preview.image(at: CMTime(value: 1,timescale: 2)).image
+        let expected = pixel(try XCTUnwrap(previewImage.cropping(to: CGRect(x: 150,y: 80,width: 16,height: 16))))
         for codec in [ExportCodec.h264,.hevc] {
             var config = ExportConfiguration(); config.width = 320; config.height = 180; config.frameRate = FrameRate(24); config.codec = codec; config.quality = .custom; config.customBitrateMbps = 2
             let output = folder.appendingPathComponent("\(codec.rawValue).mp4")
@@ -37,7 +41,8 @@ extension MediaIntegrationTests {
             let image = try await AVAssetImageGenerator(asset: AVURLAsset(url: output)).image(at: CMTime(value: 1,timescale: 2)).image
             let center = pixel(try XCTUnwrap(image.cropping(to: CGRect(x: 150,y: 80,width: 16,height: 16))))
             let edge = pixel(try XCTUnwrap(image.cropping(to: CGRect(x: 0,y: 0,width: 16,height: 16))))
-            XCTAssertGreaterThan(center[0],230); XCTAssertLessThan(edge[0],15)
+            for channel in 0..<3 { XCTAssertEqual(Double(center[channel]),Double(expected[channel]),accuracy: 15,"Preview/export channel \(channel)") }
+            XCTAssertGreaterThan(center[0],center[1] + 100); XCTAssertLessThan(edge[0],15)
         }
     }
     @MainActor
