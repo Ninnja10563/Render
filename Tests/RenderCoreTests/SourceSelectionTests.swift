@@ -21,10 +21,10 @@ final class SourceSelectionTests: XCTestCase {
         }
         let inserted = try TimelineCommand.insert(asset: id,track: track,at: 90).applying(to: marked)
         XCTAssertEqual(inserted.duration,345)
-        XCTAssertEqual(inserted.tracks[0].clips.last?.sourceIn,3)
+        XCTAssertEqual(inserted.tracks[0].clips.first(where: { $0.start == 135 && $0.name == "Existing" })?.sourceIn,3)
         let overwritten = try TimelineCommand.overwrite(asset: id,track: track,at: 90).applying(to: marked)
         XCTAssertEqual(overwritten.duration,300)
-        XCTAssertEqual(overwritten.tracks[0].clips.last?.sourceIn,4.5)
+        XCTAssertEqual(overwritten.tracks[0].clips.first(where: { $0.start == 135 && $0.name == "Existing" })?.sourceIn,4.5)
     }
     func testRangeBoundsAndFractionalRateFrameCounts() throws {
         let p = fixture(),id = p.assets[0].id
