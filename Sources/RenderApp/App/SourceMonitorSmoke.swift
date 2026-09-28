@@ -39,6 +39,9 @@ extension EditorSession {
         editor.clearSourceMarks(); guard editor.sourceMonitor.asset?.selection == nil else { throw RenderError.invalid("Clear marks failed.") }
         editor.undo(); guard editor.sourceMonitor.range == SourceSelection(start: 1,end: 2) else { throw RenderError.invalid("Source mark undo failed.") }
         editor.selectClip(fixture.tracks[1].clips[0].id); guard !editor.showingSource,!editor.sourceMonitor.playing else { throw RenderError.invalid("Returning to the timeline left source playback active.") }
+        editor.openSource(asset.id)
+        while editor.canUndo && editor.project.assets.contains(where: { $0.id == asset.id }) { editor.undo() }
+        guard !editor.showingSource,editor.sourceMonitor.asset == nil else { throw RenderError.invalid("Undoing source import left an orphaned player.") }
         print("RENDER_SOURCE_OK native-view playback marks append undo save independent-transport")
     }
 }

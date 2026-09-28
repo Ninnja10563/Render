@@ -141,7 +141,10 @@ final class EditorSession: ObservableObject {
         if explicitGroup { history.endUndoGrouping() }
         let previousTimeline = project
         displayDocument(next)
-        if showingSource,let id = sourceMonitor.asset?.id,let media = project.assets.first(where: { $0.id == id }) { sourceMonitor.configure(media,rate: fps) }
+        if showingSource {
+            if let id = sourceMonitor.asset?.id,let media = project.assets.first(where: { $0.id == id }) { sourceMonitor.configure(media,rate: fps) }
+            else { sourceMonitor.clear(); showingSource = false; selectedAsset = nil }
+        }
         isDirty = next != savedProject
         selection = selection.filter { project.clip($0) != nil }
         scheduleRecovery()
