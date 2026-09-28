@@ -12,6 +12,7 @@ final class ScrollViewportObserver: NSView {
     var changed: (CGPoint,CGSize) -> Void
     private weak var observedClip: NSClipView?
     private var observers: [NSObjectProtocol] = []
+    private var reportScheduled = false
     init(changed: @escaping (CGPoint,CGSize) -> Void) { self.changed = changed; super.init(frame: .zero) }
     required init?(coder: NSCoder) { fatalError("init(coder:) is unavailable") }
     override func viewDidMoveToWindow() {
@@ -33,11 +34,16 @@ final class ScrollViewportObserver: NSView {
         report()
     }
     private func report() {
-        guard let clip = observedClip, let document = clip.documentView else { return }
-        let origin = CGPoint(x: clip.bounds.minX,y: document.isFlipped ? clip.bounds.minY : max(0,document.bounds.height - clip.bounds.maxY))
-        // State mutations must occur outside SwiftUI's representable update pass.
-        let size = clip.bounds.size
-        DispatchQueue.main.async { [weak self] in guard self?.window != nil else { return }; self?.changed(origin,size) }
+        guard !reportScheduled else { return }
+        reportScheduled = true
+        // Coalesce scroll notifications and read the latest bounds outside SwiftUI's update pass.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.reportScheduled = false
+            guard self.window != nil, let clip = self.observedClip, let document = clip.documentView else { return }
+            let origin = CGPoint(x: clip.bounds.minX,y: document.isFlipped ? clip.bounds.minY : max(0,document.bounds.height - clip.bounds.maxY))
+            self.changed(origin,clip.bounds.size)
+        }
     }
     private func disconnect() { observers.forEach(NotificationCenter.default.removeObserver); observers.removeAll(); observedClip = nil }
     deinit { observers.forEach(NotificationCenter.default.removeObserver) }
