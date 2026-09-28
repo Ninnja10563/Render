@@ -19,6 +19,7 @@ struct AudioControlsView: View {
                         AudioFadeInspectorView(session: session,clip: clip)
                         Divider()
                     } else { Text("Select a clip with audio to adjust its level and fades.").font(.system(size: 11)).foregroundStyle(.secondary) }
+                    AudioInputMetersView(meters: session.audioMeters)
                     Text("TRACKS").font(.system(size: 9,weight: .semibold)).foregroundStyle(.secondary)
                     ForEach(audioTracks) { track in audioTrackRow(track) }
                 }.padding(12)

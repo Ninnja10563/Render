@@ -17,6 +17,7 @@ final class EditorSession: ObservableObject {
     @Published var selectedAsset: UUID?
     @Published var selectedTrack: UUID?
     let transport = TransportState()
+    let audioMeters = AudioMeterState()
     var playhead: Int64 { get { transport.playhead } set { if transport.playhead != newValue { transport.playhead = newValue } } }
     var isPlaying: Bool { get { transport.isPlaying } set { if transport.isPlaying != newValue { transport.isPlaying = newValue } } }
     @Published var isDirty = false
@@ -82,6 +83,7 @@ final class EditorSession: ObservableObject {
                 guard let self, time.seconds.isFinite else { return }
                 if self.player.rate != 0 { self.playhead = min(self.project.duration, max(0,self.fps.frames(time.seconds))) }
                 self.isPlaying = self.player.rate != 0
+                self.audioMeters.update(seconds: time.seconds,playing: self.isPlaying)
             }
         }
     }
@@ -180,7 +182,7 @@ final class EditorSession: ObservableObject {
     }
     func rebuild() {
         generation = UUID(); let token = generation
-        buildTask?.cancel(); pause(); previewReady = false
+        buildTask?.cancel(); pause(); previewReady = false; audioMeters.install([])
         let snapshot = project
         let mode = playbackMode
         let dimensions = previewQuality.dimensions(for: snapshot.settings)
@@ -191,10 +193,11 @@ final class EditorSession: ObservableObject {
                 // Coalesce rapid inspector/text edits before rebuilding the render graph.
                 try await Task.sleep(nanoseconds: 60_000_000)
                 try Task.checkCancellation()
-                let prepared = try await builder.build(snapshot,mode: mode,outputSize: CGSize(width: dimensions.width,height: dimensions.height))
+                let prepared = try await builder.build(snapshot,mode: mode,outputSize: CGSize(width: dimensions.width,height: dimensions.height),metering: true)
                 try Task.checkCancellation()
                 guard token == generation else { return }
                 playbackNotice = prepared.originalFallbacks.isEmpty ? nil : "\(mode.label) unavailable for \(prepared.originalFallbacks.count) media items; using originals."
+                audioMeters.install(prepared.audioMeters)
                 let item = prepared.playerItem()
                 player.replaceCurrentItem(with: item)
                 playbackObservation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
@@ -216,7 +219,7 @@ final class EditorSession: ObservableObject {
         player.currentItem?.cancelPendingSeeks()
         player.seek(to: CMTime(value: playhead * Int64(fps.denominator), timescale: fps.numerator), toleranceBefore: .zero, toleranceAfter: .zero)
     }
-    func pause() { player.pause(); isPlaying = false }
+    func pause() { player.pause(); isPlaying = false; audioMeters.clearLevels() }
     func togglePlayback() {
         guard previewReady else { return }
         if player.rate != 0 { pause() }
