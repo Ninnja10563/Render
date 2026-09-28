@@ -22,6 +22,9 @@ public actor CompositionBuilder {
     public func build(_ project: RenderProject,mode: PlaybackMediaMode = .original,outputSize: CGSize? = nil) async throws -> PreparedComposition {
         try project.validate()
         guard project.duration > 0 else { throw RenderError.invalid("Add a clip to the timeline first.") }
+        if project.tracks.flatMap(\.clips).contains(where: { $0.compoundID != nil }) {
+            return try await CompoundCompositionBuilder().build(project,mode: mode,outputSize: outputSize)
+        }
         let rate = project.settings.frameRate
         let composition = AVMutableComposition()
         let duration = time(rate.seconds(project.duration))
@@ -168,7 +171,7 @@ public actor CompositionBuilder {
     }
 }
 
-private struct SourceTracks {
+struct SourceTracks {
     // AVAssetTrack.asset is weak; keep the owner alive while its tracks are inserted.
     let asset: AVURLAsset
     let video: AVAssetTrack?

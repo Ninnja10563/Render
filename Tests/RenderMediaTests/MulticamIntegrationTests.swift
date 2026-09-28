@@ -31,10 +31,12 @@ extension MediaIntegrationTests {
         XCTAssertEqual(project.tracks[0].clips.last?.sourceIn ?? -1,1.5,accuracy: 0.001)
         let prepared = try await CompositionBuilder().build(project)
         let preview = AVAssetImageGenerator(asset: prepared.composition); preview.videoComposition = prepared.videoComposition
+        preview.requestedTimeToleranceBefore = .zero; preview.requestedTimeToleranceAfter = .zero
         config.quality = .balanced
         let output = folder.appendingPathComponent("multicam.mp4")
         try await ExportService().export(project: project,configuration: config,to: output)
         let encoded = AVAssetImageGenerator(asset: AVURLAsset(url: output))
+        encoded.requestedTimeToleranceBefore = .zero; encoded.requestedTimeToleranceAfter = .zero
         for (frame,channel) in [(15,0),(45,2)] {
             let time = CMTime(value: Int64(frame),timescale: 30)
             let a = pixel(try await preview.image(at: time).image), b = pixel(try await encoded.image(at: time).image)
