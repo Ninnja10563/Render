@@ -2,7 +2,7 @@ import Foundation
 import CryptoKit
 
 // Read key material from a protected file, never from command-line arguments or logs.
-let encoded = try String(contentsOfFile: CommandLine.arguments[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+let encoded = try String(contentsOfFile: CommandLine.arguments[1],encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
 guard let seed = Data(base64Encoded: encoded),seed.count == 32 else {
     fputs("Invalid update signing key format.\n",stderr); exit(1)
 }

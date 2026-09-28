@@ -65,6 +65,7 @@ for version in old new; do
     /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $NUMBER" "$PLIST"
     codesign --force --deep --sign - "$TEST_ROOT/$version/Render.app"
 done
+swift scripts/check-update-key.swift "$TEST_ROOT/test.key" "$TEST_ROOT/new/Render.app/Contents/Info.plist"
 ditto -c -k --sequesterRsrc --keepParent "$TEST_ROOT/new/Render.app" "$TEST_ROOT/server/Render.zip"
 "$TOOLS/generate_appcast" --ed-key-file "$TEST_ROOT/test.key" --maximum-deltas 0 \
     --download-url-prefix "${FEED%appcast.xml}" "$TEST_ROOT/server"
