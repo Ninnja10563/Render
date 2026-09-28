@@ -38,16 +38,22 @@ public enum TransitionEditing {
               transition.duration >= 2, transition.duration <= min(left.duration,right.duration) else { throw RenderError.invalid("A transition needs adjacent clips and a duration no longer than either clip.") }
         let before = transition.duration / 2, after = transition.duration - before
         let media = assets ?? Dictionary(uniqueKeysWithValues: project.assets.map { ($0.id,$0) })
-        if let id = left.assetID, let source = media[id], source.kind != .image {
-            guard left.sourceIn + project.settings.frameRate.seconds(left.duration + after) * left.speed <= source.duration + 0.001 else {
+        func duration(_ clip: TimelineClip) -> Double? {
+            if let id = clip.compoundID { return project.compounds?.first(where: { $0.id == id })?.seconds }
+            if let id = clip.assetID, let source = media[id], source.kind != .image { return source.duration }
+            return nil
+        }
+        if let duration = duration(left) {
+            guard left.sourceIn + project.settings.frameRate.seconds(left.duration + after) * left.speed <= duration + 0.001 else {
                 throw RenderError.invalid("The outgoing clip needs more source frames after the cut. Trim its end before adding this transition.")
             }
         }
-        if let id = right.assetID, let source = media[id], source.kind != .image {
+        if duration(right) != nil {
             guard right.sourceIn + 0.001 >= project.settings.frameRate.seconds(before) * right.speed else {
                 throw RenderError.invalid("The incoming clip needs more source frames before the cut. Trim its beginning before adding this transition.")
             }
         }
+
     }
     static func reconcile(_ project: inout RenderProject) {
         guard project.tracks.contains(where: { $0.clips.contains(where: { $0.transition != nil }) }) else { return }

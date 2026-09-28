@@ -27,6 +27,7 @@ public struct TimelineClip: Codable, Equatable, Identifiable, Sendable {
     public var connection: ClipConnection?
     public var transition: ClipTransition?
     public var multicam: MulticamMembership?
+    public var compoundID: UUID?
     public var name: String
     public var start: Int64
     public var duration: Int64
@@ -65,7 +66,7 @@ public struct ProjectSettings: Codable, Equatable, Sendable {
     public init() {}
 }
 public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
-    public static let currentSchema = 9
+    public static let currentSchema = 10
     public var schemaVersion = currentSchema
     public var id = UUID()
     public var name = "Untitled"
@@ -73,6 +74,7 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
     public var assets: [MediaAsset] = []
     public var storyline: StorylineSettings?
     public var multicamSources: [MulticamSource]?
+    public var compounds: [CompoundSource]?
     /// Topmost video track composites above subsequent video tracks.
     public var tracks = [TimelineTrack(name: "Video 1", kind: .video), TimelineTrack(name: "Audio 1", kind: .audio)]
     public var markers: [TimelineMarker] = []
@@ -87,13 +89,11 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
     }
     public func validate() throws {
         guard schemaVersion == Self.currentSchema else { throw RenderError.unsupportedVersion(schemaVersion) }
-        guard settings.width >= 16, settings.width <= 8192, settings.height >= 16, settings.height <= 8192,
-              settings.width % 2 == 0, settings.height % 2 == 0,
-              settings.frameRate.numerator > 0, settings.frameRate.denominator > 0,
-              (1...120).contains(settings.frameRate.value) else { throw RenderError.invalid("Invalid project dimensions or frame rate.") }
+        try settings.validate()
         let ids = assets.map(\.id) + tracks.map(\.id) + tracks.flatMap(\.clips).map(\.id) + markers.map(\.id)
         let cameraIDs = (multicamSources ?? []).flatMap { [$0.id] + $0.angles.map(\.id) }
-        guard Set(ids + cameraIDs).count == ids.count + cameraIDs.count else { throw RenderError.invalid("Project contains duplicate identifiers.") }
+        let compoundIDs = (compounds ?? []).flatMap { [$0.id] + $0.tracks.map(\.id) + $0.tracks.flatMap(\.clips).map(\.id) + $0.markers.map(\.id) }
+        guard Set(ids + cameraIDs + compoundIDs).count == ids.count + cameraIDs.count + compoundIDs.count else { throw RenderError.invalid("Project contains duplicate identifiers.") }
         for asset in assets {
             let variants = asset.variants ?? []
             guard (variants.isEmpty || asset.kind == .video), variants.count <= 2, Set(variants.map(\.mode)).count == variants.count,
@@ -106,82 +106,19 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
         let mediaByID = Dictionary(uniqueKeysWithValues: assets.map { ($0.id,$0) })
         for source in multicamSources ?? [] { try source.validate(assets: mediaByID) }
         let multicams = Dictionary(uniqueKeysWithValues: (multicamSources ?? []).map { ($0.id,$0) })
-        for track in tracks {
-            let trackClips = track.clips.contains(where: { $0.transition != nil }) ? Dictionary(uniqueKeysWithValues: track.clips.map { ($0.id,$0) }) : [:]
-            var previousEnd: Int64 = 0
-            for clip in track.clips.sorted(by: { $0.start < $1.start }) {
-                guard clip.start >= 0, clip.duration > 0, clip.start < 100_000_000,
-                      clip.duration < 100_000_000, clip.animationOffset >= 0, clip.animationOffset < 100_000_000,
-                      clip.sourceIn.isFinite, clip.sourceIn >= 0, clip.speed.isFinite, (0.05...16).contains(clip.speed)
-                else { throw RenderError.invalid("Invalid timing for \(clip.name).") }
-                guard clip.start >= previousEnd else { throw RenderError.invalid("Clips cannot overlap on the same track. Move the clip to another track.") }
-                previousEnd = clip.end
-                if let transition = clip.transition {
-                    guard track.kind == .video else { throw RenderError.invalid("Visual transitions belong on video tracks.") }
-                    try TransitionEditing.validate(transition,left: clip,right: trackClips[transition.rightID],project: self,assets: mediaByID)
-                }
-                if clip.isGap == true {
-                    guard clip.assetID == nil, clip.title == nil, track.kind == .video else { throw RenderError.invalid("A gap must be a generated video clip.") }
-                } else if let title = clip.title {
-                    guard clip.assetID == nil, track.kind == .video else { throw RenderError.invalid("Titles must be generated clips on video tracks.") }
-                    try title.validate()
-                } else {
-                    guard let assetID = clip.assetID, let asset = mediaByID[assetID] else { throw RenderError.invalid("Clip references an unknown media asset.") }
-                    guard (track.kind == .audio) == (asset.kind == .audio) else { throw RenderError.invalid("This media belongs on a \(asset.kind == .audio ? "audio" : "video") track.") }
-                    if asset.kind != .image {
-                        guard clip.sourceIn + settings.frameRate.seconds(clip.duration) * clip.speed <= asset.duration + 0.001 else { throw RenderError.invalid("Edit extends past the available source media.") }
-                    }
-                }
-                if let membership = clip.multicam {
-                    guard track.kind == .video, clip.title == nil, clip.isGap != true,
-                          let source = multicams[membership.sourceID], let angle = source.angles.first(where: { $0.id == membership.angleID }),
-                          clip.assetID == angle.assetID else { throw RenderError.invalid("Invalid multicam clip reference.") }
-                }
-                let p = clip.properties
-                try p.geometry?.validate()
-                try p.audioFades?.validate()
-                guard [p.x,p.y,p.scale,p.rotation,p.opacity,p.volume].allSatisfy(\.isFinite),
-                      (0.01...10).contains(p.scale), (0...1).contains(p.opacity), (0...4).contains(p.volume),
-                      abs(p.x) <= 32768, abs(p.y) <= 32768, abs(p.rotation) <= 3600 else { throw RenderError.invalid("Invalid clip properties.") }
-                for (name, curve) in p.animations {
-                    guard let range = ClipProperties.animationRanges[name] else { throw RenderError.invalid("Unknown animated property.") }
-                    try Self.validateCurve(curve)
-                    guard curve.keys.allSatisfy({ range.contains($0.value) }) else { throw RenderError.invalid("Keyframe value is outside the property range.") }
-                }
-                guard Set(clip.effects.map(\.id)).count == clip.effects.count else { throw RenderError.invalid("Duplicate effects.") }
-                for effect in clip.effects {
-                    try effect.mask?.validate()
-                    try effect.keying?.validate()
-                    guard effect.amount.isFinite, effect.kind.range.contains(effect.amount) else { throw RenderError.invalid("Effect value is out of range.") }
-                    try Self.validateCurve(effect.animation)
-                    guard effect.animation.keys.allSatisfy({ effect.kind.range.contains($0.value) }) else { throw RenderError.invalid("Effect keyframe is out of range.") }
-                }
-            }
+        let sources = Dictionary(uniqueKeysWithValues: (compounds ?? []).map { ($0.id,$0) })
+        for source in sources.values {
+            try source.settings.validate()
+            guard !source.name.isEmpty, source.name.utf8.count <= 4096, source.duration > 0, source.duration < 100_000_000,
+                  source.kind != .audio || source.tracks.allSatisfy({ $0.kind == .audio }) else { throw RenderError.invalid("Invalid compound source settings.") }
         }
-        if let storyline {
-            guard let primary = tracks.first(where: { $0.id == storyline.trackID }), primary.kind == .video else { throw RenderError.invalid("The primary storyline must be a video track.") }
-            let anchors = Dictionary(uniqueKeysWithValues: primary.clips.map { ($0.id,$0) })
-            var end: Int64 = 0
-            for clip in primary.clips.sorted(by: { $0.start < $1.start }) {
-                guard clip.connection == nil, !storyline.enabled || clip.start == end else { throw RenderError.invalid("Magnetic storylines cannot contain implicit gaps.") }
-                end = clip.end
-            }
-            for track in tracks where track.id != primary.id {
-                for clip in track.clips {
-                    if let connection = clip.connection {
-                        guard let anchor = anchors[connection.anchor], abs(Double(connection.offset)) < 200_000_000,
-                              clip.start == anchor.start + connection.offset else { throw RenderError.invalid("Invalid storyline connection.") }
-                    }
-                }
-            }
-        } else if tracks.flatMap(\.clips).contains(where: { $0.connection != nil }) {
-            throw RenderError.invalid("Connected clips need a primary storyline.")
+        try validateTimeline(mediaByID: mediaByID,multicams: multicams,sources: sources)
+        for source in sources.values {
+            var context = self
+            context.settings = source.settings; context.tracks = source.tracks; context.markers = source.markers; context.storyline = source.storyline
+            try context.validateTimeline(mediaByID: mediaByID,multicams: multicams,sources: sources)
+            guard context.duration <= source.duration else { throw RenderError.invalid("Compound contents extend beyond its declared source duration.") }
         }
-        guard markers.allSatisfy({ $0.frame >= 0 && $0.frame < 100_000_000 }) else { throw RenderError.invalid("Invalid marker position.") }
-    }
-    private static func validateCurve(_ curve: AnimationCurve) throws {
-        guard Set(curve.keys.map(\.frame)).count == curve.keys.count,
-              Set(curve.keys.map(\.id)).count == curve.keys.count,
-              curve.keys.allSatisfy({ $0.frame >= 0 && $0.frame < 200_000_000 && $0.value.isFinite }) else { throw RenderError.invalid("Invalid keyframe curve.") }
+        try validateCompoundGraph(sources)
     }
 }

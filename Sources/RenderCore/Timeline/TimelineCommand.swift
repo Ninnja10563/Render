@@ -2,6 +2,8 @@ import Foundation
 
 public enum TrimEdge: Sendable { case leading, trailing }
 public enum TimelineCommand: Sendable {
+    case makeCompound(clips: Set<UUID>,name: String)
+    case breakApart(UUID)
     case makeMulticam(clip: UUID,MulticamSource)
     case switchAngle(clip: UUID,angle: UUID,at: Int64?)
     case transition(clip: UUID,ClipTransition?)
@@ -41,6 +43,8 @@ public enum TimelineCommand: Sendable {
 
     public var label: String {
         switch self {
+        case .makeCompound: return "Create Compound Clip"
+        case .breakApart: return "Break Apart Compound"
         case .makeMulticam: return "Create Multicam Source"
         case .switchAngle: return "Switch Camera Angle"
         case .transition: return "Change Transition"
@@ -122,6 +126,8 @@ public enum TimelineCommand: Sendable {
             }
         }
         switch self {
+        case .makeCompound(let clips,let name): project = try CompoundEditing.create(clips,name: name,in: project)
+        case .breakApart(let id): project = try CompoundEditing.breakApart(id,in: project)
         case .makeMulticam(let id,let source):
             let (t,c) = try location(id)
             let clip = project.tracks[t].clips[c]
