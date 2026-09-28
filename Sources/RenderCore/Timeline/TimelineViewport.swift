@@ -7,7 +7,9 @@ public enum TimelineViewport {
         let padding = min(count,max(0,overscan))
         let top = min(Double(count),max(0,((offset - headerHeight) / rowHeight).rounded(.down)))
         let bottom = min(Double(count),max(0,((offset + height - headerHeight) / rowHeight).rounded(.up)))
-        let first = max(0,Int(top) - padding), last = min(count,Int(bottom) + min(padding,count - Int(bottom)))
+        let topIndex = top >= Double(count) ? count : Int(top)
+        let bottomIndex = bottom >= Double(count) ? count : Int(bottom)
+        let first = max(0,topIndex - padding), last = bottomIndex + min(padding,count - bottomIndex)
         return first..<max(first,last)
     }
 }

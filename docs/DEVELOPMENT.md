@@ -110,3 +110,7 @@ Apple API references: [reader/writer composition export](https://developer.apple
 ## Multicam and schema 9
 
 MulticamSource owns named CameraAngle references with source-time offsets. Timeline clips keep an ordinary assetID plus validated source/angle membership, so decoding, proxies, effects and export retain the established source pipeline. Switching maps current source time through the old/new offsets; cutting also advances animation phase and reconnects storyline children. Definitions are reusable and media is never duplicated. The angle viewer limits live decoders to four visible tiles, mutes audition audio and synchronizes source time while preserving independent camera durations. Structural edits preserve membership; detached audio explicitly drops it.
+
+## Vertical timeline viewport
+
+TimelineViewport computes one fixed-height track range for both the frozen headers and horizontal lane content. Leading/trailing spacers retain complete scroll geometry while only visible rows plus two-row overscan construct clip views. Removing an offscreen FilmstripView cancels its task; shared cache/decode-gate limits remain unchanged. Transport redraws stay isolated in TimelinePlayhead. Core tests exercise large track lists and scrolling boundary coverage; physical-device input latency and GPU/memory measurements remain separate release work.
