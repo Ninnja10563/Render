@@ -26,6 +26,7 @@ public struct TimelineClip: Codable, Equatable, Identifiable, Sendable {
     public var isGap: Bool?
     public var connection: ClipConnection?
     public var transition: ClipTransition?
+    public var multicam: MulticamMembership?
     public var name: String
     public var start: Int64
     public var duration: Int64
@@ -64,13 +65,14 @@ public struct ProjectSettings: Codable, Equatable, Sendable {
     public init() {}
 }
 public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
-    public static let currentSchema = 8
+    public static let currentSchema = 9
     public var schemaVersion = currentSchema
     public var id = UUID()
     public var name = "Untitled"
     public var settings = ProjectSettings()
     public var assets: [MediaAsset] = []
     public var storyline: StorylineSettings?
+    public var multicamSources: [MulticamSource]?
     /// Topmost video track composites above subsequent video tracks.
     public var tracks = [TimelineTrack(name: "Video 1", kind: .video), TimelineTrack(name: "Audio 1", kind: .audio)]
     public var markers: [TimelineMarker] = []
@@ -90,7 +92,8 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
               settings.frameRate.numerator > 0, settings.frameRate.denominator > 0,
               (1...120).contains(settings.frameRate.value) else { throw RenderError.invalid("Invalid project dimensions or frame rate.") }
         let ids = assets.map(\.id) + tracks.map(\.id) + tracks.flatMap(\.clips).map(\.id) + markers.map(\.id)
-        guard Set(ids).count == ids.count else { throw RenderError.invalid("Project contains duplicate identifiers.") }
+        let cameraIDs = (multicamSources ?? []).flatMap { [$0.id] + $0.angles.map(\.id) }
+        guard Set(ids + cameraIDs).count == ids.count + cameraIDs.count else { throw RenderError.invalid("Project contains duplicate identifiers.") }
         for asset in assets {
             let variants = asset.variants ?? []
             guard (variants.isEmpty || asset.kind == .video), variants.count <= 2, Set(variants.map(\.mode)).count == variants.count,
@@ -101,6 +104,8 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
                   asset.frameRate.isFinite, asset.audioChannels >= 0 else { throw RenderError.invalid("Invalid media metadata for \(asset.name).") }
         }
         let mediaByID = Dictionary(uniqueKeysWithValues: assets.map { ($0.id,$0) })
+        for source in multicamSources ?? [] { try source.validate(assets: mediaByID) }
+        let multicams = Dictionary(uniqueKeysWithValues: (multicamSources ?? []).map { ($0.id,$0) })
         for track in tracks {
             let trackClips = track.clips.contains(where: { $0.transition != nil }) ? Dictionary(uniqueKeysWithValues: track.clips.map { ($0.id,$0) }) : [:]
             var previousEnd: Int64 = 0
@@ -126,6 +131,11 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
                     if asset.kind != .image {
                         guard clip.sourceIn + settings.frameRate.seconds(clip.duration) * clip.speed <= asset.duration + 0.001 else { throw RenderError.invalid("Edit extends past the available source media.") }
                     }
+                }
+                if let membership = clip.multicam {
+                    guard track.kind == .video, clip.title == nil, clip.isGap != true,
+                          let source = multicams[membership.sourceID], let angle = source.angles.first(where: { $0.id == membership.angleID }),
+                          clip.assetID == angle.assetID else { throw RenderError.invalid("Invalid multicam clip reference.") }
                 }
                 let p = clip.properties
                 try p.geometry?.validate()

@@ -18,6 +18,8 @@ final class EditorSession: ObservableObject {
     var isPlaying: Bool { get { transport.isPlaying } set { if transport.isPlaying != newValue { transport.isPlaying = newValue } } }
     @Published var isDirty = false
     @Published var showAudioSync = false
+    @Published var showMulticamSetup = false
+    @Published var showAngles = false
     @Published var errorMessage: String?
     @Published var activity: String?
     @Published var thumbnails: [UUID: NSImage] = [:]

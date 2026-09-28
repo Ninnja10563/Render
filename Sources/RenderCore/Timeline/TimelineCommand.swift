@@ -2,6 +2,8 @@ import Foundation
 
 public enum TrimEdge: Sendable { case leading, trailing }
 public enum TimelineCommand: Sendable {
+    case makeMulticam(clip: UUID,MulticamSource)
+    case switchAngle(clip: UUID,angle: UUID,at: Int64?)
     case transition(clip: UUID,ClipTransition?)
     case storyline(enabled: Bool,track: UUID)
     case connection(clip: UUID,anchor: UUID?)
@@ -39,6 +41,8 @@ public enum TimelineCommand: Sendable {
 
     public var label: String {
         switch self {
+        case .makeMulticam: return "Create Multicam Source"
+        case .switchAngle: return "Switch Camera Angle"
         case .transition: return "Change Transition"
         case .storyline: return "Change Timeline Mode"
         case .connection: return "Change Clip Connection"
@@ -118,6 +122,30 @@ public enum TimelineCommand: Sendable {
             }
         }
         switch self {
+        case .makeMulticam(let id,let source):
+            let (t,c) = try location(id)
+            let clip = project.tracks[t].clips[c]
+            guard project.tracks[t].kind == .video, clip.multicam == nil, let angle = source.angles.first(where: { $0.assetID == clip.assetID }), angle.offset == 0 else { throw RenderError.invalid("Choose a normal video clip as the zero-offset reference camera.") }
+            project.multicamSources = (project.multicamSources ?? []) + [source]
+            project.tracks[t].clips[c].multicam = MulticamMembership(sourceID: source.id,angleID: angle.id)
+            project.tracks[t].clips[c].name = source.name + " · " + angle.name
+        case .switchAngle(let id,let angle,let cut):
+            let (t,c) = try location(id)
+            let originalClip = project.tracks[t].clips[c]
+            guard let membership = originalClip.multicam, let source = project.multicamSources?.first(where: { $0.id == membership.sourceID }) else { throw RenderError.invalid("Select a multicam clip first.") }
+            if angle == membership.angleID { break }
+            if let cut {
+                guard cut >= originalClip.start, cut < originalClip.end else { throw RenderError.invalid("Place the playhead inside the selected multicam clip.") }
+                if cut > originalClip.start {
+                    let delta = cut - originalClip.start
+                    var right = originalClip; right.id = UUID(); right.start = cut; right.duration -= delta
+                    right.sourceIn += project.settings.frameRate.seconds(delta) * right.speed; right.animationOffset += delta
+                    right = try MulticamEditing.replacingAngle(in: right,with: angle,source: source)
+                    project.tracks[t].clips[c].duration = delta; project.tracks[t].clips[c].transition = nil
+                    project.tracks[t].clips.append(right)
+                    try reconnectSplit(originalClip,right: right,cut: cut)
+                } else { project.tracks[t].clips[c] = try MulticamEditing.replacingAngle(in: originalClip,with: angle,source: source) }
+            } else { project.tracks[t].clips[c] = try MulticamEditing.replacingAngle(in: originalClip,with: angle,source: source) }
         case .transition(let id,let transition):
             let (t,c) = try location(id)
             guard project.tracks[t].kind == .video else { throw RenderError.invalid("Select a video clip for a transition.") }
@@ -290,7 +318,7 @@ public enum TimelineCommand: Sendable {
             audioMedia.name = media.name + " (audio)"
             project.assets.append(audioMedia)
             var audioClip = clip; audioClip.id = UUID(); audioClip.assetID = audioMedia.id
-            audioClip.name = audioMedia.name; audioClip.effects = []; audioClip.transition = nil; audioClip.properties = ClipProperties()
+            audioClip.name = audioMedia.name; audioClip.effects = []; audioClip.transition = nil; audioClip.multicam = nil; audioClip.properties = ClipProperties()
             audioClip.properties.volume = clip.properties.volume; audioClip.properties.muted = clip.properties.muted
             audioClip.properties.animations["volume"] = clip.properties.animations["volume"]
             var audioTrack = TimelineTrack(name: "Detached Audio",kind: .audio); audioTrack.clips = [audioClip]

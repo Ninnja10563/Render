@@ -9,7 +9,10 @@ struct WorkspaceView: View {
             VSplitView {
                 HSplitView {
                     if session.showLibrary { MediaBrowserView(session: session).frame(minWidth: 210, idealWidth: 270, maxWidth: 440) }
-                    ViewerView(session: session).frame(minWidth: 380, maxWidth: .infinity, minHeight: 250, maxHeight: .infinity)
+                    VStack(spacing: 0) {
+                        ViewerView(session: session).frame(minWidth: 380,maxWidth: .infinity,minHeight: 250,maxHeight: .infinity)
+                        if session.showAngles { MulticamAngleViewer(session: session).frame(height: 140) }
+                    }
                     if session.showInspector { InspectorView(session: session).frame(minWidth: 250, idealWidth: 280, maxWidth: 380) }
                 }.frame(minHeight: 280)
                 if session.showTimeline { TimelineView(session: session).frame(minHeight: 200, idealHeight: 310) }
@@ -40,6 +43,7 @@ struct WorkspaceView: View {
         .alert("Render couldn’t complete the operation", isPresented: Binding(get: { session.errorMessage != nil }, set: { if !$0 { session.errorMessage = nil } })) {
             Button("OK",role: .cancel) { session.errorMessage = nil }
         } message: { Text(session.errorMessage ?? "") }
+        .sheet(isPresented: $session.showMulticamSetup) { MulticamSetupView(session: session) }
         .sheet(isPresented: $session.showAudioSync) { AudioSyncView(session: session) }
         .sheet(isPresented: $session.showExport) { ExportView(session: session, exporter: session.exporter) }
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in

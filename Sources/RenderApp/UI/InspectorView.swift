@@ -21,6 +21,7 @@ struct InspectorView: View {
                             Text(clip.name).font(.system(size: 12,weight: .semibold)).lineLimit(2)
                             Text("\(session.fps.timecode(clip.duration)) · \(Int(clip.speed * 100))% speed").font(.system(size: 10,design: .monospaced)).foregroundStyle(.secondary)
                         }
+                        if clip.multicam != nil { MulticamInspectorView(session: session,clip: clip) }
                         if let title = clip.title { TitleInspectorView(session: session,clip: clip,title: title) }
                         if isVisual(clip) {
                         inspectorSection("Transform") {
