@@ -68,8 +68,10 @@ extension EditorSession {
         editor.sourceMonitor.seek(24); editor.markSource(incoming: true)
         guard editor.sourceMonitor.rate == FrameRate(24),editor.sourceMonitor.range.start == 1 else { throw RenderError.invalid("Source marks used the wrong timeline time base.") }
         editor.returnToTimeline(depth: 0)
+        try await Task.sleep(nanoseconds: 30_000_000)
         guard !editor.showingSource,!editor.sourceMonitor.playing,editor.fps == FrameRate(),editor.document.assets[0].selection?.start == 1 else { throw RenderError.invalid("Returning to the parent retained a stale source transport.") }
         editor.openSource(asset.id); editor.openCompound(sourceID)
+        try await Task.sleep(nanoseconds: 30_000_000)
         guard !editor.showingSource,editor.fps == FrameRate(24) else { throw RenderError.invalid("Opening a compound retained source-viewer focus.") }
         print("RENDER_SOURCE_NAVIGATION_OK compound parent differing-frame-rates")
         print("RENDER_SOURCE_OK native-view playback marks append undo save independent-transport")

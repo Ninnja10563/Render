@@ -74,7 +74,7 @@ struct SourceViewer: View {
                 }.font(.system(size: 10)).controlSize(.small).padding(.horizontal,12).padding(.vertical,8)
             }
         }.background(Color(nsColor: .windowBackgroundColor))
-            .onChange(of: session.selectedAsset) { _,id in if let id { session.openSource(id) } }
+            .onChange(of: session.selectedAsset) { _,id in if session.showingSource,let id { session.openSource(id) } }
             .onDisappear { source.pause() }
     }
 }
