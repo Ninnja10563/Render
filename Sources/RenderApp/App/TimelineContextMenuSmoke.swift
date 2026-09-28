@@ -16,27 +16,12 @@ extension EditorSession {
         window.makeKeyAndOrderFront(nil)
         try await Task.sleep(nanoseconds: 250_000_000)
         func choose(_ title: String,x: CGFloat,y: CGFloat) async throws {
-            var opened = false
-            var invoked = false
-            var menuTitles: [String] = []
-            var contextMenu: NSMenu?
+            let probe = ContextMenuProbe(title: title)
             let itemsObserver = NotificationCenter.default.addObserver(forName: NSMenu.didAddItemNotification,object: nil,queue: .main) { notification in
-                if let menu = notification.object as? NSMenu,menu.indexOfItem(withTitle: title) >= 0 { contextMenu = menu }
+                MainActor.assumeIsolated { probe.recordMenu(notification) }
             }
             let observer = NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification,object: nil,queue: .main) { notification in
-                guard !opened,let menu = notification.object as? NSMenu else { return }
-                opened = true
-                let timer = Timer(timeInterval: 0.15,repeats: false) { _ in
-                    let target = contextMenu ?? menu
-                    menuTitles = target.items.map(\.title)
-                    let index = target.indexOfItem(withTitle: title)
-                    target.cancelTrackingWithoutAnimation()
-                    if index >= 0,target.items[index].isEnabled {
-                        target.performActionForItem(at: index); invoked = true
-                    }
-                }
-                RunLoop.main.add(timer,forMode: .eventTracking)
-                RunLoop.main.add(timer,forMode: .common)
+                MainActor.assumeIsolated { probe.beginTracking(notification) }
             }
             defer { NotificationCenter.default.removeObserver(observer); NotificationCenter.default.removeObserver(itemsObserver) }
             let location = host.convert(CGPoint(x: x,y: host.isFlipped ? y : host.bounds.height - y),to: nil)
@@ -45,8 +30,8 @@ extension EditorSession {
                 NSApp.postEvent(event,atStart: false)
             }
             let deadline = Date().addingTimeInterval(3)
-            while !invoked && Date() < deadline { try await Task.sleep(nanoseconds: 50_000_000) }
-            guard invoked else { throw RenderError.invalid("Right-click did not invoke \(title): \(menuTitles).") }
+            while !probe.invoked && Date() < deadline { try await Task.sleep(nanoseconds: 50_000_000) }
+            guard probe.invoked else { throw RenderError.invalid("Right-click did not invoke \(title): \(probe.menuTitles).") }
             try await Task.sleep(nanoseconds: 100_000_000)
         }
         let y = CGFloat(32 + 1 + 28) + TimelineMetrics.laneHeight / 2
@@ -71,5 +56,38 @@ extension EditorSession {
         try await Task.sleep(nanoseconds: 150_000_000)
         guard !editor.showingSource else { throw RenderError.invalid("Clicking a track header did not restore timeline keyboard routing.") }
         print("RENDER_CONTEXT_MENUS_OK native-right-click header lane clip undo clipboard source-focus")
+    }
+}
+
+/// AppKit menu notifications and tracking timers are explicitly confined to the main run loop.
+@MainActor
+private final class ContextMenuProbe {
+    let title: String
+    var invoked = false
+    var menuTitles: [String] = []
+    private var opened = false
+    private var contextMenu: NSMenu?
+    private var trackingMenu: NSMenu?
+    init(title: String) { self.title = title }
+    func recordMenu(_ notification: Notification) {
+        if let menu = notification.object as? NSMenu,menu.indexOfItem(withTitle: title) >= 0 { contextMenu = menu }
+    }
+    func beginTracking(_ notification: Notification) {
+        guard !opened,let menu = notification.object as? NSMenu else { return }
+        opened = true; trackingMenu = menu
+        let timer = Timer(timeInterval: 0.15,repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.invoke() }
+        }
+        RunLoop.main.add(timer,forMode: .eventTracking)
+        RunLoop.main.add(timer,forMode: .common)
+    }
+    private func invoke() {
+        guard let target = contextMenu ?? trackingMenu else { return }
+        menuTitles = target.items.map(\.title)
+        let index = target.indexOfItem(withTitle: title)
+        target.cancelTrackingWithoutAnimation()
+        if index >= 0,target.items[index].isEnabled {
+            target.performActionForItem(at: index); invoked = true
+        }
     }
 }
