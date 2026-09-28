@@ -21,6 +21,7 @@ struct FilmstripView: View {
     let frameRate: FrameRate
     let visibleRange: ClosedRange<CGFloat>
     let width: CGFloat
+    let height: CGFloat
     let mode: PlaybackMediaMode
     @State private var images: [Int: CGImage] = [:]
     @State private var loaded: FilmstripRequest?
@@ -41,9 +42,9 @@ struct FilmstripView: View {
                     if loaded == request, let image = images[index] { Image(decorative: image,scale: 2).resizable().scaledToFill() }
                     else if let poster { Image(nsImage: poster).resizable().scaledToFill() }
                     else { Color.black.opacity(0.12) }
-                }.frame(width: cellWidth,height: 37).clipped().offset(x: CGFloat(index) * cellWidth)
+                }.frame(width: cellWidth,height: height).clipped().offset(x: CGFloat(index) * cellWidth)
             }
-        }.frame(width: width,height: 37,alignment: .leading).clipped().allowsHitTesting(false)
+        }.frame(width: width,height: height,alignment: .leading).clipped().allowsHitTesting(false)
             .task(id: request) {
                 if media.kind == .image { images = [:]; loaded = request; return }
                 do {

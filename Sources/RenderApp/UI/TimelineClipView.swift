@@ -21,7 +21,7 @@ struct ClipTile: View {
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 1).fill(tint.opacity(track.hidden || track.muted ? 0.5 : 1))
                 if track.kind == .video, let assetID = clip.assetID, let media = session.project.assets.first(where: { $0.id == assetID }), geometry.size.width > 34 {
-                    FilmstripView(media: media,clip: clip,library: session.library,poster: session.thumbnails[assetID],pointsPerSecond: session.pointsPerSecond,frameRate: session.fps,visibleRange: visibleRange,width: geometry.size.width,mode: session.playbackMode)
+                    FilmstripView(media: media,clip: clip,library: session.library,poster: session.thumbnails[assetID],pointsPerSecond: session.pointsPerSecond,frameRate: session.fps,visibleRange: visibleRange,width: geometry.size.width,height: max(1,geometry.size.height - 18),mode: session.playbackMode)
                         .offset(y: 18).opacity(0.8)
                 }
                 if let assetID = clip.assetID, let peaks = session.waveforms[assetID], let asset = session.project.assets.first(where: { $0.id == clip.assetID }) {
