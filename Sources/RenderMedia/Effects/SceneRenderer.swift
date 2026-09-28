@@ -10,7 +10,9 @@ final class SceneRenderer {
     func render(_ nodes: [RenderNode],frame: Double,rate: FrameRate,size: CGSize,background: CIColor = .black,source: (CMPersistentTrackID) -> CIImage?) throws -> CIImage {
         try scene(nodes,frame: frame,rate: rate,bounds: CGRect(origin: .zero,size: size),background: background,depth: 0,source: source)
     }
-    private func scene(_ nodes: [RenderNode],frame: Double,rate: FrameRate,bounds: CGRect,background: CIColor,depth: Int,source: (CMPersistentTrackID) -> CIImage?) throws -> CIImage {
+    private func scene(_ nodes: [RenderNode],frame inputFrame: Double,rate: FrameRate,bounds: CGRect,background: CIColor,depth: Int,source: (CMPersistentTrackID) -> CIImage?) throws -> CIImage {
+        let rounded = inputFrame.rounded()
+        let frame = abs(inputFrame - rounded) < 0.000001 ? rounded : inputFrame
         guard depth <= 16 else { throw RenderError.invalid("The render hierarchy is too deeply nested.") }
         let active = nodes.filter { frame >= Double($0.start) && frame < Double($0.end) }
         let paired = active.contains { $0.incoming != nil || $0.outgoing != nil }

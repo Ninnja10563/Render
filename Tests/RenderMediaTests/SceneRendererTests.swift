@@ -47,6 +47,11 @@ final class SceneRendererTests: XCTestCase {
         let gray = pixel(try renderer.render([.group(RenderGroup(clip: effected,children: [layer(.red)]))],frame: 10,rate: FrameRate(),size: size) { _ in nil })
         XCTAssertEqual(Double(gray[0]),Double(gray[1]),accuracy: 2); XCTAssertEqual(Double(gray[1]),Double(gray[2]),accuracy: 2)
     }
+    func testFractionalRateRoundingDoesNotCreateBlackFramesAtCuts() throws {
+        let nodes = [layer(.red,duration: 30),layer(.green,start: 30,duration: 30)]
+        let value = pixel(try SceneRenderer().render(nodes,frame: Double(30).nextDown,rate: FrameRate(30000,1001),size: size) { _ in nil })
+        XCTAssertGreaterThan(value[1],250); XCTAssertLessThan(value[0],2)
+    }
     func testHierarchyLimitReportsError() {
         var node = layer(.red)
         for _ in 0..<18 { node = .group(RenderGroup(clip: TimelineClip(assetID: nil,name: "Nested",start: 0,duration: 120),children: [node])) }
