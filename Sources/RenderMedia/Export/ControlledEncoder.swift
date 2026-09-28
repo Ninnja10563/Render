@@ -12,9 +12,13 @@ actor ControlledEncoder {
         writer.shouldOptimizeForNetworkUse = true
         let tracks = prepared.composition.tracks.filter { $0.mediaType == .video }
         let video = AVAssetReaderVideoCompositionOutput(videoTracks: tracks,videoSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,kCVPixelBufferIOSurfacePropertiesKey as String: [:]])
+        prepared.videoComposition.colorPrimaries = AVVideoColorPrimaries_ITU_R_709_2
+        prepared.videoComposition.colorTransferFunction = AVVideoTransferFunction_IEC_sRGB
+        prepared.videoComposition.colorYCbCrMatrix = AVVideoYCbCrMatrix_ITU_R_709_2
         video.videoComposition = prepared.videoComposition; video.alwaysCopiesSampleData = false
         let settings: [String: Any] = [AVVideoCodecKey: configuration.codec == .hevc ? AVVideoCodecType.hevc : AVVideoCodecType.h264,
             AVVideoWidthKey: configuration.width,AVVideoHeightKey: configuration.height,
+            AVVideoColorPropertiesKey: [AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,AVVideoTransferFunctionKey: AVVideoTransferFunction_IEC_sRGB,AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2],
             AVVideoEncoderSpecificationKey: [kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder as String: true],
             AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: bitrate,AVVideoExpectedSourceFrameRateKey: configuration.frameRate.value,AVVideoMaxKeyFrameIntervalDurationKey: 2]]
         guard writer.canApply(outputSettings: settings,forMediaType: .video) else { throw RenderError.invalid("This Mac cannot encode the requested video settings.") }
