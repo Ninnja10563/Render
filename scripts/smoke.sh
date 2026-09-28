@@ -22,6 +22,7 @@ grep -q RENDER_INSPECTOR_SAVE_OK build/launch.log
 grep -q RENDER_MULTICAM_OK build/launch.log
 grep -q RENDER_VIEWPORT_OK build/launch.log
 grep -q RENDER_TRACK_DRAG_OK build/launch.log
+grep -q RENDER_CONTEXT_MENUS_OK build/launch.log
 grep -q RENDER_SOURCE_OK build/launch.log
 grep -q RENDER_SOURCE_NAVIGATION_OK build/launch.log
 grep -q RENDER_COMPOUND_OK build/launch.log
