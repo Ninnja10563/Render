@@ -15,7 +15,12 @@ struct RenderApplication: App {
         }
         .defaultSize(width: 1440, height: 900)
         .commands { EditorCommands(session: session) }
-        Settings { SettingsView() }
+        Settings {
+            TabView {
+                SettingsView().tabItem { Label("General",systemImage: "gearshape") }
+                ShortcutSettingsView(store: .shared).tabItem { Label("Shortcuts",systemImage: "keyboard") }
+            }.padding(8)
+        }
     }
 }
 
@@ -23,6 +28,7 @@ struct RenderApplication: App {
 final class RenderAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     weak var session: EditorSession?
     private var monitor: Any?
+    var shortcuts = ShortcutStore.shared
     func applicationDidFinishLaunching(_ notification: Notification) {
         if CommandLine.arguments.contains("--smoke-test") {
             NSApp.appearance = NSAppearance(named: ProcessInfo.processInfo.environment["RENDER_APPEARANCE"] == "dark" ? .darkAqua : .aqua)
@@ -33,8 +39,8 @@ final class RenderAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
             if CommandLine.arguments.contains("--smoke-test") {
                 Task { @MainActor in
                     do {
-                        guard let session = self?.session else { throw NSError(domain: "RenderSmoke",code: 1) }
-                        try await session.runSmokeTest()
+                        guard let self,let session = self.session else { throw NSError(domain: "RenderSmoke",code: 1) }
+                        try await session.runSmokeTest(delegate: self)
                         guard let window = NSApp.windows.first(where: { $0.isVisible }), let view = window.contentView,
                               let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { exit(2) }
                         view.cacheDisplay(in: view.bounds, to: bitmap)
@@ -80,59 +86,13 @@ final class RenderAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     func installKeyboardMonitor() {
         guard monitor == nil else { return }
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let session = self?.session, NSApp.keyWindow?.identifier?.rawValue != "com_apple_SwiftUI_Settings_window",
+            if let capture = NSApp.keyWindow?.firstResponder as? ShortcutCaptureView {
+                capture.keyDown(with: event); return nil
+            }
+            guard let self,let session = self.session,NSApp.keyWindow?.delegate === self,
                   NSApp.modalWindow == nil, NSApp.keyWindow?.attachedSheet == nil,
-                  !(NSApp.keyWindow?.firstResponder is NSTextView),
-                  event.modifierFlags.intersection([.command,.control,.option]).isEmpty else { return event }
-            if session.showingSource {
-                let source = session.sourceMonitor
-                switch event.keyCode {
-                case 49: source.togglePlayback()
-                case 123: source.seek(source.frame - (event.modifierFlags.contains(.shift) ? 10 : 1))
-                case 124: source.seek(source.frame + (event.modifierFlags.contains(.shift) ? 10 : 1))
-                case 115: source.seek(0)
-                case 119: source.seek(source.totalFrames - 1)
-                case 53: session.closeSource()
-                default:
-                    switch event.charactersIgnoringModifiers?.lowercased() {
-                    case "i": session.markSource(incoming: true)
-                    case "o": session.markSource(incoming: false)
-                    case "j": source.shuttle(-1)
-                    case "k": source.pause()
-                    case "l": source.shuttle(1)
-                    default: return event
-                    }
-                }
-                return nil
-            }
-            switch event.keyCode {
-            case 53: session.timelineDrag.cancel()
-            case 49: session.togglePlayback()
-            case 123: session.pause(); session.seek(session.playhead - (event.modifierFlags.contains(.shift) ? 10 : 1))
-            case 124: session.pause(); session.seek(session.playhead + (event.modifierFlags.contains(.shift) ? 10 : 1))
-            case 51,117: session.delete(ripple: event.modifierFlags.contains(.shift))
-            case 115: session.seek(0)
-            case 119: session.seek(session.project.duration - 1)
-            default:
-                switch event.charactersIgnoringModifiers?.lowercased() {
-                case "j": session.shuttle(-1)
-                case "k": session.pause()
-                case "l": session.shuttle(1)
-                case "a": session.tool = .select
-                case "b": session.tool = .blade
-                case "t": session.tool = .trim
-                case "r": session.tool = .ripple
-                case "o": session.tool = .roll
-                case "y": session.tool = .slip
-                case "u": session.tool = .slide
-                case "g": session.tool = .range
-                case "z": session.tool = .zoom
-                case "n": session.snapping.toggle()
-                case "m": session.perform(.marker(.init(frame: session.playhead, name: "Marker \(session.project.markers.count + 1)")))
-                default: return event
-                }
-            }
-            return nil
+                  !(NSApp.keyWindow?.firstResponder is NSTextView) else { return event }
+            return ShortcutRouter.handle(event,session: session,store: self.shortcuts) ? nil : event
         }
     }
 }

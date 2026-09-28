@@ -120,6 +120,7 @@ struct PlayerSurface: NSViewRepresentable {
 }
 
 private struct ViewerView: View {
+    @ObservedObject private var shortcuts = ShortcutStore.shared
     @ObservedObject var session: EditorSession
     @ObservedObject private var transport: TransportState
     @State private var zoom: Double = 0
@@ -174,9 +175,9 @@ private struct ViewerView: View {
                 Text(session.fps.timecode(session.playhead)).font(.system(size: 12,weight: .medium,design: .monospaced)).frame(minWidth: 92,alignment: .leading)
                 Spacer(minLength: 0)
                 Button { session.pause(); session.seek(0) } label: { Image(systemName: "backward.end.fill") }.help("Beginning (Home)")
-                Button { session.pause(); session.seek(session.playhead - 1) } label: { Image(systemName: "backward.frame.fill") }.help("Previous frame (←)")
-                Button { session.togglePlayback() } label: { Image(systemName: session.isPlaying ? "pause.fill" : "play.fill").frame(width: 18) }.help("Play / Pause (Space)")
-                Button { session.pause(); session.seek(session.playhead + 1) } label: { Image(systemName: "forward.frame.fill") }.help("Next frame (→)")
+                Button { session.pause(); session.seek(session.playhead - 1) } label: { Image(systemName: "backward.frame.fill") }.help("Previous frame (\(shortcuts.label(.previousFrame)))")
+                Button { session.togglePlayback() } label: { Image(systemName: session.isPlaying ? "pause.fill" : "play.fill").frame(width: 18) }.help("Play / Pause (\(shortcuts.label(.playPause)))")
+                Button { session.pause(); session.seek(session.playhead + 1) } label: { Image(systemName: "forward.frame.fill") }.help("Next frame (\(shortcuts.label(.nextFrame)))")
                 Button { session.pause(); session.seek(session.project.duration - 1) } label: { Image(systemName: "forward.end.fill") }.help("End (End)")
                 Spacer(minLength: 0)
                 Text(session.fps.timecode(session.project.duration)).font(.system(size: 11,design: .monospaced)).foregroundStyle(.secondary)

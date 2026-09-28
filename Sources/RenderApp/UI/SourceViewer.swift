@@ -3,6 +3,7 @@ import RenderCore
 
 struct SourceViewer: View {
     @ObservedObject var session: EditorSession
+    @ObservedObject private var shortcuts = ShortcutStore.shared
     @ObservedObject private var source: SourceMonitor
     init(session: EditorSession) { self.session = session; source = session.sourceMonitor }
     var body: some View {
@@ -50,12 +51,12 @@ struct SourceViewer: View {
                     HStack(spacing: 14) {
                         Text(source.rate.timecode(source.frame)).font(.system(size: 11,design: .monospaced))
                         Spacer(minLength: 0)
-                        Button { source.seek(source.frame - 1) } label: { Image(systemName: "backward.frame.fill") }.help("Previous source frame (←)")
-                        Button { source.togglePlayback() } label: { Image(systemName: source.playing ? "pause.fill" : "play.fill") }.disabled(!source.ready || source.asset?.kind == .image).help("Play source range (Space)")
-                        Button { source.seek(source.frame + 1) } label: { Image(systemName: "forward.frame.fill") }.help("Next source frame (→)")
+                        Button { source.seek(source.frame - 1) } label: { Image(systemName: "backward.frame.fill") }.help("Previous source frame (\(shortcuts.label(.previousFrame)))")
+                        Button { source.togglePlayback() } label: { Image(systemName: source.playing ? "pause.fill" : "play.fill") }.disabled(!source.ready || source.asset?.kind == .image).help("Play source range (\(shortcuts.label(.playPause)))")
+                        Button { source.seek(source.frame + 1) } label: { Image(systemName: "forward.frame.fill") }.help("Next source frame (\(shortcuts.label(.nextFrame)))")
                         Spacer(minLength: 0)
-                        Button("Mark In") { session.markSource(incoming: true) }.help("Mark source in (I)")
-                        Button("Mark Out") { session.markSource(incoming: false) }.help("Mark source out, including this frame (O)")
+                        Button("Mark In") { session.markSource(incoming: true) }.help("Mark source in (\(shortcuts.label(.markIn)))")
+                        Button("Mark Out") { session.markSource(incoming: false) }.help("Mark source out, including this frame (\(shortcuts.label(.markOut)))")
                     }.buttonStyle(.plain)
                     HStack(spacing: 10) {
                         Text("In \(source.rate.timecode(source.rate.frames(source.range.start)))  Out \(source.rate.timecode(max(0,source.rate.frames(source.range.end) - 1)))")

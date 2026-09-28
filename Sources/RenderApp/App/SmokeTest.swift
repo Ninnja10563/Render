@@ -4,7 +4,7 @@ import RenderCore
 
 extension EditorSession {
     /// Runs only when explicitly requested by the packaging script; no user document is touched.
-    func runSmokeTest() async throws {
+    func runSmokeTest(delegate: RenderAppDelegate) async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Render-Smoke-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder,withIntermediateDirectories: true)
         let url = folder.appendingPathComponent("Composition test card.png")
@@ -22,6 +22,7 @@ extension EditorSession {
         let asset = try await library.analyze(url)
         perform(.addAsset(asset))
         append(asset.id)
+        try await checkKeyboardShortcuts(delegate: delegate,asset: asset)
         guard let original = project.tracks[0].clips.first else { throw RenderError.invalid("Smoke import did not produce a clip.") }
         selection = [original.id]
         seek(60); split()

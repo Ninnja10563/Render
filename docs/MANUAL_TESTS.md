@@ -103,3 +103,11 @@ Vertical timeline: build a sequence with hundreds of video/audio tracks, scroll 
 - Append, insert, overwrite and drag marked media into tracks. Verify source-in, duration, ripple behavior, locked tracks, undo, and unchanged existing instances.
 - Save/reopen marks, clear/undo, relink equivalent source media, switch projects, and review missing/corrupt media errors. Selection edits must not rebuild the timeline player.
 - Switch sources during decode, use long-GOP media, fractional frame rates and still images, and compare the marked source image with the first/last exported frame.
+
+## Editing shortcuts (0.25)
+
+- Open Settings → Shortcuts; search by command name and current binding. Record, clear, restore a single command, and restore all defaults. Verify Escape cancels recording and conflicts explain which command owns the key.
+- Remap a tool and a transport command. Verify old keys stop working, new keys work in the appropriate Source/Timeline context, and viewer/tool help updates. Restart Render and verify bindings persist.
+- Type shortcut keys in project names, inspector fields, titles, search and dialogs. Verify no editing action fires. Keep Settings focused and verify editing shortcuts do not affect the project.
+- Hold frame navigation; verify repetition. Hold a toggle or Delete; verify only one action is performed. Check left/right modifiers, Caps Lock, non-US keyboard layouts and OS-reserved combinations on physical Macs.
+- Verify standard Command menu shortcuts, Undo/Redo, and Escape retain their native behavior.
