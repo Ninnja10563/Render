@@ -35,7 +35,7 @@ final class SourceMonitor: ObservableObject {
     func configure(_ media: MediaAsset,rate: FrameRate) {
         let unchanged = asset?.hasSamePlaybackSource(as: media) == true && self.rate == rate
         asset = media; self.rate = rate
-        if unchanged { updateBounds(); return }
+        if unchanged && error == nil { updateBounds(); return }
         pause(); imageTask?.cancel(); observation = nil; still = nil; error = nil; frame = 0; ready = false
         guard FileManager.default.fileExists(atPath: media.url.path) else { error = "Missing source media. Use Relink Media to locate it."; player.replaceCurrentItem(with: nil); return }
         if media.kind == .image {

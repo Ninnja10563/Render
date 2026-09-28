@@ -52,6 +52,15 @@ extension EditorSession {
         editor.openSource(asset.id)
         while editor.canUndo && editor.project.assets.contains(where: { $0.id == asset.id }) { editor.undo() }
         guard !editor.showingSource,editor.sourceMonitor.asset == nil else { throw RenderError.invalid("Undoing source import left an orphaned player.") }
+        var recovered = asset; recovered.url = folder.appendingPathComponent("Recovered Source.wav")
+        editor.sourceMonitor.configure(recovered,rate: editor.fps)
+        guard editor.sourceMonitor.error != nil else { throw RenderError.invalid("Missing source media was not reported.") }
+        try FileManager.default.copyItem(at: asset.url,to: recovered.url)
+        editor.sourceMonitor.configure(recovered,rate: editor.fps)
+        let recoveredDeadline = Date().addingTimeInterval(3)
+        while !editor.sourceMonitor.ready && Date() < recoveredDeadline { try await Task.sleep(nanoseconds: 30_000_000) }
+        guard editor.sourceMonitor.ready,editor.sourceMonitor.error == nil else { throw RenderError.invalid("Recovered source media could not be reopened.") }
+        editor.sourceMonitor.clear()
         print("RENDER_SOURCE_OK native-view playback marks append undo save independent-transport")
     }
 }
