@@ -20,7 +20,7 @@ final class SourceMonitor: ObservableObject {
     private var reverseTask: Task<Void,Never>?
     private var shuttleSpeed: Float = 0
     var totalFrames: Int64 { max(1,Int64(floor((asset?.duration ?? 0) * rate.value + 0.0000001))) }
-    var range: SourceSelection { asset?.selection ?? SourceSelection(start: 0,end: rate.seconds(totalFrames)) }
+    var range: SourceSelection { asset?.selection ?? SourceSelection(start: 0,end: min(asset?.duration ?? 0,rate.seconds(totalFrames))) }
     init() {
         player.actionAtItemEnd = .pause
         observer = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1,timescale: 30),queue: .main) { [weak self] time in

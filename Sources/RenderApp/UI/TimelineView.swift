@@ -92,7 +92,7 @@ struct TimelineView: View {
                 }
             }.frame(width: visibleWidth,height: 28).offset(x: origin)
         }.frame(width: contentWidth,height: 28).contentShape(Rectangle())
-            .gesture(DragGesture(minimumDistance: 0).onChanged { value in NSApp.keyWindow?.makeFirstResponder(nil); session.pause(); session.seek(session.fps.frames(value.location.x / session.pointsPerSecond)) })
+            .gesture(DragGesture(minimumDistance: 0).onChanged { value in session.closeSource(); NSApp.keyWindow?.makeFirstResponder(nil); session.pause(); session.seek(session.fps.frames(value.location.x / session.pointsPerSecond)) })
     }
 }
 

@@ -38,7 +38,7 @@ extension EditorSession {
         guard editor.project.tracks == fixture.tracks else { throw RenderError.invalid("Source range insertion did not undo atomically.") }
         editor.clearSourceMarks(); guard editor.sourceMonitor.asset?.selection == nil else { throw RenderError.invalid("Clear marks failed.") }
         editor.undo(); guard editor.sourceMonitor.range == SourceSelection(start: 1,end: 2) else { throw RenderError.invalid("Source mark undo failed.") }
-        editor.closeSource(); guard !editor.showingSource,!editor.sourceMonitor.playing else { throw RenderError.invalid("Returning to the timeline left source playback active.") }
+        editor.selectClip(fixture.tracks[1].clips[0].id); guard !editor.showingSource,!editor.sourceMonitor.playing else { throw RenderError.invalid("Returning to the timeline left source playback active.") }
         print("RENDER_SOURCE_OK native-view playback marks append undo save independent-transport")
     }
 }

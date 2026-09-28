@@ -19,7 +19,7 @@ struct TimelineLaneView: View {
         ZStack(alignment: .topLeading) {
             Rectangle().fill(session.selectedTrack == track.id ? Color.accentColor.opacity(0.035) : Color.primary.opacity(0.018))
                 .onTapGesture {
-                    NSApp.keyWindow?.makeFirstResponder(nil)
+                    session.closeSource(); NSApp.keyWindow?.makeFirstResponder(nil)
                     session.selectedTrack = track.id; session.selection = []; session.selectedRange = nil
                 }
             ForEach(visibleClips) { clip in
@@ -48,7 +48,7 @@ struct TimelineLaneView: View {
             Color.clear.contentShape(Rectangle()).gesture(DragGesture(minimumDistance: 1).onChanged { value in
                 let a = session.snap(session.fps.frames(value.startLocation.x / session.pointsPerSecond))
                 let b = session.snap(session.fps.frames(value.location.x / session.pointsPerSecond))
-                NSApp.keyWindow?.makeFirstResponder(nil)
+                session.closeSource(); NSApp.keyWindow?.makeFirstResponder(nil)
                 session.selection = []; session.selectedTrack = track.id
                 session.selectedRange = TimelineSelectionRange(trackID: track.id,start: min(a,b),end: max(a,b))
             })

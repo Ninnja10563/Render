@@ -4,7 +4,7 @@ import RenderCore
 extension EditorSession {
     func openSource(_ id: UUID) {
         guard let media = project.assets.first(where: { $0.id == id }),flushInspectorEdits() else { return }
-        pause(); selectedAsset = id; showingSource = true; sourceMonitor.configure(media,rate: fps)
+        pause(); selection = []; selectedRange = nil; timelineDrag.cancel(); selectedAsset = id; showingSource = true; sourceMonitor.configure(media,rate: fps)
     }
     func closeSource() { sourceMonitor.pause(); showingSource = false }
     func markSource(incoming: Bool) {

@@ -247,6 +247,7 @@ final class EditorSession: ObservableObject {
         isPlaying = true
     }
     func selectClip(_ id: UUID, extend: Bool = false) {
+        closeSource()
         NSApp.keyWindow?.makeFirstResponder(nil)
         selectedRange = nil
         if extend { if selection.contains(id) { selection.remove(id) } else { selection.insert(id) } }
