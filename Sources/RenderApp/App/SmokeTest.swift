@@ -106,7 +106,12 @@ extension EditorSession {
         }
         try await checkReversePreview()
         seek(30); togglePlayback()
-        try await Task.sleep(nanoseconds: 500_000_000)
+        let playingDeadline = Date().addingTimeInterval(5)
+        while player.timeControlStatus != .playing || player.currentTime().seconds <= fps.seconds(33) {
+            guard Date() < playingDeadline else { throw RenderError.invalid("The installed timeline did not advance into playback.") }
+            try await Task.sleep(nanoseconds: 30_000_000)
+        }
+        try await Task.sleep(nanoseconds: 100_000_000)
         guard errorMessage == nil else { throw RenderError.invalid(errorMessage!) }
         print("RENDER_EDIT_SMOKE_OK import split undo redo roll ripple range transform keyframe playback")
     }
