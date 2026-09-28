@@ -55,25 +55,17 @@ struct TimelineView: View {
                         .overlay(alignment: .topLeading) {
                             TimelinePlayhead(transport: session.transport,frameRate: session.fps,pointsPerSecond: session.pointsPerSecond)
                         }
-                        .background(GeometryReader { proxy in
-                            Color.clear.preference(key: TimelineScrollOffsetKey.self,value: -proxy.frame(in: .named("timelineViewport")).minX)
-                        })
+                        .background(NativeScrollViewport { origin,size in
+                            if scrollOffset != origin.x { scrollOffset = origin.x }
+                            if viewportWidth != size.width { viewportWidth = size.width }
+                        }.frame(width: 0,height: 0))
                     }
-                    .coordinateSpace(name: "timelineViewport")
-                    .onPreferenceChange(TimelineScrollOffsetKey.self) { scrollOffset = $0 }
-                    .background(GeometryReader { proxy in
-                        Color.clear.onAppear { viewportWidth = proxy.size.width }.onChange(of: proxy.size.width) { _,width in viewportWidth = width }
-                    })
                 }
-                .background(GeometryReader { proxy in
-                    Color.clear.preference(key: TimelineVerticalOffsetKey.self,value: -proxy.frame(in: .named("timelineVerticalViewport")).minY)
-                })
+                .background(NativeScrollViewport { origin,size in
+                    if verticalOffset != origin.y { verticalOffset = origin.y }
+                    if viewportHeight != size.height { viewportHeight = size.height }
+                }.frame(width: 0,height: 0))
             }
-            .coordinateSpace(name: "timelineVerticalViewport")
-            .onPreferenceChange(TimelineVerticalOffsetKey.self) { verticalOffset = $0 }
-            .background(GeometryReader { proxy in
-                Color.clear.onAppear { viewportHeight = proxy.size.height }.onChange(of: proxy.size.height) { _,height in viewportHeight = height }
-            })
         }.background(Color(nsColor: .underPageBackgroundColor))
     }
     private var ruler: some View {
@@ -130,11 +122,6 @@ private struct TrackHeader: View {
 }
 
 
-private struct TimelineScrollOffsetKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat,nextValue: () -> CGFloat) { value = nextValue() }
-}
-
 private struct TimelinePlayhead: View {
     @ObservedObject var transport: TransportState
     let frameRate: FrameRate
@@ -143,9 +130,4 @@ private struct TimelinePlayhead: View {
         Rectangle().fill(Color.accentColor).frame(width: 1.5)
             .offset(x: frameRate.seconds(transport.playhead) * pointsPerSecond).allowsHitTesting(false)
     }
-}
-
-private struct TimelineVerticalOffsetKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat,nextValue: () -> CGFloat) { value = nextValue() }
 }
