@@ -27,11 +27,13 @@ extension EditorSession {
         guard let scroll = window.contentView.flatMap(verticalScroll) else { throw RenderError.invalid("Timeline test could not find the vertical scroll view.") }
         let initial = TimelineRenderProbe.visible.intersection(ids)
         guard initial.contains(test.project.tracks[0].id), initial.count <= 12 else { throw RenderError.invalid("Offscreen timeline tracks were constructed at the top of the viewport.") }
-        scroll.contentView.scroll(to: NSPoint(x: 0,y: 28 + 250 * 70))
+        let desiredY: CGFloat = 28 + 250 * 70
+        let nativeY = scroll.documentView?.isFlipped == false ? max(0,(scroll.documentView?.bounds.height ?? 0) - scroll.contentView.bounds.height - desiredY) : desiredY
+        scroll.contentView.scroll(to: NSPoint(x: 0,y: nativeY))
         scroll.reflectScrolledClipView(scroll.contentView)
         try await Task.sleep(nanoseconds: 200_000_000)
         let middle = TimelineRenderProbe.visible.intersection(ids)
-        guard middle.contains(test.project.tracks[250].id), !middle.contains(test.project.tracks[0].id), middle.count <= 12 else { throw RenderError.invalid("Timeline viewport did not release and replace scrolled track views.") }
+        guard middle.contains(test.project.tracks[250].id), !middle.contains(test.project.tracks[0].id), middle.count <= 12 else { throw RenderError.invalid("Timeline viewport mismatch: rows \(test.project.tracks.indices.filter { middle.contains(test.project.tracks[$0].id) }), bounds \(scroll.contentView.bounds), document \(scroll.documentView?.bounds ?? .zero), flipped \(scroll.documentView?.isFlipped ?? false).") }
         print("RENDER_VIEWPORT_OK 500-tracks \(middle.count)-visible-lanes native-scroll")
     }
 }
