@@ -24,7 +24,8 @@ extension EditorSession {
         selection = [clip.id]; seek(15)
         switchCamera(source.angles[1].id,cut: true)
         guard selectedClip?.multicam?.angleID == source.angles[1].id, selectedClip?.start == 15 else { throw RenderError.invalid("Camera cut did not select the new segment.") }
-        undo(); redo(); showAngles = true
+        let selected = selection
+        undo(); redo(); selection = selected; showAngles = true
         guard project.tracks.first?.clips.count == 2 else { throw RenderError.invalid("Camera cut undo/redo failed.") }
         print("RENDER_MULTICAM_OK sources angle-cut undo redo viewer")
     }
