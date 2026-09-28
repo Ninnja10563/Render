@@ -47,7 +47,12 @@ PYTHON
 PUBLIC_KEY=$("$TOOLS/generate_keys" --account "$ACCOUNT" -p)
 python3 scripts/update-test-server.py "$TEST_ROOT/server" "$TEST_ROOT/port" > "$TEST_ROOT/server.log" 2>&1 &
 SERVER_PID=$!
-for _ in $(seq 1 50); do [ -s "$TEST_ROOT/port" ] && break; sleep 0.1; done
+for _ in $(seq 1 200); do
+    [ -s "$TEST_ROOT/port" ] && break
+    if ! kill -0 "$SERVER_PID" 2>/dev/null; then cat "$TEST_ROOT/server.log"; exit 1; fi
+    sleep 0.1
+done
+if [ ! -s "$TEST_ROOT/port" ]; then cat "$TEST_ROOT/server.log"; echo "Update fixture server did not start"; exit 1; fi
 FEED="http://127.0.0.1:$(cat "$TEST_ROOT/port")/appcast.xml"
 for version in old new; do
     ditto "$APP" "$TEST_ROOT/$version/Render.app"

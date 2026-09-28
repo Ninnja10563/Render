@@ -4,6 +4,11 @@ on:
     branches: [main, 'work/**']
   pull_request:
   workflow_dispatch:
+    inputs:
+      updater_run:
+        description: 'Optional run containing a built Render-validation DMG for updater diagnostics'
+        required: false
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -11,6 +16,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   validate:
+    if: ${{ !inputs.updater_run }}
     runs-on: macos-15
     timeout-minutes: 25
     steps:
@@ -41,4 +47,34 @@ jobs:
             build/launch.log
             build/update-*.log
             build/*-benchmark.log
+          if-no-files-found: ignore
+
+  updater-diagnostics:
+    if: ${{ inputs.updater_run != '' }}
+    runs-on: macos-15
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift package resolve
+      - name: Exercise updater using built app
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_RUN: ${{ inputs.updater_run }}
+        run: |
+          gh run download "$ARTIFACT_RUN" -n Render-validation -D build/update-input
+          DMG=$(find build/update-input -name '*.dmg' -print -quit)
+          test -n "$DMG"
+          MOUNT=$(mktemp -d)
+          trap 'hdiutil detach "$MOUNT" >/dev/null 2>&1 || true; rmdir "$MOUNT" || true' EXIT
+          hdiutil attach "$DMG" -mountpoint "$MOUNT" -nobrowse -readonly
+          ditto "$MOUNT/Render.app" build/UpdateFixture.app
+          scripts/test-updates.sh "$(pwd)/build/UpdateFixture.app"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: updater-diagnostics
+          path: build/update-*.log
           if-no-files-found: ignore
