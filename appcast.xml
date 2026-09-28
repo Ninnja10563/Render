@@ -1,0 +1,36 @@
+<?xml version="1.0" standalone="yes"?><!-- sparkle-sign-warning:
+IMPORTANT: This file was signed by Sparkle. Any modifications to this file requires re-signing this file with generate_appcast or sign_update! The signed signature will be embedded at the end of this file.
+--><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Render</title>
+        <item>
+            <title>0.28.0</title>
+            <pubDate>Mon, 28 Sep 2026 07:46:54 +0000</pubDate>
+            <link>https://github.com/Ninnja10563/Render/releases/tag/v0.28.0</link>
+            <sparkle:version>0.28.0</sparkle:version>
+            <sparkle:shortVersionString>0.28.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[# Render 0.28.0 — Automatic updates
+
+Render can now check for and install future development releases without a manual DMG download.
+
+- Automatic daily checks and background downloads, with installation on quit. Both settings can be changed in Settings → Updates.
+- Render → Check for Updates… provides the native update, download, progress and relaunch flow.
+- Updates use Sparkle 2.10.0, pinned in Swift Package Manager. Both the update feed and downloaded archive are signed with Ed25519; archive validation happens before extraction.
+- Filmstrips fit the compact track height instead of being clipped by the shorter lanes.
+- Editing shortcuts yield to open menus, including nested menus, instead of intercepting menu input.
+- Save/discard prompts and running-export protection remain part of quitting for an update.
+- Release automation publishes a signed feed only after its matching GitHub Release and DMG exist. Build versions now use semantic versions consistently across local, CI and release builds.
+
+Update integration checks use disposable app copies and test signing keys: forged feed rejection, corrupt download rejection, actual installation, code-signature verification, current-version detection and launching the replaced app. Existing core/media, native interaction and installed-app checks remain required.
+
+Install this version manually once to enable updates from future releases. Earlier Render versions do not contain an updater. This feed carries development prereleases, not production-qualified releases. Apple Silicon, macOS 14+. The app remains ad-hoc signed and not notarized; update signatures do not replace Apple Developer ID signing.
+]]></description>
+            <enclosure url="https://github.com/Ninnja10563/Render/releases/download/v0.28.0/Render-0.28.0-Apple-Silicon.dmg" length="3814991" type="application/octet-stream" sparkle:edSignature="I/Klxjglk2nr1H60mEt11sA6ajIJseRU8NKaOXOzdPh9BDJ3T+H/s/DvgylSkYwUjiyQWZHztR35HLJLwYyuAA=="></enclosure>
+        </item>
+    </channel>
+</rss><!-- sparkle-signatures:
+edSignature: tyRJ+wwWTPlIX3hh/ktCnay/ChycloqZmVRJxSX3rQDtZe3UXfcdchRcgOvtn0jAMVy5vvo0BwztqyRmYAKjAA==
+length: 2978
+-->
