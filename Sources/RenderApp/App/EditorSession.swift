@@ -161,6 +161,7 @@ final class EditorSession: ObservableObject {
     }
     func openCompound(_ id: UUID) {
         guard flushInspectorEdits(), project.tracks.flatMap(\.clips).contains(where: { $0.compoundID == id }) else { return }
+        closeSource()
         let root = document
         do {
             let context = try root.timelineContext(compoundID: id)
@@ -170,6 +171,7 @@ final class EditorSession: ObservableObject {
     }
     func returnToTimeline(depth: Int) {
         guard depth >= 0, depth < compoundPath.count, flushInspectorEdits() else { return }
+        closeSource()
         let root = document; compoundPath = Array(compoundPath.prefix(depth)); displayDocument(root)
         selection = []; selectedTrack = nil; selectedRange = nil; playhead = 0; rebuild()
     }

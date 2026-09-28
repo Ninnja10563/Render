@@ -8,20 +8,21 @@ extension EditorSession {
     }
     func closeSource() { sourceMonitor.pause(); showingSource = false }
     func markSource(incoming: Bool) {
-        guard let asset = sourceMonitor.asset else { return }
+        guard showingSource,let asset = sourceMonitor.asset else { return }
         var range = sourceMonitor.range
+        let sourceRate = sourceMonitor.rate
         if incoming {
-            range.start = fps.seconds(sourceMonitor.frame)
-            range.end = max(range.end,min(asset.duration,fps.seconds(sourceMonitor.frame + 1)))
+            range.start = sourceRate.seconds(sourceMonitor.frame)
+            range.end = max(range.end,min(asset.duration,sourceRate.seconds(sourceMonitor.frame + 1)))
         } else {
-            range.end = min(asset.duration,fps.seconds(sourceMonitor.frame + 1))
-            range.start = min(range.start,fps.seconds(sourceMonitor.frame))
+            range.end = min(asset.duration,sourceRate.seconds(sourceMonitor.frame + 1))
+            range.start = min(range.start,sourceRate.seconds(sourceMonitor.frame))
         }
         perform(.sourceSelection(asset: asset.id,range))
     }
-    func clearSourceMarks() { if let asset = sourceMonitor.asset { perform(.sourceSelection(asset: asset.id,nil)) } }
+    func clearSourceMarks() { if showingSource,let asset = sourceMonitor.asset { perform(.sourceSelection(asset: asset.id,nil)) } }
     func editSource(insert: Bool = false,overwrite: Bool = false) {
-        guard let id = sourceMonitor.asset?.id else { return }
+        guard showingSource,let id = sourceMonitor.asset?.id else { return }
         sourceMonitor.pause(); append(id,atPlayhead: insert || overwrite,insert: insert,overwrite: overwrite)
     }
 }
