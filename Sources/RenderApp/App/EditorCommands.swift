@@ -42,7 +42,7 @@ struct EditorCommands: Commands {
             Picker("Editing Tool",selection: $session.tool) {
                 ForEach(EditingTool.allCases,id: \.self) { Text($0.rawValue).tag($0) }
             }
-            Button("Create Multicam Source…") { session.showMulticamSetup = true }.disabled(session.selectedClip == nil || session.selectedClip?.multicam != nil)
+            Button("Create Multicam Source…") { session.showMulticamSetup = true }.disabled(session.selectedClip?.multicam != nil || session.project.assets.first(where: { $0.id == session.selectedClip?.assetID })?.kind != .video || session.project.assets.filter { $0.kind == .video }.count < 2)
             Toggle("Camera Angle Viewer",isOn: $session.showAngles)
             Button("Synchronize Audio…") { session.showAudioSync = true }.disabled(session.selection.count != 2)
             Button("Detach Audio") { if let clip = session.selectedClip { session.perform(.detachAudio(clip: clip.id)) } }.disabled(session.selectedClip == nil)

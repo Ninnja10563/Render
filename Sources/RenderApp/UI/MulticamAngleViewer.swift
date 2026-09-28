@@ -49,27 +49,37 @@ private struct CameraAngleTile: View {
     let selected: Bool
     let choose: () -> Void
     @State private var player = AVPlayer()
+    @State private var failure: String?
+    @State private var observation: NSKeyValueObservation?
     private var available: Bool { seconds >= 0 && seconds < asset.duration }
     var body: some View {
         Button(action: choose) {
             VStack(spacing: 3) {
                 ZStack {
                     PlayerSurface(player: player).allowsHitTesting(false)
-                    if !available { Color.black; Text("Outside recording").font(.caption).foregroundStyle(.white) }
+                    if !available || failure != nil { Color.black; Text(failure == nil ? "Outside recording" : "Media unavailable").font(.caption).foregroundStyle(.white) }
                 }.frame(maxWidth: .infinity,maxHeight: .infinity).clipped()
                 Text(angle.name).font(.system(size: 10)).lineLimit(1)
             }.padding(3).overlay(Rectangle().stroke(selected ? Color.accentColor : Color.secondary.opacity(0.3),lineWidth: selected ? 2 : 1))
-        }.buttonStyle(.plain).disabled(!available)
+        }.buttonStyle(.plain).disabled(!available || failure != nil)
             .onAppear { load() }
             .onChange(of: asset.id) { _,_ in load() }
             .onChange(of: mode) { _,_ in load() }
             .onChange(of: seconds) { _,_ in synchronize() }
             .onChange(of: playing) { _,_ in synchronize(force: true) }
-            .onDisappear { player.pause(); player.replaceCurrentItem(with: nil) }
+            .onDisappear { observation?.invalidate(); observation = nil; player.pause(); player.replaceCurrentItem(with: nil) }
     }
     private func load() {
-        player.isMuted = true
-        player.replaceCurrentItem(with: AVPlayerItem(url: MediaResolver.url(for: asset,mode: mode)))
+        player.isMuted = true; failure = nil
+        observation?.invalidate()
+        let item = AVPlayerItem(url: MediaResolver.url(for: asset,mode: mode))
+        player.replaceCurrentItem(with: item)
+        observation = item.observe(\.status,options: [.new]) { item,_ in
+            Task { @MainActor in
+                guard player.currentItem === item else { return }
+                if item.status == .failed { failure = item.error?.localizedDescription ?? "Media unavailable" }
+            }
+        }
         synchronize(force: true)
     }
     private func synchronize(force: Bool = false) {

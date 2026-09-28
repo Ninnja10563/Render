@@ -5,6 +5,7 @@ struct MulticamSetupView: View {
     @ObservedObject var session: EditorSession
     @Environment(\.dismiss) private var dismiss
     @State private var name = "Multicam"
+    @State private var failure: String?
     @State private var angles: [CameraAngle] = []
     private var media: [MediaAsset] { session.project.assets.filter { $0.kind == .video } }
     var body: some View {
@@ -22,6 +23,7 @@ struct MulticamSetupView: View {
             Button("Add Camera") { if let asset = media.first(where: { item in !angles.contains(where: { $0.assetID == item.id }) }) { angles.append(CameraAngle(name: "Camera \(angles.count + 1)",assetID: asset.id)) } }.disabled(angles.count >= min(16,media.count))
             Text("Offsets are seconds in camera source time at reference time zero. A positive offset means that camera was already recording when the reference began. Angles keep their original media; audio follows the chosen camera.").font(.caption).foregroundStyle(.secondary)
             Text("Use trimmed clips whose source ranges are available in each camera. Angle cuts pause playback while the timeline rebuilds.").font(.caption).foregroundStyle(.secondary)
+            if let failure { Text(failure).font(.caption).foregroundStyle(.red) }
             HStack {
                 Button("Cancel",role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
                 Spacer()
@@ -29,6 +31,7 @@ struct MulticamSetupView: View {
                     guard let clip = session.selectedClip else { return }
                     session.perform(.makeMulticam(clip: clip.id,MulticamSource(name: name,angles: angles)))
                     if session.project.clip(clip.id)?.multicam != nil { session.showAngles = true; dismiss() }
+                    else { failure = session.errorMessage; session.errorMessage = nil }
                 }.disabled(angles.count < 2 || name.isEmpty).keyboardShortcut(.defaultAction)
             }
         }.padding(24).frame(width: 560)
