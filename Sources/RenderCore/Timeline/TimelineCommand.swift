@@ -321,6 +321,7 @@ public enum TimelineCommand: Sendable {
             audioClip.name = audioMedia.name; audioClip.effects = []; audioClip.transition = nil; audioClip.multicam = nil; audioClip.properties = ClipProperties()
             audioClip.properties.volume = clip.properties.volume; audioClip.properties.muted = clip.properties.muted
             audioClip.properties.animations["volume"] = clip.properties.animations["volume"]
+            audioClip.properties.audioFades = clip.properties.audioFades
             var audioTrack = TimelineTrack(name: "Detached Audio",kind: .audio); audioTrack.clips = [audioClip]
             project.tracks.append(audioTrack)
             project.tracks[t].clips[c].properties.muted = true
