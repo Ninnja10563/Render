@@ -86,6 +86,7 @@ extension EditorSession {
         try await checkMulticamEditing(folder: folder,still: asset)
         try await checkTimelineViewport()
         try await checkCompoundEditing(folder: folder,still: asset)
+        try await checkAudioMeterPlayback(folder: folder)
         showAngles = false
         selection = Set(project.tracks.flatMap(\.clips).map(\.id))
         createCompound(name: "Opening Scene")

@@ -12,9 +12,11 @@ typedef struct {
     atomic_ullong sequence, start, end;
     atomic_uint channels, peak[8], rms[8];
 } MeterSlot;
+typedef struct { double start, end; float from, to; } MeterRamp;
 struct RenderMeter {
     atomic_uint references;
     unsigned writeIndex;
+    MeterRamp *ramps; size_t rampCount, rampCapacity;
     bool supported;
     AudioStreamBasicDescription format;
     MeterSlot slots[RENDER_METER_SLOTS];
@@ -35,7 +37,31 @@ RenderMeterRef RenderMeterCreate(void) {
     return meter;
 }
 void RenderMeterRelease(RenderMeterRef meter) {
-    if (atomic_fetch_sub_explicit(&meter->references,1,memory_order_acq_rel)==1) free(meter);
+    if (atomic_fetch_sub_explicit(&meter->references,1,memory_order_acq_rel)==1) { free(meter->ramps); free(meter); }
+}
+// Called only while compiling a composition, before the tap is used. Never on the audio thread.
+bool RenderMeterAppendRamp(RenderMeterRef meter,double start,double end,float from,float to) {
+    if (!isfinite(start) || !isfinite(end) || end <= start || !isfinite(from) || !isfinite(to)) return false;
+    if (meter->rampCount && start < meter->ramps[meter->rampCount-1].start) return false;
+    if (meter->rampCount == meter->rampCapacity) {
+        size_t capacity = meter->rampCapacity ? meter->rampCapacity*2 : 16;
+        MeterRamp *storage = realloc(meter->ramps,capacity*sizeof(MeterRamp));
+        if (!storage) return false;
+        meter->ramps = storage; meter->rampCapacity = capacity;
+    }
+    meter->ramps[meter->rampCount++] = (MeterRamp){start,end,from,to}; return true;
+}
+static size_t rampIndex(RenderMeterRef meter,double time) {
+    size_t lo=0,hi=meter->rampCount;
+    while (lo<hi) { size_t mid=lo+(hi-lo)/2; if (meter->ramps[mid].start<=time) lo=mid+1; else hi=mid; }
+    return lo ? lo-1 : 0;
+}
+static float rampGain(RenderMeterRef meter,double time,size_t *index) {
+    if (!meter->rampCount || time<meter->ramps[0].start) return 1;
+    while (*index+1<meter->rampCount && meter->ramps[*index+1].start<=time) ++*index;
+    MeterRamp ramp=meter->ramps[*index];
+    double fraction=fmax(0,fmin(1,(time-ramp.start)/(ramp.end-ramp.start)));
+    return ramp.from+(ramp.to-ramp.from)*(float)fraction;
 }
 static void meterInit(MTAudioProcessingTapRef tap,void *client,void **storage) {
     RenderMeterRef meter = client;
@@ -64,9 +90,9 @@ static void meterProcess(MTAudioProcessingTapRef tap,CMItemCount requested,MTAud
         size_t frames = (size_t)*framesOut < available ? (size_t)*framesOut : available;
         const float *samples = buffer->mData;
         for (unsigned c=0;c<channels && channel<8;c++,channel++) {
-            double squareSum = 0; float peak = 0;
+            double squareSum = 0; float peak = 0; size_t gainIndex = rampIndex(meter,start);
             for (size_t frame=0;frame<frames;frame++) {
-                float value = samples[frame*channels+c];
+                float value = samples[frame*channels+c] * rampGain(meter,start+(end-start)*(double)frame/(double)frames,&gainIndex);
                 if (!isfinite(value)) continue;
                 peak = fmaxf(peak,fabsf(value)); squareSum += (double)value*value;
             }
@@ -87,7 +113,7 @@ static void meterProcess(MTAudioProcessingTapRef tap,CMItemCount requested,MTAud
 MTAudioProcessingTapRef RenderMeterCreateTap(RenderMeterRef meter) {
     MTAudioProcessingTapCallbacks callbacks = {kMTAudioProcessingTapCallbacksVersion_0,meter,meterInit,meterFinalize,meterPrepare,meterUnprepare,meterProcess};
     MTAudioProcessingTapRef tap = NULL;
-    if (MTAudioProcessingTapCreate(kCFAllocatorDefault,&callbacks,kMTAudioProcessingTapCreationFlag_PostEffects,&tap) != noErr) return NULL;
+    if (MTAudioProcessingTapCreate(kCFAllocatorDefault,&callbacks,kMTAudioProcessingTapCreationFlag_PreEffects,&tap) != noErr) return NULL;
     return tap;
 }
 RenderMeterSnapshot RenderMeterRead(RenderMeterRef meter,double seconds) {

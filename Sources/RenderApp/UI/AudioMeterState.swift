@@ -26,6 +26,7 @@ final class AudioMeterState: ObservableObject {
         guard playing else { return }
         let decay = Float(pow(10,-elapsed)) // 20 dB per second peak falloff; samples are measured, not synthesized.
         for index in sources.indices {
+            inputs[index].name = sources[index].displayName(at: seconds)
             if let reading = sources[index].read(at: seconds) {
                 let previous = inputs[index].peaks
                 inputs[index].peaks = reading.peaks.enumerated().map { channel,peak in max(peak,channel < previous.count ? previous[channel] * decay : 0) }

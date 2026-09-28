@@ -39,6 +39,7 @@ public actor CompositionBuilder {
         var fallbacks: Set<String> = []
         var parameters: [AVMutableAudioMixInputParameters] = []
         var meters: [AudioMeterSource] = []
+        var meterByTrack: [CMPersistentTrackID: AudioMeterSource] = [:]
         let anySolo = project.tracks.contains { $0.solo }
         let mediaByID = Dictionary(uniqueKeysWithValues: project.assets.map { ($0.id,$0) })
         var sourceCache: [URL: SourceTracks] = [:]
@@ -130,7 +131,7 @@ public actor CompositionBuilder {
                         let mix = AVMutableAudioMixInputParameters(track: target); mix.audioTimePitchAlgorithm = .spectral
                         if metering {
                             let meter = try AudioMeterSource(name: "\(track.name) · \(audioSlots.count + 1)")
-                            mix.audioTapProcessor = meter.tap; meters.append(meter)
+                            mix.audioTapProcessor = meter.tap; meters.append(meter); meterByTrack[target.trackID] = meter
                         }
                         audioSlots.append((target,mix,.zero)); slot = audioSlots.count - 1
                     }
@@ -138,11 +139,13 @@ public actor CompositionBuilder {
                     audioSlots[slot].end = start + targetDuration
                     try target.insertTimeRange(audioRange, of: source, at: audioStart)
                     target.scaleTimeRange(CMTimeRange(start: audioStart, duration: audioRange.duration), toDuration: time(audioRange.duration.seconds / clip.speed))
+                    meterByTrack[target.trackID]?.appendLabel("\(track.name) · \(clip.name)",start: audioStart.seconds,end: (audioStart + time(audioRange.duration.seconds / clip.speed)).seconds)
                     let curve = clip.properties.animations["volume"] ?? AnimationCurve()
                     let base = AudioAutomation.ramps(curve: curve,offset: clip.animationOffset - preroll,duration: renderEnd - renderStart,fallback: clip.properties.volume)
                     let faded = AudioAutomation.applying(clip.properties.audioFades,to: base,offset: clip.animationOffset - preroll)
                     let ramps = AudioAutomation.applyingFades(to: faded,duration: renderEnd - renderStart,fadeIn: incoming?.duration ?? 0,fadeOut: outgoing?.duration ?? 0)
                     for ramp in ramps {
+                        try meterByTrack[target.trackID]?.appendVolumeRamp(from: Float(ramp.from),to: Float(ramp.to),start: (start + time(rate.seconds(ramp.start))).seconds,end: (start + time(rate.seconds(ramp.end))).seconds)
                         mix.setVolumeRamp(fromStartVolume: Float(ramp.from),toEndVolume: Float(ramp.to),
                                           timeRange: CMTimeRange(start: start + time(rate.seconds(ramp.start)),duration: time(rate.seconds(ramp.end - ramp.start))))
                     }

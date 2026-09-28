@@ -13,10 +13,22 @@ public final class AudioMeterSource: @unchecked Sendable, Identifiable {
     public let name: String
     let tap: MTAudioProcessingTap
     private let handle: RenderMeterRef
+    // Populated during composition compilation, before this owner is published to playback/UI.
+    private var segments: [(start: Double,end: Double,name: String)] = []
+    func appendLabel(_ name: String,start: Double,end: Double) { segments.append((start,end,name)) }
+    public func displayName(at seconds: Double) -> String {
+        var low = 0, high = segments.count
+        while low < high { let mid = (low + high) / 2; if segments[mid].start <= seconds { low = mid + 1 } else { high = mid } }
+        if low > 0, seconds < segments[low - 1].end { return segments[low - 1].name }
+        return name
+    }
     init(name: String) throws {
         guard let handle = RenderMeterCreate() else { throw RenderError.invalid("Cannot allocate audio metering storage.") }
         guard let tap = RenderMeterCreateTap(handle) else { RenderMeterRelease(handle); throw RenderError.invalid("Cannot create an audio processing tap.") }
         self.handle = handle; self.tap = tap; self.name = name
+    }
+    func appendVolumeRamp(from: Float,to: Float,start: Double,end: Double) throws {
+        guard RenderMeterAppendRamp(handle,start,end,from,to) else { throw RenderError.invalid("Cannot compile audio meter automation.") }
     }
     deinit { RenderMeterRelease(handle) }
     public func read(at seconds: Double) -> AudioMeterReading? {

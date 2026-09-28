@@ -126,3 +126,11 @@ Optional schema-10 compound sources form a validated reusable DAG. Active timeli
 ## Workspaces and preview resolution — 0.19.0
 
 Native split views host independently visible media, effects, inspector, timeline and audio controls. Effect application commits one validated document mutation for the full visual selection; undo remains rooted in EditorSession. PreviewQuality chooses even compositor output dimensions while preserving sequence-space rendering. Export captures original document settings and ignores preview quality. Tests render both flat and nested sequences at all quality levels.
+
+## Audio input metering — 0.20.0
+
+RenderAudioDSP is a small C target containing the realtime-safe tap callback and a 256-slot atomic measurement ring per reusable composition input. Only peak/RMS and timeline ranges cross to the UI; PCM samples stay in AVFoundation's buffers. Tap creation retains its measurement owner until finalize, independently of UI lifetime. Swift polls at up to 30 Hz and keeps meter publication separate from EditorSession document notifications. RenderMedia resolves active labels using immutable per-input segment intervals.
+
+The tap is attached pre-effects and measures samples multiplied by the same piecewise-linear ramps supplied to AVAudioMix. It does not modify the audio buffers. This avoids a measured reader-path behavior where post-effects taps still delivered pre-volume samples. Ramp storage is prepared before playback; callbacks use a binary lookup at each block and advance through boundaries without allocation. It is optional during composition compilation and absent from exports. Unsupported sample formats remain unmeasured rather than being misinterpreted. Input-level measurements are not a substitute for a summed master bus meter.
+
+API references: [Apple audio-tap placement semantics](https://developer.apple.com/library/archive/qa/qa1783/_index.html), [MTAudioProcessingTap](https://developer.apple.com/documentation/MediaToolbox/MTAudioProcessingTap). The callback/ring implementation is original project code.

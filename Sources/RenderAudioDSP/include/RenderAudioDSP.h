@@ -13,6 +13,7 @@ typedef struct {
 } RenderMeterSnapshot;
 RenderMeterRef _Nullable RenderMeterCreate(void);
 void RenderMeterRelease(RenderMeterRef meter);
+bool RenderMeterAppendRamp(RenderMeterRef meter,double start,double end,float from,float to);
 RenderMeterSnapshot RenderMeterRead(RenderMeterRef meter, double seconds);
 CF_IMPLICIT_BRIDGING_ENABLED
 MTAudioProcessingTapRef _Nullable RenderMeterCreateTap(RenderMeterRef meter) CF_RETURNS_RETAINED;

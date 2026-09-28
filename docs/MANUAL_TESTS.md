@@ -63,3 +63,9 @@ Vertical timeline: build a sequence with hundreds of video/audio tracks, scroll 
 - Search and apply an effect to multiple visual clips, undo once, and verify locked/audio selections are excluded by disabling the action.
 - Change Full/Half/Quarter preview resolution with original, proxy and optimized media; verify framing, nested effects and full-resolution export remain consistent.
 - Open Audio controls beside the timeline. Select clips and edit volume/fades, mute/solo tracks, undo, save and reopen.
+
+## Audio input meters
+
+- Play mono, stereo and multichannel sources in flat and nested timelines; compare post-volume/fade channel levels with a known test tone. Pause, seek, reverse shuttle and loop: stale readings must not remain visible.
+- Switch mute/solo and workspace layouts during playback. Confirm meter updates do not stall dragging or redraw the whole editor.
+- Compare output samples with metering enabled/disabled; exports must retain the same audio. Input meters are not summed master meters. Test loud overlapping inputs separately for output clipping.

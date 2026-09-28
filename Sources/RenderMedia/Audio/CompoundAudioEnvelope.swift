@@ -33,7 +33,7 @@ struct CompoundAudioEnvelope {
 enum CompoundAudioMix {
     static let timescale: Int32 = 600000
     static func time(_ seconds: Double) -> CMTime { CMTime(seconds: seconds,preferredTimescale: timescale) }
-    static func apply(_ envelopes: [CompoundAudioEnvelope],window: RenderTimeWindow,to mix: AVMutableAudioMixInputParameters) {
+    static func apply(_ envelopes: [CompoundAudioEnvelope],window: RenderTimeWindow,to mix: AVMutableAudioMixInputParameters,meter: AudioMeterSource? = nil) throws {
         let start = time(window.start).value, end = time(window.end).value
         guard end > start else { return }
         let boundaries = Set([start,end] + envelopes.flatMap(\.boundaries).map { time($0).value }.filter { $0 > start && $0 < end }).sorted()
@@ -52,7 +52,9 @@ enum CompoundAudioMix {
                 let lo = a + (b - a) * index / parts, hi = a + (b - a) * (index + 1) / parts
                 // Left limit at a segment end preserves Hold keyframe jumps.
                 let to = gain(Double(hi) - (hi == b ? 0.0001 : 0))
-                mix.setVolumeRamp(fromStartVolume: gain(Double(lo)),toEndVolume: to,timeRange: CMTimeRange(start: CMTime(value: lo,timescale: timescale),duration: CMTime(value: hi - lo,timescale: timescale)))
+                let from = gain(Double(lo))
+                try meter?.appendVolumeRamp(from: from,to: to,start: Double(lo) / Double(timescale),end: Double(hi) / Double(timescale))
+                mix.setVolumeRamp(fromStartVolume: from,toEndVolume: to,timeRange: CMTimeRange(start: CMTime(value: lo,timescale: timescale),duration: CMTime(value: hi - lo,timescale: timescale)))
             }
         }
     }
