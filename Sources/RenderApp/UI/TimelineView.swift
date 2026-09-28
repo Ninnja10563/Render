@@ -6,9 +6,17 @@ struct TimelineView: View {
     @ObservedObject var session: EditorSession
     @State private var scrollOffset: CGFloat = 0
     @State private var viewportWidth: CGFloat = 1000
+    @State private var verticalOffset: CGFloat = 0
+    @State private var viewportHeight: CGFloat = 300
     private let headerWidth: CGFloat = 148
     private let laneHeight: CGFloat = 70
     var contentWidth: CGFloat { max(1000,session.fps.seconds(session.project.duration) * session.pointsPerSecond + 300) }
+    private var visibleRows: Range<Int> {
+        TimelineViewport.rows(count: session.project.tracks.count,rowHeight: laneHeight,headerHeight: 28,offset: verticalOffset,height: viewportHeight)
+    }
+    private var visibleTracks: ArraySlice<TimelineTrack> { session.project.tracks[visibleRows] }
+    private var leadingSpace: CGFloat { CGFloat(visibleRows.lowerBound) * laneHeight }
+    private var trailingSpace: CGFloat { CGFloat(session.project.tracks.count - visibleRows.upperBound) * laneHeight }
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 14) {
@@ -30,15 +38,19 @@ struct TimelineView: View {
                 HStack(alignment: .top,spacing: 0) {
                     VStack(spacing: 0) {
                         Text("TRACKS").font(.system(size: 9,weight: .semibold)).foregroundStyle(.tertiary).frame(width: headerWidth,height: 28,alignment: .leading).padding(.leading,12)
-                        ForEach(session.project.tracks) { track in TrackHeader(session: session, track: track).frame(width: headerWidth,height: laneHeight) }
+                        Color.clear.frame(height: leadingSpace)
+                        ForEach(visibleTracks) { track in TrackHeader(session: session, track: track).frame(width: headerWidth,height: laneHeight) }
+                        Color.clear.frame(height: trailingSpace)
                     }.frame(width: headerWidth)
                     Divider()
                     ScrollView(.horizontal) {
                         VStack(spacing: 0) {
                             ruler
-                            ForEach(session.project.tracks) { track in
+                            Color.clear.frame(height: leadingSpace)
+                            ForEach(visibleTracks) { track in
                                 TimelineLaneView(session: session,track: track,contentWidth: contentWidth,height: laneHeight,visibleRange: (scrollOffset - 200)...(scrollOffset + viewportWidth + 200))
                             }
+                            Color.clear.frame(height: trailingSpace)
                         }
                         .overlay(alignment: .topLeading) {
                             TimelinePlayhead(transport: session.transport,frameRate: session.fps,pointsPerSecond: session.pointsPerSecond)
@@ -53,7 +65,15 @@ struct TimelineView: View {
                         Color.clear.onAppear { viewportWidth = proxy.size.width }.onChange(of: proxy.size.width) { _,width in viewportWidth = width }
                     })
                 }
+                .background(GeometryReader { proxy in
+                    Color.clear.preference(key: TimelineVerticalOffsetKey.self,value: -proxy.frame(in: .named("timelineVerticalViewport")).minY)
+                })
             }
+            .coordinateSpace(name: "timelineVerticalViewport")
+            .onPreferenceChange(TimelineVerticalOffsetKey.self) { verticalOffset = $0 }
+            .background(GeometryReader { proxy in
+                Color.clear.onAppear { viewportHeight = proxy.size.height }.onChange(of: proxy.size.height) { _,height in viewportHeight = height }
+            })
         }.background(Color(nsColor: .underPageBackgroundColor))
     }
     private var ruler: some View {
@@ -123,4 +143,9 @@ private struct TimelinePlayhead: View {
         Rectangle().fill(Color.accentColor).frame(width: 1.5)
             .offset(x: frameRate.seconds(transport.playhead) * pointsPerSecond).allowsHitTesting(false)
     }
+}
+
+private struct TimelineVerticalOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat,nextValue: () -> CGFloat) { value = nextValue() }
 }
