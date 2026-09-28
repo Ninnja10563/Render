@@ -101,6 +101,7 @@ extension EditorSession {
             guard Date() < deadline else { throw RenderError.invalid("Playback never became ready during launch validation.") }
             try await Task.sleep(nanoseconds: 50_000_000)
         }
+        try await checkReversePreview()
         seek(30); togglePlayback()
         try await Task.sleep(nanoseconds: 500_000_000)
         guard errorMessage == nil else { throw RenderError.invalid(errorMessage!) }

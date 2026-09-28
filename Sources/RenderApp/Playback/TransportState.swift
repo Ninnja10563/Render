@@ -5,4 +5,5 @@ import SwiftUI
 final class TransportState: ObservableObject {
     @Published var playhead: Int64 = 0
     @Published var isPlaying = false
+    @Published var reversePreviewRate: Float = 0
 }

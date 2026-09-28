@@ -55,6 +55,7 @@ final class EditorSession: ObservableObject {
     private var savedProject = RenderProject()
     private var observer: Any?
     private var buildTask: Task<Void, Never>?
+    var reversePreviewTask: Task<Void, Never>?
     private var recoveryTask: Task<Void, Never>?
     private var generation = UUID()
     private var documentRequest = UUID()
@@ -82,7 +83,7 @@ final class EditorSession: ObservableObject {
             Task { @MainActor in
                 guard let self, time.seconds.isFinite else { return }
                 if self.player.rate != 0 { self.playhead = min(self.project.duration, max(0,self.fps.frames(time.seconds))) }
-                self.isPlaying = self.player.rate != 0
+                self.isPlaying = self.player.rate != 0 || self.transport.reversePreviewRate > 0
                 self.audioMeters.update(seconds: time.seconds,playing: self.isPlaying)
             }
         }
@@ -215,22 +216,25 @@ final class EditorSession: ObservableObject {
         }
     }
     func seek(_ frame: Int64) {
+        if transport.reversePreviewRate > 0 { pause() }
         audioMeters.clearLevels()
         playhead = min(max(0,frame),max(0,project.duration - 1))
         player.currentItem?.cancelPendingSeeks()
         player.seek(to: CMTime(value: playhead * Int64(fps.denominator), timescale: fps.numerator), toleranceBefore: .zero, toleranceAfter: .zero)
     }
-    func pause() { player.pause(); isPlaying = false; audioMeters.clearLevels() }
+    func pause() { stopReversePreview(); player.pause(); isPlaying = false; audioMeters.clearLevels() }
     func togglePlayback() {
         guard previewReady else { return }
-        if player.rate != 0 { pause() }
+        if player.rate != 0 || transport.reversePreviewRate > 0 { pause() }
         else { if playhead >= project.duration - 1 { seek(0) }; player.play(); isPlaying = true }
     }
     func shuttle(_ direction: Float) {
         guard previewReady else { return }
-        if direction < 0, player.currentItem?.canPlayReverse != true { seek(playhead - 1); return }
-        let current = player.rate
-        player.rate = current * direction > 0 ? direction * min(abs(current) * 2,4) : direction
+        let current = transport.reversePreviewRate > 0 ? -transport.reversePreviewRate : player.rate
+        let speed = current * direction > 0 ? min(abs(current) * 2,4) : 1
+        if direction < 0, player.currentItem?.canPlayReverse != true { startReversePreview(speed: speed); return }
+        stopReversePreview()
+        player.rate = direction * speed
         isPlaying = true
     }
     func selectClip(_ id: UUID, extend: Bool = false) {

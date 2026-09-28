@@ -136,6 +136,9 @@ private struct ViewerView: View {
                     Button("400%") { zoom = 4 }
                 }.menuStyle(.borderlessButton).frame(width: 70)
             }.padding(.horizontal,12).frame(height: 32)
+            if session.transport.reversePreviewRate > 0 {
+                Text("Reverse preview · \(Int(session.transport.reversePreviewRate))× · Audio muted").font(.system(size: 9)).foregroundStyle(.secondary).padding(.horizontal,8).padding(.bottom,4)
+            }
             if let notice = session.playbackNotice {
                 Text(notice).font(.system(size: 9)).foregroundStyle(.secondary).padding(.horizontal,8).padding(.bottom,4)
             }
