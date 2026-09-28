@@ -15,12 +15,17 @@ struct WorkspaceView: View {
                     }
                     if session.showInspector { InspectorView(session: session).frame(minWidth: 250, idealWidth: 280, maxWidth: 380) }
                 }.frame(minHeight: session.showAngles ? 310 : 280)
-                if session.showTimeline { TimelineView(session: session).frame(minHeight: 200, idealHeight: 310) }
+                if session.showTimeline {
+                    VStack(spacing: 0) {
+                        if !session.compoundPath.isEmpty { CompoundBreadcrumb(session: session) }
+                        TimelineView(session: session)
+                    }.frame(minHeight: 200, idealHeight: 310)
+                }
             }
             statusBar
         }
         .background(Color(nsColor: .windowBackgroundColor))
-        .navigationTitle(session.project.name + (session.isDirty ? " •" : ""))
+        .navigationTitle(session.document.name + (session.isDirty ? " •" : ""))
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
                 Button { session.showLibrary.toggle() } label: { Image(systemName: "sidebar.left") }.help("Show or hide media browser")
@@ -37,7 +42,7 @@ struct WorkspaceView: View {
             ToolbarItemGroup(placement: .primaryAction) {
                 BackgroundTasksButton(queue: session.backgroundTasks)
                 Button { session.showInspector.toggle() } label: { Image(systemName: "sidebar.right") }.help("Show or hide inspector")
-                Button { session.showExport = true } label: { Label("Export", systemImage: "square.and.arrow.up") }.disabled(session.project.duration == 0)
+                Button { session.showExport = true } label: { Label("Export", systemImage: "square.and.arrow.up") }.disabled(session.document.duration == 0)
             }
         }
         .alert("Render couldn’t complete the operation", isPresented: Binding(get: { session.errorMessage != nil }, set: { if !$0 { session.errorMessage = nil } })) {

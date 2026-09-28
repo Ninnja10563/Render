@@ -18,7 +18,7 @@ struct ExportView: View {
     @State private var failure: String?
     var body: some View {
         VStack(alignment: .leading,spacing: 22) {
-            HStack { Text("Export \(session.project.name)").font(.system(size: 18,weight: .semibold)); Spacer(); if !exporter.isExporting { Button { dismiss() } label: { Image(systemName: "xmark") }.buttonStyle(.plain) } }
+            HStack { Text("Export \(session.document.name)").font(.system(size: 18,weight: .semibold)); Spacer(); if !exporter.isExporting { Button { dismiss() } label: { Image(systemName: "xmark") }.buttonStyle(.plain) } }
             if let finished {
                 Label("Export complete",systemImage: "checkmark.circle").foregroundStyle(.green)
                 if let size = (try? FileManager.default.attributesOfItem(atPath: finished.path)[.size]) as? NSNumber {
@@ -44,10 +44,10 @@ struct ExportView: View {
                         LabeledContent("Target video bitrate",value: String(format: "%.1f Mbps",Double(bitrate) / 1_000_000))
                         LabeledContent("Audio",value: "Stereo AAC · 48 kHz · 320 kbps")
                     }
-                    if let bytes = configuration.estimatedBytes(duration: session.fps.seconds(session.project.duration)) {
+                    if let bytes = configuration.estimatedBytes(duration: session.document.settings.frameRate.seconds(session.document.duration)) {
                         LabeledContent("Estimated size",value: ByteCountFormatter.string(fromByteCount: Int64(bytes),countStyle: .file))
                     }
-                    LabeledContent("Duration",value: session.fps.timecode(session.project.duration))
+                    LabeledContent("Duration",value: session.document.settings.frameRate.timecode(session.document.duration))
                 }.disabled(exporter.isExporting)
                 Text("Export uses original media and the same compositor as the viewer. Existing files and source media are never overwritten.").font(.system(size: 11)).foregroundStyle(.secondary)
                 if exporter.isExporting {
@@ -67,7 +67,7 @@ struct ExportView: View {
             }
         }.padding(26).frame(width: 470).interactiveDismissDisabled(exporter.isExporting)
             .onAppear {
-                let settings = session.project.settings
+                let settings = session.document.settings
                 custom = ![1280,1920,2560,3840].contains(settings.width) || settings.height != settings.width * 9 / 16
                 width = settings.width; height = settings.height; fps = 0
             }
@@ -77,7 +77,7 @@ struct ExportView: View {
     private var configuration: ExportConfiguration {
         var configuration = ExportConfiguration()
         configuration.codec = codec; configuration.width = width; configuration.height = height
-        configuration.frameRate = fps == 0 ? session.fps : FrameRate(Int32(fps))
+        configuration.frameRate = fps == 0 ? session.document.settings.frameRate : FrameRate(Int32(fps))
         configuration.quality = quality; configuration.customBitrateMbps = bitrateMbps
         return configuration
     }
@@ -87,9 +87,9 @@ struct ExportView: View {
         let configuration = configuration
         do { try configuration.validate() } catch { failure = error.localizedDescription; return }
         let panel = NSSavePanel(); panel.allowedContentTypes = codec == .proRes ? [.quickTimeMovie] : [.mpeg4Movie]
-        panel.nameFieldStringValue = session.project.name + (codec == .proRes ? ".mov" : ".mp4")
+        panel.nameFieldStringValue = session.document.name + (codec == .proRes ? ".mov" : ".mp4")
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        let project = session.project
+        let project = session.document
         Task {
             do { try await exporter.export(project: project,configuration: configuration,to: url); finished = url }
             catch { failure = error is CancellationError ? "Export cancelled. No incomplete file was published." : error.localizedDescription }

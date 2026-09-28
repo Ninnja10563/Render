@@ -35,6 +35,9 @@ struct ClipTile: View {
                         context.stroke(path,with: .color(.white.opacity(0.65)),lineWidth: 1)
                     }.frame(width: drawWidth,height: track.kind == .audio ? 33 : 16).offset(x: localStart,y: track.kind == .audio ? 24 : 43)
                 }
+                if clip.compoundID != nil {
+                    Label("Compound",systemImage: "square.stack.3d.up").font(.system(size: 10)).foregroundStyle(.white.opacity(0.7)).padding(.horizontal,8).offset(y: 31)
+                }
                 Text((clip.connection != nil ? "↳ " : "") + clip.name).font(.system(size: 10,weight: .medium)).foregroundStyle(.white).lineLimit(1).padding(.horizontal,7).frame(height: 22).frame(maxWidth: .infinity,alignment: .leading).background(.black.opacity(0.15))
                 if selected && session.tool != .blade && geometry.size.width > 18 {
                     HStack {
@@ -91,6 +94,13 @@ struct ClipTile: View {
                     else { session.selectClip(clip.id,extend: NSEvent.modifierFlags.contains(.shift) || NSEvent.modifierFlags.contains(.command)) }
                 }
                 .contextMenu {
+                    if let id = clip.compoundID {
+                        Button("Open Compound Timeline") { session.openCompound(id) }
+                        Button("Break Apart Compound") { session.perform(.breakApart(clip.id)) }
+                        Divider()
+                    }
+                    Button("Create Compound Clip") { if !selected { session.selectClip(clip.id) }; session.createCompound() }
+
                     Button("Split at Playhead") { session.perform(.split(clips: [clip.id],at: session.playhead)) }
                     Menu("Move to Track") {
                         ForEach(session.project.tracks.filter { $0.kind == track.kind && $0.id != track.id && !$0.locked }) { target in

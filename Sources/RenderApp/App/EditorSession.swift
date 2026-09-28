@@ -8,6 +8,9 @@ import RenderMedia
 @MainActor
 final class EditorSession: ObservableObject {
     @Published var project = RenderProject()
+    @Published var compoundPath: [UUID] = []
+    private var compoundRoot: RenderProject?
+    var document: RenderProject { compoundRoot ?? project }
     @Published var selection: Set<UUID> = []
     @Published var movePreview: Int64 = 0
     @Published var selectedRange: TimelineSelectionRange?
@@ -55,6 +58,7 @@ final class EditorSession: ObservableObject {
     private var previewTasks: [UUID: Task<Void, Never>] = [:]
     private var clipboard: [ClipboardLane] = []
     private var clipboardProjectID: UUID?
+    private var clipboardKinds: [UUID: TrackKind] = [:]
     private var didStart = false
     var recoveryURL: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Render/Recovery.renderproject")
@@ -105,29 +109,61 @@ final class EditorSession: ObservableObject {
         } catch { report(error) }
     }
     func commit(_ next: RenderProject, name: String) {
+        do {
+            try next.validate()
+            let root = try compoundPath.last.map { try document.replacingContext(next,compoundID: $0) } ?? next
+            restoreDocument(root,name: name)
+        } catch { report(error) }
+    }
+    private func restoreDocument(_ next: RenderProject,name: String) {
         do { try next.validate() } catch { report(error); return }
-        guard next != project else { return }
-        let previous = project
+        let previous = document
+        guard next != previous else { return }
         let explicitGroup = !history.isUndoing && !history.isRedoing
         if explicitGroup { history.beginUndoGrouping() }
         history.registerUndo(withTarget: self) { target in
-            // UndoManager is owned and invoked exclusively by this main-actor session.
-            MainActor.assumeIsolated { target.commit(previous, name: name) }
+            MainActor.assumeIsolated { target.restoreDocument(previous,name: name) }
         }
         history.setActionName(name)
         if explicitGroup { history.endUndoGrouping() }
-        project = next; isDirty = project != savedProject
+        displayDocument(next)
+        isDirty = next != savedProject
         selection = selection.filter { project.clip($0) != nil }
-        scheduleRecovery()
-        if previous.tracks != next.tracks || previous.settings != next.settings ||
-            previous.assets.contains(where: { old in next.assets.first(where: { $0.id == old.id }) != old }) { rebuild() }
+        scheduleRecovery(); rebuild()
+    }
+    private func displayDocument(_ root: RenderProject) {
+        // Undo may remove the source currently being edited. Return to the nearest surviving context.
+        while let id = compoundPath.last, root.compounds?.contains(where: { $0.id == id }) != true { compoundPath.removeLast() }
+        if let id = compoundPath.last, let context = try? root.timelineContext(compoundID: id) {
+            compoundRoot = root; project = context
+        } else { compoundPath = []; compoundRoot = nil; project = root }
+    }
+    func openCompound(_ id: UUID) {
+        guard flushInspectorEdits(), project.tracks.flatMap(\.clips).contains(where: { $0.compoundID == id }) else { return }
+        let root = document
+        do {
+            let context = try root.timelineContext(compoundID: id)
+            compoundPath.append(id); compoundRoot = root; project = context
+            selection = []; selectedTrack = nil; selectedRange = nil; playhead = 0; rebuild()
+        } catch { report(error) }
+    }
+    func returnToTimeline(depth: Int) {
+        guard depth >= 0, depth < compoundPath.count, flushInspectorEdits() else { return }
+        let root = document; compoundPath = Array(compoundPath.prefix(depth)); displayDocument(root)
+        selection = []; selectedTrack = nil; selectedRange = nil; playhead = 0; rebuild()
+    }
+    func createCompound(name: String = "Compound Clip") {
+        guard flushInspectorEdits() else { return }
+        let previous = Set(project.tracks.flatMap(\.clips).map(\.id))
+        perform(.makeCompound(clips: selection,name: name))
+        if let clip = project.tracks.flatMap(\.clips).first(where: { !previous.contains($0.id) && $0.compoundID != nil }) { selectClip(clip.id) }
     }
     func undo() { history.undo(); objectWillChange.send() }
     func redo() { history.redo(); objectWillChange.send() }
     func scheduleRecovery() {
         guard !CommandLine.arguments.contains("--smoke-test") else { return }
         recoveryTask?.cancel()
-        let snapshot = project
+        let snapshot = document
         recoveryTask = Task {
             do {
                 try await Task.sleep(nanoseconds: 750_000_000)
@@ -208,6 +244,7 @@ final class EditorSession: ObservableObject {
             return selected.isEmpty ? nil : ClipboardLane(trackID: track.id,clips: selected)
         }
         clipboardProjectID = project.id
+        clipboardKinds = Dictionary(uniqueKeysWithValues: project.tracks.map { ($0.id,$0.kind) })
     }
     func cut() {
         guard !project.tracks.contains(where: { $0.locked && $0.clips.contains(where: { selection.contains($0.id) }) }) else { errorMessage = "Unlock selected tracks before cutting."; return }
@@ -215,8 +252,29 @@ final class EditorSession: ObservableObject {
     }
     func paste() {
         guard clipboardProjectID == project.id, !clipboard.isEmpty, let track = selectedTrack ?? project.tracks.first?.id else { return }
-        if clipboard.count == 1, let lane = clipboard.first { perform(.paste(clips: lane.clips, track: track, at: playhead)) }
-        else { perform(.pasteLanes(clipboard,at: playhead)) }
+        do {
+            var next = project
+            let definitions = Dictionary(uniqueKeysWithValues: (document.compounds ?? []).map { ($0.id,$0) })
+            var included = Set((next.compounds ?? []).map(\.id))
+            func include(_ id: UUID) {
+                guard included.insert(id).inserted, let source = definitions[id] else { return }
+                if next.compounds == nil { next.compounds = [] }; next.compounds!.append(source)
+                for child in source.tracks.flatMap(\.clips).compactMap(\.compoundID) { include(child) }
+            }
+            for id in clipboard.flatMap(\.clips).compactMap(\.compoundID) { include(id) }
+            let command: TimelineCommand
+            if clipboard.count == 1, let lane = clipboard.first { command = .paste(clips: lane.clips,track: track,at: playhead) }
+            else {
+                let lanes = clipboard.map { lane -> ClipboardLane in
+                    if next.tracks.contains(where: { $0.id == lane.trackID }) { return lane }
+                    let kind = clipboardKinds[lane.trackID] ?? .video
+                    let target = TimelineTrack(name: kind == .video ? "Pasted Video" : "Pasted Audio",kind: kind)
+                    next.tracks.append(target); return ClipboardLane(trackID: target.id,clips: lane.clips)
+                }
+                command = .pasteLanes(lanes,at: playhead)
+            }
+            commit(try command.applying(to: next),name: "Paste Clips")
+        } catch { report(error) }
     }
     func append(_ assetID: UUID, atPlayhead: Bool = false, insert: Bool = false, overwrite: Bool = false) {
         guard let media = project.assets.first(where: { $0.id == assetID }) else { return }
@@ -294,17 +352,19 @@ final class EditorSession: ObservableObject {
         if target == nil {
             let panel = NSSavePanel()
             panel.allowedContentTypes = [UTType(exportedAs: "app.render.project", conformingTo: .json)]
-            panel.nameFieldStringValue = project.name + ".renderproject"
+            panel.nameFieldStringValue = document.name + ".renderproject"
             guard panel.runModal() == .OK, let url = panel.url else { return false }
             target = url
         }
         guard let target else { return false }
         let projectID = project.id
-        var snapshot = project; snapshot.name = target.deletingPathExtension().lastPathComponent
+        var snapshot = document; snapshot.name = target.deletingPathExtension().lastPathComponent
         do {
             try await store.save(snapshot, to: target)
             guard project.id == projectID else { return true }
-            documentURL = target; project.name = snapshot.name; savedProject = snapshot; isDirty = project != snapshot
+            documentURL = target
+            var current = document; current.name = snapshot.name; displayDocument(current)
+            savedProject = snapshot; isDirty = document != snapshot
             addRecent(target)
             if !isDirty { recoveryTask?.cancel(); try await store.remove(recoveryURL) }
             return true
@@ -313,7 +373,7 @@ final class EditorSession: ObservableObject {
     func confirmDiscard() async -> Bool {
         guard flushInspectorEdits() else { return false }
         guard isDirty else { return true }
-        let alert = NSAlert(); alert.messageText = "Save changes to “\(project.name)”?"
+        let alert = NSAlert(); alert.messageText = "Save changes to “\(document.name)”?"
         alert.informativeText = "Your unsaved edits will be lost if you don’t save."
         alert.addButton(withTitle: "Save"); alert.addButton(withTitle: "Cancel"); alert.addButton(withTitle: "Don’t Save")
         switch alert.runModal() {
@@ -351,7 +411,7 @@ final class EditorSession: ObservableObject {
         let request = UUID(); documentRequest = request
         Task {
             guard await confirmDiscard(), documentRequest == request else { return }
-            var copy = project; copy.id = UUID(); copy.name += " Copy"
+            var copy = document; copy.id = UUID(); copy.name += " Copy"
             install(copy, url: nil); savedProject = RenderProject(); isDirty = true; scheduleRecovery()
         }
     }
@@ -359,6 +419,7 @@ final class EditorSession: ObservableObject {
         backgroundTasks.cancelAll()
         recoveryTask?.cancel(); history.removeAllActions()
         previewTasks.values.forEach { $0.cancel() }; previewTasks.removeAll()
+        compoundPath = []; compoundRoot = nil
         project = value; savedProject = value; documentURL = url
         selection = []; selectedRange = nil; selectedAsset = nil; selectedTrack = nil; playhead = 0; isDirty = false
         thumbnails = [:]; waveforms = [:]; clipboard = []; clipboardProjectID = nil

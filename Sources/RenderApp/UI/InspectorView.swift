@@ -21,6 +21,10 @@ struct InspectorView: View {
                             Text(clip.name).font(.system(size: 12,weight: .semibold)).lineLimit(2)
                             Text("\(session.fps.timecode(clip.duration)) · \(Int(clip.speed * 100))% speed").font(.system(size: 10,design: .monospaced)).foregroundStyle(.secondary)
                         }
+                        if let id = clip.compoundID {
+                            Button("Open Compound Timeline") { session.openCompound(id) }.controlSize(.small)
+                            Text("Changes to the source update every instance.").font(.system(size: 10)).foregroundStyle(.secondary)
+                        }
                         if clip.multicam != nil { MulticamInspectorView(session: session,clip: clip) }
                         if let title = clip.title { TitleInspectorView(session: session,clip: clip,title: title) }
                         if isVisual(clip) {
@@ -122,10 +126,16 @@ struct InspectorView: View {
         }
     }
     func hasAudio(_ clip: TimelineClip) -> Bool {
+        if let id = clip.compoundID, let source = session.project.compounds?.first(where: { $0.id == id }) {
+            return source.tracks.flatMap(\.clips).contains { hasAudio($0) }
+        }
         guard let media = session.project.assets.first(where: { $0.id == clip.assetID }) else { return false }
         return media.kind == .audio || media.audioChannels > 0
     }
-    func isVisual(_ clip: TimelineClip) -> Bool { session.project.assets.first(where: { $0.id == clip.assetID })?.kind != .audio }
+    func isVisual(_ clip: TimelineClip) -> Bool {
+        if let id = clip.compoundID { return session.project.compounds?.first(where: { $0.id == id })?.kind == .video }
+        return session.project.assets.first(where: { $0.id == clip.assetID })?.kind != .audio
+    }
     func property(_ label: String,key: String,range: ClosedRange<Double>,reset: Double,clip: TimelineClip,displayScale: Double = 1) -> some View {
         let frame = max(0,min(clip.duration - 1,session.playhead - clip.start)) + clip.animationOffset
         let keyed = clip.properties.animations[key]?.keys.contains { $0.frame == frame } ?? false
