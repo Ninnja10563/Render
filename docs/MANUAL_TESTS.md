@@ -39,3 +39,5 @@ Filmstrip requests decode visible cells only, quantize source time to 100 ms, an
 Transitions preserve sequence duration and require source handles on both sides of a cut. The transition duration cannot exceed either adjacent clip. Structural edits that break a pair remove that transition in the same undoable transaction. Transition audio uses linear amplitude crossfades; curve selection and independent transition audio duration are not yet exposed.
 
 Audio fades: import a tone or music file, add both fades and switch Linear/Smooth/Equal Power. Audition and export; split halfway through the fade and confirm no restart. Trim, undo, save/reopen, then change a fade to attach it to the new edges. Check title/still/silent-video selections omit audio controls.
+
+Audio sync: select camera audio and an external recording on separate unlocked tracks in traditional mode. Choose each as reference in turn, inspect offsets, apply/undo and audition. Try silence, repeating music, background noise, clipped recordings, long files and differing in-points. Cancel analysis and confirm no move. Test a proposed overlap and a negative timeline position; both must be rejected.

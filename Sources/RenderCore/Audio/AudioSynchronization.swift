@@ -27,7 +27,7 @@ public enum AudioSynchronization {
             return (xy - x * y / count) / sqrt(vx * vy)
         }
         var candidates: [(lag: Int,score: Double)] = []
-        for lag in Swift.stride(from: -maximumOffset,through: maximumOffset,by: 5) {
+        for lag in Swift.stride(from: -maximumOffset,through: maximumOffset,by: 1) {
             try Task.checkCancellation()
             candidates.append((lag,score(lag,stride: 5)))
         }

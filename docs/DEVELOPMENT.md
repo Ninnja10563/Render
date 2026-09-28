@@ -96,3 +96,7 @@ Outgoing ClipTransition links to the adjacent right clip. Validation checks both
 ## Audio fades and schema 8
 
 ClipProperties optionally carries ClipAudioFades, whose frame interval shares the volume animation coordinate system. Structural edits retain the envelope with animationOffset, avoiding an audible fade restart at a blade cut. Authoring a duration or shape attaches the envelope to the currently selected clip edges. Bounded piecewise ramps multiply automation, clip fades and transition envelopes before AVAudioMix setup; preview and export use the same composition builder.
+
+## Audio synchronization
+
+AudioSyncAnalyzer reads source in-point windows into 100 Hz RMS envelopes with a two-minute cap, using decoded timestamps and channel energy without polarity cancellation. AudioSynchronization uses normalized correlation over bounded offsets, then full-sample refinement of separated candidates. Ambiguous or weak matches fail explicitly. AudioSyncView retains the analyzed project snapshot, validates a proposed normal move transaction, and only applies a reviewed result when the snapshot still matches. Cancellation stops analysis; no decoded media or derived envelope enters project storage.
