@@ -127,7 +127,8 @@ struct ClipTile: View {
                     Button("Ripple Delete") { session.perform(.delete(clips: [clip.id],ripple: true)) }
                 }
                 .offset(x: session.fps.seconds((selected ? session.movePreview : 0) + (trimEdge == .leading && session.tool != .ripple ? trimDelta : 0)) * session.pointsPerSecond)
-        }.help("\(clip.name) · \(session.fps.timecode(clip.duration))\(track.locked ? " · Locked" : "")")
+        }.onDisappear { if beganSelectionDrag { drag.cancel(); beganSelectionDrag = false } }
+            .help("\(clip.name) · \(session.fps.timecode(clip.duration))\(track.locked ? " · Locked" : "")")
     }
     func trimHandle(_ edge: TrimEdge) -> some View {
         Rectangle().fill(Color.accentColor.opacity(0.75)).frame(width: 5)

@@ -85,6 +85,7 @@ extension EditorSession {
         try await checkFocusedInspectorSave(clipID: original.id,folder: folder)
         try await checkMulticamEditing(folder: folder,still: asset)
         try await checkTimelineViewport()
+        try await checkTrackDragging(still: asset)
         try await checkCompoundEditing(folder: folder,still: asset)
         try await checkAudioMeterPlayback(folder: folder)
         try await checkAudioEffectPlayback(folder: folder)
