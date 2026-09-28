@@ -19,21 +19,26 @@ extension EditorSession {
             var opened = false
             var invoked = false
             var menuTitles: [String] = []
+            var contextMenu: NSMenu?
+            let itemsObserver = NotificationCenter.default.addObserver(forName: NSMenu.didAddItemNotification,object: nil,queue: .main) { notification in
+                if let menu = notification.object as? NSMenu,menu.indexOfItem(withTitle: title) >= 0 { contextMenu = menu }
+            }
             let observer = NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification,object: nil,queue: .main) { notification in
                 guard !opened,let menu = notification.object as? NSMenu else { return }
                 opened = true
                 let timer = Timer(timeInterval: 0.15,repeats: false) { _ in
-                    menuTitles = menu.items.map(\.title)
-                    let index = menu.indexOfItem(withTitle: title)
-                    menu.cancelTrackingWithoutAnimation()
-                    if index >= 0,menu.items[index].isEnabled {
-                        menu.performActionForItem(at: index); invoked = true
+                    let target = contextMenu ?? menu
+                    menuTitles = target.items.map(\.title)
+                    let index = target.indexOfItem(withTitle: title)
+                    target.cancelTrackingWithoutAnimation()
+                    if index >= 0,target.items[index].isEnabled {
+                        target.performActionForItem(at: index); invoked = true
                     }
                 }
                 RunLoop.main.add(timer,forMode: .eventTracking)
                 RunLoop.main.add(timer,forMode: .common)
             }
-            defer { NotificationCenter.default.removeObserver(observer) }
+            defer { NotificationCenter.default.removeObserver(observer); NotificationCenter.default.removeObserver(itemsObserver) }
             let location = host.convert(CGPoint(x: x,y: host.isFlipped ? y : host.bounds.height - y),to: nil)
             for type in [NSEvent.EventType.rightMouseDown,.rightMouseUp] {
                 guard let event = NSEvent.mouseEvent(with: type,location: location,modifierFlags: [],timestamp: ProcessInfo.processInfo.systemUptime,windowNumber: window.windowNumber,context: nil,eventNumber: 0,clickCount: 1,pressure: 1) else { throw RenderError.invalid("Cannot create context menu event.") }
