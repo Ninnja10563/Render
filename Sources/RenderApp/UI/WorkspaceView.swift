@@ -8,11 +8,8 @@ struct WorkspaceView: View {
         VStack(spacing: 0) {
             VSplitView {
                 HSplitView {
-                    if session.showLibrary || session.showEffects {
-                        VSplitView {
-                            if session.showLibrary { MediaBrowserView(session: session).frame(minHeight: 100) }
-                            if session.showEffects { EffectsBrowserView(session: session).frame(minHeight: 180) }
-                        }.frame(minWidth: 210,idealWidth: 270,maxWidth: 440)
+                    if session.showInspector {
+                        InspectorView(session: session).frame(minWidth: 250,idealWidth: 340,maxWidth: 520)
                     }
                     VStack(spacing: 0) {
                         HStack {
@@ -29,10 +26,15 @@ struct WorkspaceView: View {
                         }.frame(minWidth: 380,maxWidth: .infinity,minHeight: session.showAngles ? 160 : 250,maxHeight: .infinity)
                         if session.showAngles { MulticamAngleViewer(session: session).frame(height: 140) }
                     }
-                    if session.showInspector { InspectorView(session: session).frame(minWidth: 250, idealWidth: 280, maxWidth: 380) }
                 }.frame(minHeight: session.showAngles ? 310 : 280)
-                if session.showTimeline || session.showAudio {
+                if session.showTimeline || session.showAudio || session.showLibrary || session.showEffects {
                     HSplitView {
+                        if session.showLibrary || session.showEffects {
+                            VSplitView {
+                                if session.showLibrary { MediaBrowserView(session: session).frame(minHeight: 100) }
+                                if session.showEffects { EffectsBrowserView(session: session).frame(minHeight: 100) }
+                            }.frame(minWidth: 210,idealWidth: 270,maxWidth: 440)
+                        }
                         if session.showTimeline {
                             VStack(spacing: 0) {
                                 if !session.compoundPath.isEmpty { CompoundBreadcrumb(session: session) }
@@ -128,24 +130,6 @@ private struct ViewerView: View {
     init(session: EditorSession) { self.session = session; transport = session.transport }
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("Playback").font(EditorStyle.metadataFont).foregroundStyle(.secondary)
-                Spacer()
-                Picker("Playback media",selection: $session.playbackMode) {
-                    ForEach(PlaybackMediaMode.allCases,id: \.self) { mode in Text(mode.label).tag(mode) }
-                }.labelsHidden().frame(width: 100).controlSize(.small).help("Final export always uses originals")
-                Menu(session.previewQuality.label) {
-                    ForEach(PreviewQuality.allCases,id: \.self) { quality in
-                        Button(quality.label) { session.previewQuality = quality }
-                    }
-                }.menuStyle(.borderlessButton).frame(width: 60).help("Preview resolution; exports always use the chosen export dimensions")
-                Menu(zoom == 0 ? "Fit" : "\(Int(zoom * 100))%") {
-                    Button("Fit") { zoom = 0 }
-                    Button("100% · Actual Pixels") { zoom = 1 }
-                    Button("200%") { zoom = 2 }
-                    Button("400%") { zoom = 4 }
-                }.menuStyle(.borderlessButton).frame(width: 70)
-            }.padding(.horizontal,12).frame(height: 32)
             if session.transport.reversePreviewRate > 0 {
                 Text("Reverse preview · \(Int(session.transport.reversePreviewRate))× · Audio muted").font(.system(size: 9)).foregroundStyle(.secondary).padding(.horizontal,8).padding(.bottom,4)
             }
@@ -183,6 +167,24 @@ private struct ViewerView: View {
                         }
                     }
                 }
+            HStack {
+                Text("Playback").font(EditorStyle.metadataFont).foregroundStyle(.secondary)
+                Spacer()
+                Picker("Playback media",selection: $session.playbackMode) {
+                    ForEach(PlaybackMediaMode.allCases,id: \.self) { mode in Text(mode.label).tag(mode) }
+                }.labelsHidden().frame(width: 100).controlSize(.small).help("Final export always uses originals")
+                Menu(session.previewQuality.label) {
+                    ForEach(PreviewQuality.allCases,id: \.self) { quality in
+                        Button(quality.label) { session.previewQuality = quality }
+                    }
+                }.menuStyle(.borderlessButton).frame(width: 60).help("Preview resolution; exports always use the chosen export dimensions")
+                Menu(zoom == 0 ? "Fit" : "\(Int(zoom * 100))%") {
+                    Button("Fit") { zoom = 0 }
+                    Button("100% · Actual Pixels") { zoom = 1 }
+                    Button("200%") { zoom = 2 }
+                    Button("400%") { zoom = 4 }
+                }.menuStyle(.borderlessButton).frame(width: 70)
+            }.padding(.horizontal,12).frame(height: 32)
             HStack(spacing: 8) {
                 Text(session.fps.timecode(session.playhead)).font(.system(size: 12,weight: .medium,design: .monospaced)).frame(minWidth: 92,alignment: .leading)
                 Spacer(minLength: 0)

@@ -20,14 +20,15 @@ extension EditorSession {
             guard let event = NSEvent.mouseEvent(with: type,location: point(x,top),modifierFlags: [],timestamp: ProcessInfo.processInfo.systemUptime,windowNumber: window.windowNumber,context: nil,eventNumber: 0,clickCount: 1,pressure: type == .leftMouseUp ? 0 : 1) else { throw RenderError.invalid("Cannot create native drag event.") }
             NSApp.postEvent(event,atStart: false)
         }
-        try post(.leftMouseDown,280,105)
+        let startY = CGFloat(32 + 1 + 28) + TimelineMetrics.laneHeight / 2
+        try post(.leftMouseDown,280,startY)
         try await Task.sleep(nanoseconds: 40_000_000)
         for step in 1...10 {
-            try post(.leftMouseDragged,280 + CGFloat(step) * 7,105 + CGFloat(step) * 7)
+            try post(.leftMouseDragged,280 + CGFloat(step) * 7,startY + CGFloat(step) * TimelineMetrics.laneHeight / 10)
             try await Task.sleep(nanoseconds: 20_000_000)
         }
         guard editor.timelineDrag.active,editor.timelineDrag.trackOffset == 1 else { throw RenderError.invalid("Native mouse drag did not preview the destination lane.") }
-        try post(.leftMouseUp,350,175)
+        try post(.leftMouseUp,350,startY + TimelineMetrics.laneHeight)
         try await Task.sleep(nanoseconds: 150_000_000)
         guard editor.project.tracks[0].clips.isEmpty,editor.project.tracks[1].clips.first?.id == clip.id,
               editor.project.clip(clip.id)?.start == 60,!editor.timelineDrag.active else { throw RenderError.invalid("Native track drag did not commit the intended time and lane: \(editor.errorMessage ?? "no error").") }

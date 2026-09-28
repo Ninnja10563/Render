@@ -29,7 +29,7 @@ extension EditorSession {
         guard let scroll = window.contentView.flatMap(verticalScroll) else { throw RenderError.invalid("Timeline test could not find the vertical scroll view.") }
         let initial = TimelineRenderProbe.visible.intersection(ids)
         guard initial.contains(test.project.tracks[0].id), initial.count <= 12 else { throw RenderError.invalid("Offscreen timeline tracks were constructed at the top of the viewport.") }
-        let desiredY: CGFloat = 28 + 250 * 70
+        let desiredY: CGFloat = 28 + 250 * TimelineMetrics.laneHeight
         let nativeY = scroll.documentView?.isFlipped == false ? max(0,(scroll.documentView?.bounds.height ?? 0) - scroll.contentView.bounds.height - desiredY) : desiredY
         scroll.contentView.scroll(to: NSPoint(x: 0,y: nativeY))
         scroll.reflectScrolledClipView(scroll.contentView)

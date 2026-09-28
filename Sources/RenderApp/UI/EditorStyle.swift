@@ -25,3 +25,8 @@ struct PanelHeader<Actions: View>: View {
             .overlay(alignment: .bottom) { Divider() }
     }
 }
+
+/// Shared lane geometry keeps mouse targeting and drag previews in step with the layout.
+enum TimelineMetrics {
+    static let laneHeight: CGFloat = 48
+}

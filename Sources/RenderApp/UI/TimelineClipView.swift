@@ -19,7 +19,7 @@ struct ClipTile: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 3).fill(tint.opacity(track.hidden || track.muted ? 0.5 : 1))
+                RoundedRectangle(cornerRadius: 1).fill(tint.opacity(track.hidden || track.muted ? 0.5 : 1))
                 if track.kind == .video, let assetID = clip.assetID, let media = session.project.assets.first(where: { $0.id == assetID }), geometry.size.width > 34 {
                     FilmstripView(media: media,clip: clip,library: session.library,poster: session.thumbnails[assetID],pointsPerSecond: session.pointsPerSecond,frameRate: session.fps,visibleRange: visibleRange,width: geometry.size.width,mode: session.playbackMode)
                         .offset(y: 18).opacity(0.8)
@@ -38,10 +38,10 @@ struct ClipTile: View {
                             path.move(to: CGPoint(x: x,y: (size.height - height) / 2)); path.addLine(to: CGPoint(x: x,y: (size.height + height) / 2))
                         }
                         context.stroke(path,with: .color(.white.opacity(0.65)),lineWidth: 1)
-                    }.frame(width: drawWidth,height: track.kind == .audio ? 33 : 16).offset(x: localStart,y: track.kind == .audio ? 24 : 43)
+                    }.frame(width: drawWidth,height: track.kind == .audio ? 15 : 10).offset(x: localStart,y: track.kind == .audio ? 20 : 27)
                 }
                 if clip.compoundID != nil {
-                    Label("Compound",systemImage: "square.stack.3d.up").font(.system(size: 10)).foregroundStyle(.white.opacity(0.7)).padding(.horizontal,8).offset(y: 31)
+                    Label("Compound",systemImage: "square.stack.3d.up").font(.system(size: 10)).foregroundStyle(.white.opacity(0.7)).padding(.horizontal,8).offset(y: 22)
                 }
                 Text((clip.connection != nil ? "↳ " : "") + clip.name).font(.system(size: 10,weight: .regular)).foregroundStyle(.white).lineLimit(1).padding(.horizontal,5).frame(height: 18).frame(maxWidth: .infinity,alignment: .leading).background(.black.opacity(0.15))
                 if selected && session.tool != .blade && geometry.size.width > 18 {
@@ -52,8 +52,8 @@ struct ClipTile: View {
                     }
                 }
             }.frame(width: max(3,geometry.size.width + session.fps.seconds(trimEdge == .leading ? -trimDelta : trimDelta) * session.pointsPerSecond),height: geometry.size.height)
-                .clipShape(RoundedRectangle(cornerRadius: 3))
-                .overlay { RoundedRectangle(cornerRadius: 3).strokeBorder(selected ? Color.accentColor : .white.opacity(0.12),lineWidth: selected ? 2 : 0.5) }
+                .clipShape(RoundedRectangle(cornerRadius: 1))
+                .overlay { RoundedRectangle(cornerRadius: 1).strokeBorder(selected ? Color.accentColor : .white.opacity(0.12),lineWidth: selected ? 2 : 0.5) }
                 .overlay(alignment: .bottomTrailing) {
                     if let transition = clip.transition {
                         Image(systemName: "arrow.left.arrow.right").font(.system(size: 9)).foregroundStyle(.white)
@@ -80,7 +80,7 @@ struct ClipTile: View {
                             catch { session.report(error); return }
                         }
                         let frames = session.snap(clip.start + delta,excluding: session.selection) - clip.start
-                        let offset = Int((value.translation.height / 70).rounded())
+                        let offset = Int((value.translation.height / TimelineMetrics.laneHeight).rounded())
                         drag.update(delta: frames,trackOffset: offset)
                     } else {
                         dragFrames = delta

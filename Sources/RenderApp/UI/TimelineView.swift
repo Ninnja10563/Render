@@ -10,7 +10,7 @@ struct TimelineView: View {
     @State private var verticalOffset: CGFloat = 0
     @State private var viewportHeight: CGFloat = 300
     private let headerWidth: CGFloat = 148
-    private let laneHeight: CGFloat = 70
+    private let laneHeight = TimelineMetrics.laneHeight
     var contentWidth: CGFloat { max(1000,max(viewportWidth,session.fps.seconds(session.project.duration) * session.pointsPerSecond + 300)) }
     private var visibleRows: Range<Int> {
         TimelineViewport.rows(count: session.project.tracks.count,rowHeight: laneHeight,headerHeight: 28,offset: verticalOffset,height: viewportHeight)
