@@ -7,22 +7,25 @@ struct MediaBrowserView: View {
     var filtered: [MediaAsset] { session.project.assets.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) } }
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("MEDIA").font(.system(size: 10,weight: .semibold)).foregroundStyle(.secondary)
-                Spacer()
-                Text("\(session.project.assets.count)").font(.system(size: 10)).foregroundStyle(.tertiary)
-                Button { session.importPanel() } label: { Image(systemName: "plus") }.buttonStyle(.plain).help("Import media")
-            }.padding(.horizontal,12).frame(height: 32)
-            TextField("Search media", text: $search).textFieldStyle(.roundedBorder).padding(.horizontal,10).padding(.bottom,10)
+            PanelHeader("Media") {
+                Text("\(session.project.assets.count)").monospacedDigit()
+                Button { session.importPanel() } label: { Image(systemName: "plus") }
+                    .help("Import media").accessibilityLabel("Import media")
+            }
+            TextField("Search media", text: $search).textFieldStyle(.roundedBorder).controlSize(.small).padding(10)
             if session.project.assets.isEmpty {
                 VStack(spacing: 10) {
                     Spacer()
-                    Image(systemName: "folder").font(.system(size: 28,weight: .light)).foregroundStyle(.secondary)
                     Text("No media imported").font(.system(size: 12,weight: .medium))
                     Text("Drop video, audio or images here.\nYour originals stay where they are.").font(.system(size: 11)).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     Button("Import Media…") { session.importPanel() }.padding(.top,4)
                     Spacer()
                 }.frame(maxWidth: .infinity)
+            } else if filtered.isEmpty {
+                VStack(spacing: 8) {
+                    Text("No matching media").font(.system(size: 12,weight: .medium))
+                    Button("Clear Search") { search = "" }.controlSize(.small)
+                }.frame(maxWidth: .infinity,maxHeight: .infinity)
             } else {
                 List(selection: $session.selectedAsset) {
                     ForEach(filtered) { media in
@@ -34,10 +37,10 @@ struct MediaBrowserView: View {
                             }.frame(width: 64,height: 40).clipped()
                             VStack(alignment: .leading,spacing: 4) {
                                 Text(media.name).font(.system(size: 11,weight: .medium)).lineLimit(1)
-                                Text(media.kind == .audio ? "\(media.audioChannels) ch · \(media.codec)" : "\(media.width) × \(media.height) · \(media.codec)").font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1)
-                                Text(session.fps.timecode(session.fps.frames(media.duration))).font(.system(size: 9,design: .monospaced)).foregroundStyle(.secondary)
+                                Text(media.kind == .audio ? "\(media.audioChannels) ch · \(media.codec)" : "\(media.width) × \(media.height) · \(media.codec)").font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+                                Text(session.fps.timecode(session.fps.frames(media.duration))).font(.system(size: 10,design: .monospaced)).foregroundStyle(.secondary)
                                 if let range = media.selection {
-                                    Text("Marked \(session.fps.timecode((try? range.clipFrames(at: session.fps)) ?? 0))").font(.system(size: 9,design: .monospaced)).foregroundStyle(.secondary)
+                                    Text("Marked \(session.fps.timecode((try? range.clipFrames(at: session.fps)) ?? 0))").font(.system(size: 10,design: .monospaced)).foregroundStyle(.secondary)
                                 }
                             }
                         }.padding(.vertical,3).tag(media.id)
@@ -56,7 +59,7 @@ struct MediaBrowserView: View {
                             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([media.url]) }
                         }
                     }
-                }.listStyle(.sidebar)
+                }.listStyle(.sidebar).scrollContentBackground(.hidden).background(EditorStyle.content)
             }
             Divider()
             HStack {
@@ -65,6 +68,6 @@ struct MediaBrowserView: View {
                 Button { if let id = session.selectedAsset { session.append(id) } } label: { Image(systemName: "plus.rectangle.on.rectangle") }
                     .buttonStyle(.plain).disabled(session.selectedAsset == nil).help("Append selected media")
             }.padding(.horizontal,12).frame(height: 32)
-        }
+        }.background(EditorStyle.panel)
     }
 }

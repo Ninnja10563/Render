@@ -15,11 +15,17 @@ struct WorkspaceView: View {
                         }.frame(minWidth: 210,idealWidth: 270,maxWidth: 440)
                     }
                     VStack(spacing: 0) {
-                        HStack(spacing: 12) {
-                            Button("Timeline") { session.closeSource() }.fontWeight(session.showingSource ? .regular : .semibold)
-                            Button("Source") { if let id = session.selectedAsset { session.openSource(id) } }.fontWeight(session.showingSource ? .semibold : .regular).disabled(session.selectedAsset == nil)
+                        HStack {
+                            Picker("Viewer",selection: Binding(get: { session.showingSource },set: { source in
+                                if source,let id = session.selectedAsset { session.openSource(id) }
+                                else { session.closeSource() }
+                            })) {
+                                Text("Timeline").tag(false)
+                                Text("Source").tag(true).disabled(session.selectedAsset == nil)
+                            }.pickerStyle(.segmented).labelsHidden().frame(width: 158)
+                                .help(session.selectedAsset == nil ? "Select media to open the Source viewer" : "Choose timeline or source playback")
                             Spacer()
-                        }.buttonStyle(.plain).font(.system(size: 11)).padding(.horizontal,12).frame(height: 26)
+                        }.controlSize(.small).padding(.horizontal,12).frame(height: 32).background(EditorStyle.panel)
                         Group {
                             if session.showingSource { SourceViewer(session: session) }
                             else { ViewerView(session: session) }
@@ -51,8 +57,6 @@ struct WorkspaceView: View {
             }
             ToolbarItem(placement: .principal) {
                 HStack(spacing: 10) {
-                    Text("RENDER").font(.system(size: 11,weight: .bold,design: .rounded)).tracking(2)
-                    Divider().frame(height: 14)
                     Text("\(session.project.settings.width) × \(session.project.settings.height)  ·  \(session.fps.value.formatted(.number.precision(.fractionLength(0...3)))) fps")
                         .font(.system(size: 11)).foregroundStyle(.secondary)
                 }
@@ -104,7 +108,7 @@ struct WorkspaceView: View {
             Text(session.selection.isEmpty ? "\(session.project.tracks.flatMap(\.clips).count) clips" : "\(session.selection.count) selected")
             Text("·")
             Text("\(session.fps.timecode(session.project.duration)) NDF").monospacedDigit()
-        }.font(.system(size: 10)).foregroundStyle(.secondary).padding(.horizontal,12).frame(height: 25)
+        }.font(.system(size: 10)).foregroundStyle(.secondary).padding(.horizontal,12).frame(height: 25).overlay(alignment: .top) { Divider() }
     }
 }
 
@@ -128,11 +132,11 @@ private struct ViewerView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("VIEWER").font(.system(size: 10,weight: .semibold)).foregroundStyle(.secondary)
+                Text("Playback").font(EditorStyle.metadataFont).foregroundStyle(.secondary)
                 Spacer()
                 Picker("Playback media",selection: $session.playbackMode) {
                     ForEach(PlaybackMediaMode.allCases,id: \.self) { mode in Text(mode.label).tag(mode) }
-                }.labelsHidden().frame(width: 100).controlSize(.mini).help("Final export always uses originals")
+                }.labelsHidden().frame(width: 100).controlSize(.small).help("Final export always uses originals")
                 Menu(session.previewQuality.label) {
                     ForEach(PreviewQuality.allCases,id: \.self) { quality in
                         Button(quality.label) { session.previewQuality = quality }
@@ -164,24 +168,23 @@ private struct ViewerView: View {
                     } else if !session.previewReady { ProgressView("Preparing timeline…").tint(.white).foregroundStyle(.white) }
                 } else {
                     VStack(spacing: 10) {
-                        Image(systemName: "play.rectangle").font(.system(size: 32,weight: .ultraLight))
-                        Text("Your story starts here").font(.system(size: 15,weight: .medium))
+                        Text("Empty timeline").font(.system(size: 13,weight: .medium))
                         Text("Import media, then add a clip to the timeline.").font(.system(size: 12)).foregroundStyle(.gray)
                         Button("Import Media…") { session.importPanel() }.padding(.top,6)
                     }.foregroundStyle(.white.opacity(0.8))
                 }
             }.clipped().frame(maxWidth: .infinity,maxHeight: .infinity)
-            HStack(spacing: 16) {
+            HStack(spacing: 8) {
                 Text(session.fps.timecode(session.playhead)).font(.system(size: 12,weight: .medium,design: .monospaced)).frame(minWidth: 92,alignment: .leading)
                 Spacer(minLength: 0)
-                Button { session.pause(); session.seek(0) } label: { Image(systemName: "backward.end.fill") }.help("Beginning (Home)")
-                Button { session.pause(); session.seek(session.playhead - 1) } label: { Image(systemName: "backward.frame.fill") }.help("Previous frame (\(shortcuts.label(.previousFrame)))")
-                Button { session.togglePlayback() } label: { Image(systemName: session.isPlaying ? "pause.fill" : "play.fill").frame(width: 18) }.help("Play / Pause (\(shortcuts.label(.playPause)))")
-                Button { session.pause(); session.seek(session.playhead + 1) } label: { Image(systemName: "forward.frame.fill") }.help("Next frame (\(shortcuts.label(.nextFrame)))")
-                Button { session.pause(); session.seek(session.project.duration - 1) } label: { Image(systemName: "forward.end.fill") }.help("End (End)")
+                Button { session.pause(); session.seek(0) } label: { Image(systemName: "backward.end.fill").frame(width: 22,height: 24) }.accessibilityLabel("Go to beginning").help("Beginning (\(shortcuts.label(.beginning)))")
+                Button { session.pause(); session.seek(session.playhead - 1) } label: { Image(systemName: "backward.frame.fill").frame(width: 22,height: 24) }.accessibilityLabel("Previous frame").help("Previous frame (\(shortcuts.label(.previousFrame)))")
+                Button { session.togglePlayback() } label: { Image(systemName: session.isPlaying ? "pause.fill" : "play.fill").frame(width: 22,height: 24) }.accessibilityLabel(session.isPlaying ? "Pause" : "Play").help("Play / Pause (\(shortcuts.label(.playPause)))")
+                Button { session.pause(); session.seek(session.playhead + 1) } label: { Image(systemName: "forward.frame.fill").frame(width: 22,height: 24) }.accessibilityLabel("Next frame").help("Next frame (\(shortcuts.label(.nextFrame)))")
+                Button { session.pause(); session.seek(session.project.duration - 1) } label: { Image(systemName: "forward.end.fill").frame(width: 22,height: 24) }.accessibilityLabel("Go to end").help("End (\(shortcuts.label(.end)))")
                 Spacer(minLength: 0)
                 Text(session.fps.timecode(session.project.duration)).font(.system(size: 11,design: .monospaced)).foregroundStyle(.secondary)
-            }.buttonStyle(.plain).padding(.horizontal,14).frame(height: 42)
+            }.buttonStyle(.plain).padding(.horizontal,12).frame(height: 42).background(EditorStyle.panel)
         }
     }
 }

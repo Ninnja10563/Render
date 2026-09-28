@@ -20,8 +20,8 @@ struct TimelineView: View {
     private var trailingSpace: CGFloat { CGFloat(session.project.tracks.count - visibleRows.upperBound) * laneHeight }
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 14) {
-                Text("TIMELINE").font(.system(size: 10,weight: .semibold)).foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                Text("Timeline").font(.system(size: 12,weight: .medium)).accessibilityAddTraits(.isHeader)
                 Picker("Tool", selection: $session.tool) {
                     ForEach(EditingTool.allCases,id: \.self) { tool in Label(tool.rawValue,systemImage: tool.symbol).tag(tool) }
                 }.pickerStyle(.menu).frame(width: 120).labelsHidden().help([EditorShortcutAction.selectTool,.bladeTool,.trimTool,.rippleTool,.rollTool,.slipTool,.slideTool,.rangeTool,.zoomTool].map { "\(shortcuts.label($0)) \($0.title)" }.joined(separator: " · "))
@@ -34,16 +34,16 @@ struct TimelineView: View {
                 Image(systemName: "minus.magnifyingglass").foregroundStyle(.secondary)
                 Slider(value: $session.pointsPerSecond, in: 10...240).frame(width: 100).help("Timeline zoom")
                 Image(systemName: "plus.magnifyingglass").foregroundStyle(.secondary)
-            }.controlSize(.small).padding(.horizontal,12).frame(height: 40)
+            }.controlSize(.small).padding(.horizontal,12).frame(height: 40).background(EditorStyle.panel)
             Divider()
             ScrollView(.vertical) {
                 HStack(alignment: .top,spacing: 0) {
                     VStack(spacing: 0) {
-                        Text("TRACKS").font(.system(size: 9,weight: .semibold)).foregroundStyle(.tertiary).frame(width: headerWidth,height: 28,alignment: .leading).padding(.leading,12)
+                        Text("Tracks").font(EditorStyle.metadataFont).foregroundStyle(.secondary).frame(width: headerWidth,height: 28,alignment: .leading).padding(.leading,12)
                         Color.clear.frame(height: leadingSpace)
                         ForEach(visibleTracks) { track in TrackHeader(session: session, track: track).frame(width: headerWidth,height: laneHeight) }
                         Color.clear.frame(height: trailingSpace)
-                    }.frame(width: headerWidth)
+                    }.frame(width: headerWidth).background(EditorStyle.panel)
                     Divider()
                     ScrollView(.horizontal) {
                         VStack(spacing: 0) {
@@ -71,7 +71,7 @@ struct TimelineView: View {
                     if viewportHeight != size.height { viewportHeight = size.height }
                 }.frame(width: 0,height: 0))
             }
-        }.background(Color(nsColor: .underPageBackgroundColor))
+        }.background(EditorStyle.canvas)
     }
     private var ruler: some View {
         let origin = max(0,scrollOffset - 200)
@@ -92,7 +92,7 @@ struct TimelineView: View {
                     if x >= -5 && x <= visibleWidth + 5 { context.fill(Path(CGRect(x: x - 2,y: 18,width: 5,height: 9)),with: .color(.orange)) }
                 }
             }.frame(width: visibleWidth,height: 28).offset(x: origin)
-        }.frame(width: contentWidth,height: 28).contentShape(Rectangle())
+        }.frame(width: contentWidth,height: 28).background(EditorStyle.panel).contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0).onChanged { value in session.closeSource(); NSApp.keyWindow?.makeFirstResponder(nil); session.pause(); session.seek(session.fps.frames(value.location.x / session.pointsPerSecond)) })
     }
 }

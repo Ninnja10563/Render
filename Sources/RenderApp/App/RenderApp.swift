@@ -100,10 +100,9 @@ final class RenderAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
 private struct SettingsView: View {
     var body: some View {
         Form {
-            LabeledContent("Rendering", value: "Core Image / Metal")
             LabeledContent("Project format", value: "Render Project · Version \(RenderProject.currentSchema)")
             LabeledContent("Recovery", value: "After every edit (0.75 second delay)")
-            Text("Original media stays in its current location. Use Relink Media if a source moves.").foregroundStyle(.secondary)
+            Text("Projects reference your original files. Use Relink Media if a source moves.").foregroundStyle(.secondary)
         }.padding(24).frame(width: 460)
     }
 }

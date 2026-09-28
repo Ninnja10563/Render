@@ -11,8 +11,11 @@ struct EffectsBrowserView: View {
     ]
     var body: some View {
         VStack(spacing: 0) {
-            HStack { Text("EFFECTS").font(.system(size: 10,weight: .semibold)); Spacer(); Button { session.showEffects = false } label: { Image(systemName: "xmark") }.buttonStyle(.plain).help("Hide effects browser") }.foregroundStyle(.secondary).padding(.horizontal,12).frame(height: 32)
-            TextField("Search effects",text: $search).textFieldStyle(.roundedBorder).controlSize(.small).padding(.horizontal,10).padding(.bottom,8)
+            PanelHeader("Effects") {
+                Button { session.showEffects = false } label: { Image(systemName: "xmark") }
+                    .help("Hide effects browser").accessibilityLabel("Hide effects browser")
+            }
+            TextField("Search effects",text: $search).textFieldStyle(.roundedBorder).controlSize(.small).padding(10)
             List(selection: $selected) {
                 ForEach(groups,id: \.0) { group in
                     let filtered = group.1.filter { search.isEmpty || $0.label.localizedCaseInsensitiveContains(search) }
@@ -26,7 +29,8 @@ struct EffectsBrowserView: View {
                         }
                     }
                 }
-            }.listStyle(.sidebar)
+            }.listStyle(.sidebar).scrollContentBackground(.hidden).background(EditorStyle.content)
+                .overlay { if !groups.flatMap(\.1).contains(where: { search.isEmpty || $0.label.localizedCaseInsensitiveContains(search) }) { Text("No matching effects").font(.system(size: 12)).foregroundStyle(.secondary) } }
             Divider()
             VStack(alignment: .leading,spacing: 8) {
                 let choice = selected ?? .exposure
@@ -34,7 +38,7 @@ struct EffectsBrowserView: View {
                 Text(choice.detail).font(.system(size: 10)).foregroundStyle(.secondary).fixedSize(horizontal: false,vertical: true)
                 Button("Apply to Selected Clips") { session.applyEffect(choice) }.controlSize(.small).disabled(!session.canApplyEffects)
             }.padding(12).frame(maxWidth: .infinity,alignment: .leading)
-        }
+        }.background(EditorStyle.panel)
     }
 }
 private extension EffectKind {

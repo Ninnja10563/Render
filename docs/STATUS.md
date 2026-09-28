@@ -1,6 +1,6 @@
 # Implementation status
 
-This is the development status for 0.25.0. A published DMG means that milestone passed its automated release gates; it does not mean Render is a production-equivalent replacement for an established editor.
+This is the development status for 0.26.0. A published DMG means that milestone passed its automated release gates; it does not mean Render is a production-equivalent replacement for an established editor.
 
 ## Implemented editing path
 
@@ -30,6 +30,6 @@ This is the development status for 0.25.0. A published DMG means that milestone 
 
 ## Validation evidence and limits
 
-The macOS ARM64 CI builds Debug and Release, runs core and native-media integration tests, runs C audio DSP sanitizers, compares the core editing benchmark, builds and verifies a DMG, installs its app, launches an editing smoke workflow, and captures the workspace and source viewer in dark and light appearances. Release jobs repeat native checks before publishing the DMG and checksum. Tests inspect real decoded pixels/audio, not just project metadata.
+The macOS ARM64 CI builds Debug and Release, runs core and native-media integration tests, runs C audio DSP sanitizers, compares the core editing benchmark, builds and verifies a DMG, installs its app, launches an editing smoke workflow, and captures compact/wide editing workspaces, audio, export, empty states, shortcuts and the source viewer in dark and light appearances. Release jobs repeat native checks before publishing the DMG and checksum. Tests inspect real decoded pixels/audio, not just project metadata.
 
 The CI host is a macOS VM. These checks cannot establish physical M1–M5 performance, all supported codec/device behavior, subjective editing quality, or production reliability by themselves. See MANUAL_TESTS.md and the versioned release notes for the precise milestones and limitations.

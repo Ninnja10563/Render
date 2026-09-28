@@ -6,7 +6,8 @@ export RENDER_APPEARANCE=${RENDER_APPEARANCE:-dark}
 export RENDER_SCREENSHOT="$(pwd)/build/workspace-$RENDER_APPEARANCE.png"
 "$APP/Contents/MacOS/Render" --smoke-test > build/launch.log 2>&1 &
 APP_PID=$!
-for _ in $(seq 1 30); do
+# Includes native interaction checks and multiple workspace/dialog captures.
+for _ in $(seq 1 60); do
     if ! kill -0 "$APP_PID" 2>/dev/null; then break; fi
     sleep 1
 done
@@ -15,6 +16,7 @@ wait "$APP_PID"
 cat build/launch.log
 grep -q RENDER_SMOKE_OK build/launch.log
 grep -q RENDER_SHORTCUTS_OK build/launch.log
+grep -q RENDER_UI_REVIEW_OK build/launch.log
 grep -q RENDER_EDIT_SMOKE_OK build/launch.log
 grep -q RENDER_INSPECTOR_SAVE_OK build/launch.log
 grep -q RENDER_MULTICAM_OK build/launch.log

@@ -11,8 +11,8 @@ struct SourceViewer: View {
             HStack {
                 Text(source.asset?.name ?? "Select source media").font(.system(size: 11,weight: .medium)).lineLimit(1)
                 Spacer()
-                Text("SOURCE · Original").font(.system(size: 9)).foregroundStyle(.secondary)
-            }.padding(.horizontal,12).frame(height: 28)
+                Text("Original media").font(.system(size: 10)).foregroundStyle(.secondary)
+            }.padding(.horizontal,12).frame(height: 32)
             ZStack {
                 Color.black
                 if let image = source.still { Image(decorative: image,scale: 1).resizable().scaledToFit() }
@@ -51,9 +51,9 @@ struct SourceViewer: View {
                     HStack(spacing: 14) {
                         Text(source.rate.timecode(source.frame)).font(.system(size: 11,design: .monospaced))
                         Spacer(minLength: 0)
-                        Button { source.seek(source.frame - 1) } label: { Image(systemName: "backward.frame.fill") }.help("Previous source frame (\(shortcuts.label(.previousFrame)))")
-                        Button { source.togglePlayback() } label: { Image(systemName: source.playing ? "pause.fill" : "play.fill") }.disabled(!source.ready || source.asset?.kind == .image).help("Play source range (\(shortcuts.label(.playPause)))")
-                        Button { source.seek(source.frame + 1) } label: { Image(systemName: "forward.frame.fill") }.help("Next source frame (\(shortcuts.label(.nextFrame)))")
+                        Button { source.seek(source.frame - 1) } label: { Image(systemName: "backward.frame.fill").frame(width: 22,height: 24) }.accessibilityLabel("Previous source frame").help("Previous source frame (\(shortcuts.label(.previousFrame)))")
+                        Button { source.togglePlayback() } label: { Image(systemName: source.playing ? "pause.fill" : "play.fill").frame(width: 22,height: 24) }.accessibilityLabel(source.playing ? "Pause source" : "Play source").disabled(!source.ready || source.asset?.kind == .image).help("Play source range (\(shortcuts.label(.playPause)))")
+                        Button { source.seek(source.frame + 1) } label: { Image(systemName: "forward.frame.fill").frame(width: 22,height: 24) }.accessibilityLabel("Next source frame").help("Next source frame (\(shortcuts.label(.nextFrame)))")
                         Spacer(minLength: 0)
                         Button("Mark In") { session.markSource(incoming: true) }.help("Mark source in (\(shortcuts.label(.markIn)))")
                         Button("Mark Out") { session.markSource(incoming: false) }.help("Mark source out, including this frame (\(shortcuts.label(.markOut)))")
@@ -71,7 +71,7 @@ struct SourceViewer: View {
                         Button("Insert") { session.editSource(insert: true) }
                         Button("Overwrite") { session.editSource(overwrite: true) }
                     }
-                    if source.reversePreview { Text("Reverse preview · Audio muted").font(.system(size: 9)).foregroundStyle(.secondary) }
+                    if source.reversePreview { Text("Reverse preview · Audio muted").font(.system(size: 10)).foregroundStyle(.secondary) }
                 }.font(.system(size: 10)).controlSize(.small).padding(.horizontal,12).padding(.vertical,8)
             }
         }.background(Color(nsColor: .windowBackgroundColor))

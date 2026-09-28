@@ -106,6 +106,7 @@ extension EditorSession {
             try await Task.sleep(nanoseconds: 50_000_000)
         }
         try await checkReversePreview()
+        try await captureUIReview()
         seek(30); togglePlayback()
         let playingDeadline = Date().addingTimeInterval(5)
         while player.timeControlStatus != .playing || player.currentTime().seconds <= fps.seconds(33) {

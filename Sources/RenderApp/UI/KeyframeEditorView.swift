@@ -37,7 +37,7 @@ struct KeyframeEditorView: View {
             }.font(.system(size: 10)).buttonStyle(.plain)
             if !curve.keys.isEmpty {
                 AnimationCurvePlot(curve: curve,offset: clip.animationOffset,duration: clip.duration,playhead: frame) { local in session.seek(clip.start + local) }
-                Text("Frame within clip · value · outgoing curve").font(.system(size: 9)).foregroundStyle(.secondary)
+                Text("Frame within clip · value · outgoing curve").font(.system(size: 10)).foregroundStyle(.secondary)
                 // A bounded viewport keeps long automation curves inexpensive to inspect.
                 ScrollView {
                     LazyVStack(spacing: 6) {
@@ -63,8 +63,9 @@ struct KeyframeEditorView: View {
                 Spacer(minLength: 0)
                 Button("Delete") { edit(.remove(selected)); selected.removeAll() }.disabled(selected.isEmpty)
             }.controlSize(.mini)
-            Text("Copy uses selected keys, or all keys when none are selected. Paste aligns the first key to the playhead. Dimmed keys lie outside the trimmed clip.")
-                .font(.system(size: 9)).foregroundStyle(.secondary)
+            Text("Copy selected keys; paste at the playhead.")
+                .help("Copy uses all keys when none are selected. Dimmed keys lie outside the trimmed clip.")
+                .font(.system(size: 10)).foregroundStyle(.secondary)
         }
         .onChange(of: target) { _,_ in selected.removeAll() }
         .onChange(of: clip.id) { _,_ in selected.removeAll(); if !availableTargets.contains(target) { target = .property("opacity") } }

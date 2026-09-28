@@ -4,7 +4,6 @@ struct CompoundBreadcrumb: View {
     @ObservedObject var session: EditorSession
     var body: some View {
         HStack(spacing: 7) {
-            Image(systemName: "square.stack.3d.up").foregroundStyle(.secondary)
             Button(session.document.name) { session.returnToTimeline(depth: 0) }
             ForEach(Array(session.compoundPath.enumerated()),id: \.element) { index,id in
                 Image(systemName: "chevron.right").font(.system(size: 8)).foregroundStyle(.tertiary)
@@ -13,8 +12,9 @@ struct CompoundBreadcrumb: View {
                 else { Button(name) { session.returnToTimeline(depth: index + 1) } }
             }
             Spacer()
-            Text("Editing source · Save and export include the full project").foregroundStyle(.secondary)
-        }.buttonStyle(.plain).font(.system(size: 11)).padding(.horizontal,12).frame(height: 29)
+            Text("Compound timeline").foregroundStyle(.secondary).lineLimit(1)
+                .help("Editing this source updates every instance. Save and export include the full project.")
+        }.buttonStyle(.plain).font(.system(size: 11)).padding(.horizontal,12).frame(height: 29).background(EditorStyle.panel)
         Divider()
     }
 }

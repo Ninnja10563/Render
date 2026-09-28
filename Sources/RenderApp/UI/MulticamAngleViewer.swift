@@ -15,7 +15,7 @@ struct MulticamAngleViewer: View {
                let source = session.project.multicamSources?.first(where: { $0.id == membership.sourceID }),
                let active = source.angles.first(where: { $0.id == membership.angleID }) {
                 HStack {
-                    Text("SOURCE ANGLES").font(.system(size: 9,weight: .semibold)).foregroundStyle(.secondary)
+                    Text("Camera Angles").font(EditorStyle.sectionFont)
                     Spacer()
                     if source.angles.count > 4 {
                         Button { page = max(0,page - 1) } label: { Image(systemName: "chevron.left") }.disabled(page == 0)

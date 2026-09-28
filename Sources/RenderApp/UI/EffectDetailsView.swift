@@ -16,7 +16,7 @@ struct EffectDetailsView: View {
                     guard let rgb = NSColor(color).usingColorSpace(.sRGB) else { return }
                     changeKey { $0.red = rgb.redComponent; $0.green = rgb.greenComponent; $0.blue = rgb.blueComponent }
                 }),supportsOpacity: false).font(.system(size: 10))
-                Text("Amount controls similarity to the key colour.").font(.system(size: 9)).foregroundStyle(.secondary)
+                Text("Amount controls similarity to the key colour.").font(.system(size: 10)).foregroundStyle(.secondary)
                 InspectorNumber(label: "Edge softness",value: (effect.keying ?? ChromaKeySettings()).softness,range: 0...1,reset: 0.1) { value in changeKey { $0.softness = value } }
                 InspectorNumber(label: "Spill suppression",value: (effect.keying ?? ChromaKeySettings()).spill,range: 0...1,reset: 0.5) { value in changeKey { $0.spill = value } }
             }
@@ -43,7 +43,7 @@ struct EffectDetailsView: View {
                             PolygonMaskEditor(points: mask.points) { points in changeMask { $0.points = points } }
                         }
                         Text("Coordinates are relative to the source image. The mask follows the clip transform and limits this effect.")
-                            .font(.system(size: 9)).foregroundStyle(.secondary)
+                            .font(.system(size: 10)).foregroundStyle(.secondary)
                         Button("Reset Mask") { change { $0.mask = EffectMask() } }.controlSize(.mini)
                     }
                 }
@@ -93,7 +93,7 @@ private struct PolygonMaskEditor: View {
                     var next = points; next.remove(at: selected); self.selected = nil; commit(next)
                 }.disabled(selected == nil || points.count <= 3)
             }.controlSize(.mini)
-            Text("Drag a vertex to reshape. Add inserts a vertex after the selected point.").font(.system(size: 9)).foregroundStyle(.secondary)
+            Text("Drag a vertex to reshape. Add inserts a vertex after the selected point.").font(.system(size: 10)).foregroundStyle(.secondary)
         }.onChange(of: points) { _,_ in if let selected, !points.indices.contains(selected) { self.selected = nil } }
     }
     private func draw(context: GraphicsContext,size: CGSize) {

@@ -52,12 +52,12 @@ struct AudioInputMetersView: View {
     var body: some View {
         if !meters.inputs.isEmpty {
             VStack(alignment: .leading,spacing: 10) {
-                Text("INPUT LEVELS · dBFS").font(.system(size: 9,weight: .semibold)).foregroundStyle(.secondary)
+                Text("Input Levels · dBFS").font(EditorStyle.sectionFont)
                     .help("Decoded input levels after clip and ancestor volume/fades. These are separate composition inputs, not the summed master output.")
                 ForEach(meters.inputs) { input in
                     VStack(alignment: .leading,spacing: 4) {
                         Text(input.name).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
-                        if input.peaks.isEmpty { Text("Waiting for playback").font(.system(size: 9)).foregroundStyle(.tertiary) }
+                        if input.peaks.isEmpty { Text("Waiting for playback").font(.system(size: 10)).foregroundStyle(.secondary) }
                         ForEach(input.peaks.indices,id: \.self) { channel in
                             meter(peak: input.peaks[channel],rms: channel < input.rms.count ? input.rms[channel] : 0,channel: channel)
                         }
@@ -69,7 +69,7 @@ struct AudioInputMetersView: View {
     private func position(_ value: Float) -> CGFloat { CGFloat(max(0,min(1,(20 * log10(max(0.000001,value)) + 60) / 60))) }
     private func meter(peak: Float,rms: Float,channel: Int) -> some View {
         HStack(spacing: 5) {
-            Text("\(channel + 1)").foregroundStyle(.tertiary).frame(width: 9)
+            Text("\(channel + 1)").foregroundStyle(.secondary).frame(width: 9)
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Rectangle().fill(Color.primary.opacity(0.07))
@@ -78,6 +78,6 @@ struct AudioInputMetersView: View {
                 }
             }.frame(height: 6)
             Text(peak > 0.000001 ? String(format: "%.1f",20 * log10(peak)) : "−∞").monospacedDigit().frame(width: 31,alignment: .trailing)
-        }.font(.system(size: 9))
+        }.font(.system(size: 10))
     }
 }

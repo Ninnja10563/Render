@@ -111,3 +111,7 @@ Vertical timeline: build a sequence with hundreds of video/audio tracks, scroll 
 - Type shortcut keys in project names, inspector fields, titles, search and dialogs. Verify no editing action fires. Keep Settings focused and verify editing shortcuts do not affect the project.
 - Hold frame navigation; verify repetition. Hold a toggle or Delete; verify only one action is performed. Check left/right modifiers, Caps Lock, non-US keyboard layouts and OS-reserved combinations on physical Macs.
 - Verify standard Command menu shortcuts, Undo/Redo, and Escape retain their native behavior.
+
+## UI review (0.26)
+
+Apply `unslop-ui` to all interface changes. Review `workspace-*.png` artifacts in both appearances, especially compact/wide editing, audio, export, empty states, source and shortcuts. Check panel separation, field affordances, text truncation and transport controls. On physical Macs, also resize split views, use Increased Contrast and VoiceOver, and move the window between Retina/external displays. Captures do not replace those checks.

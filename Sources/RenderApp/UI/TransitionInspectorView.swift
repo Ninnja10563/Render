@@ -27,7 +27,8 @@ struct TransitionInspectorView: View {
                         catch { session.report(error) }
                     }
                 }
-                Text("Transitions straddle the cut without changing sequence length. Moving video needs spare source frames on both sides; trim the clips first if handles are unavailable. Audio crossfades over the same interval.").font(.system(size: 9)).foregroundStyle(.secondary)
+                Text("Transitions need spare source frames on both sides of the cut.")
+                    .help("Sequence length stays unchanged. Trim the clips first if handles are unavailable. Audio crossfades over the same interval.").font(.system(size: 10)).foregroundStyle(.secondary)
             } else {
                 Text("Place another clip immediately after this one on the same video track.").font(.system(size: 10)).foregroundStyle(.secondary)
             }

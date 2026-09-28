@@ -17,7 +17,7 @@ struct TimelineLaneView: View {
     }
     var body: some View {
         ZStack(alignment: .topLeading) {
-            Rectangle().fill(session.selectedTrack == track.id ? Color.accentColor.opacity(0.035) : Color.primary.opacity(0.018))
+            Rectangle().fill(session.selectedTrack == track.id ? Color.accentColor.opacity(0.08) : EditorStyle.canvas)
                 .onTapGesture {
                     session.closeSource(); NSApp.keyWindow?.makeFirstResponder(nil)
                     session.selectedTrack = track.id; session.selection = []; session.selectedRange = nil

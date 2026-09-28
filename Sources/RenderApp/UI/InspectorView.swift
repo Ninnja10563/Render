@@ -8,12 +8,7 @@ struct InspectorView: View {
     init(session: EditorSession) { self.session = session; transport = session.transport }
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("INSPECTOR").font(.system(size: 10,weight: .semibold)).foregroundStyle(.secondary)
-                Spacer()
-                if session.selectedClip != nil { Image(systemName: "slider.horizontal.3").foregroundStyle(.secondary) }
-            }.padding(.horizontal,12).frame(height: 32)
-            Divider()
+            PanelHeader("Inspector") { EmptyView() }
             ScrollView {
                 if let clip = session.selectedClip {
                     VStack(alignment: .leading,spacing: 18) {
@@ -91,7 +86,7 @@ struct InspectorView: View {
                         inspectorSection("Animation") {
                             KeyframeEditorView(session: session,clip: clip,clipboard: $keyframeClipboard)
                         }
-                    }.padding(14)
+                    }.padding(12)
                 } else if let media = session.selectedMedia {
                     VStack(alignment: .leading,spacing: 14) {
                         Text(media.name).font(.system(size: 12,weight: .semibold))
@@ -121,10 +116,10 @@ struct InspectorView: View {
                                 }.font(.system(size: 10))
                             }
                         }
-                    }.padding(14)
+                    }.padding(12)
                 }
             }
-        }
+        }.background(EditorStyle.panel)
     }
     func hasAudio(_ clip: TimelineClip) -> Bool { session.clipHasAudio(clip) }
     func isVisual(_ clip: TimelineClip) -> Bool { session.isVisualClip(clip) }
@@ -133,7 +128,7 @@ struct InspectorView: View {
         let keyed = clip.properties.animations[key]?.keys.contains { $0.frame == frame } ?? false
         return HStack(spacing: 7) {
             InspectorNumber(label: label,value: clip.properties.value(key,at: Double(frame)) * displayScale,range: (range.lowerBound * displayScale)...(range.upperBound * displayScale),reset: reset * displayScale) { session.setProperty(key,value: $0 / displayScale,clipID: clip.id) }
-            Button { session.toggleKeyframe(key) } label: { Image(systemName: keyed ? "diamond.fill" : "diamond").foregroundStyle(keyed ? Color.accentColor : Color.secondary) }.buttonStyle(.plain).help("Add / remove keyframe")
+            Button { session.toggleKeyframe(key) } label: { Image(systemName: keyed ? "diamond.fill" : "diamond").foregroundStyle(keyed ? Color.accentColor : Color.secondary) }.buttonStyle(.plain).help("Add / remove keyframe").accessibilityLabel("Add or remove \(label) keyframe")
         }
     }
     func geometry(_ clip: TimelineClip,change: (inout ClipGeometry) -> Void) {
@@ -145,7 +140,7 @@ struct InspectorView: View {
     }
     func inspectorSection<Content: View>(_ title: String,@ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading,spacing: 10) {
-            HStack { Text(title).font(.system(size: 11,weight: .semibold)); Spacer() }
+            HStack { Text(title).font(EditorStyle.sectionFont).accessibilityAddTraits(.isHeader); Spacer() }
             content()
             Divider()
         }
@@ -168,10 +163,10 @@ struct InspectorNumber: View {
                 Text(label).foregroundStyle(.secondary)
                 Spacer(minLength: 4)
                 TextField(label,text: Binding(get: { text },set: { text = $0; textEdited = true }))
-                    .multilineTextAlignment(.trailing).textFieldStyle(.plain).frame(width: 60).focused($fieldFocused)
+                    .multilineTextAlignment(.trailing).textFieldStyle(.roundedBorder).controlSize(.small).monospacedDigit().frame(width: 68).focused($fieldFocused)
                     .onSubmit { _ = commitText() }
-                Button { update(reset); commit(reset) } label: { Image(systemName: "arrow.counterclockwise").font(.system(size: 9)) }.buttonStyle(.plain).help("Reset \(label)")
-            }.font(.system(size: 10))
+                Button { update(reset); commit(reset) } label: { Image(systemName: "arrow.counterclockwise").font(.system(size: 9)) }.buttonStyle(.plain).help("Reset \(label)").accessibilityLabel("Reset \(label)")
+            }.font(.system(size: 11))
             Slider(value: Binding(get: { min(range.upperBound,max(range.lowerBound,draft)) },set: { update($0) }),in: range,onEditingChanged: { editing in if !editing { commit(draft) } }).controlSize(.mini)
         }.onAppear { update(value) }.onChange(of: value) { _,new in if !fieldFocused { update(new) } }
             .onChange(of: fieldFocused) { wasFocused,isFocused in if wasFocused && !isFocused { _ = commitText() } }

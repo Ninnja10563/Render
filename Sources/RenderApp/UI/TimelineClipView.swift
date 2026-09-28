@@ -56,7 +56,7 @@ struct ClipTile: View {
                 .overlay { RoundedRectangle(cornerRadius: 3).strokeBorder(selected ? Color.accentColor : .white.opacity(0.12),lineWidth: selected ? 2 : 0.5) }
                 .overlay(alignment: .bottomTrailing) {
                     if let transition = clip.transition {
-                        Text("⇄").font(.system(size: 9)).foregroundStyle(.white)
+                        Image(systemName: "arrow.left.arrow.right").font(.system(size: 9)).foregroundStyle(.white)
                             .frame(width: max(12,session.fps.seconds(transition.duration / 2) * session.pointsPerSecond),height: 14)
                             .background(Color.gray.opacity(0.85)).padding(2).help("\(transition.kind.label) · \(session.fps.seconds(transition.duration).formatted()) seconds")
                     }

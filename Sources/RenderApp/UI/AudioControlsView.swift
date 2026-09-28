@@ -7,8 +7,10 @@ struct AudioControlsView: View {
     init(session: EditorSession) { self.session = session; transport = session.transport }
     var body: some View {
         VStack(spacing: 0) {
-            HStack { Text("AUDIO").font(.system(size: 10,weight: .semibold)); Spacer(); Button { session.showAudio = false } label: { Image(systemName: "xmark") }.buttonStyle(.plain).help("Hide audio controls") }.foregroundStyle(.secondary).padding(.horizontal,12).frame(height: 32)
-            Divider()
+            PanelHeader("Audio") {
+                Button { session.showAudio = false } label: { Image(systemName: "xmark") }
+                    .help("Hide audio controls").accessibilityLabel("Hide audio controls")
+            }
             ScrollView {
                 VStack(alignment: .leading,spacing: 14) {
                     if let clip = session.selectedClip, session.clipHasAudio(clip) {
@@ -21,11 +23,11 @@ struct AudioControlsView: View {
                         Divider()
                     } else { Text("Select a clip with audio to adjust its level and fades.").font(.system(size: 11)).foregroundStyle(.secondary) }
                     AudioInputMetersView(meters: session.audioMeters)
-                    Text("TRACKS").font(.system(size: 9,weight: .semibold)).foregroundStyle(.secondary)
+                    Text("Tracks").font(EditorStyle.sectionFont).accessibilityAddTraits(.isHeader)
                     ForEach(audioTracks) { track in audioTrackRow(track) }
                 }.padding(12)
             }
-        }.font(.system(size: 11))
+        }.font(.system(size: 11)).background(EditorStyle.panel)
     }
     private var audioTracks: [TimelineTrack] {
         session.project.tracks.filter { $0.kind == .audio || $0.clips.contains(where: { session.clipHasAudio($0) }) }

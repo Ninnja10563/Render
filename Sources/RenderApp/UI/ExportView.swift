@@ -18,7 +18,7 @@ struct ExportView: View {
     @State private var failure: String?
     var body: some View {
         VStack(alignment: .leading,spacing: 22) {
-            HStack { Text("Export \(session.document.name)").font(.system(size: 18,weight: .semibold)); Spacer(); if !exporter.isExporting { Button { dismiss() } label: { Image(systemName: "xmark") }.buttonStyle(.plain) } }
+            HStack { Text("Export \(session.document.name)").font(.headline); Spacer(); if !exporter.isExporting { Button { dismiss() } label: { Image(systemName: "xmark") }.buttonStyle(.plain).accessibilityLabel("Close export") } }
             if let finished {
                 Label("Export complete",systemImage: "checkmark.circle").foregroundStyle(.green)
                 if let size = (try? FileManager.default.attributesOfItem(atPath: finished.path)[.size]) as? NSNumber {
@@ -49,7 +49,7 @@ struct ExportView: View {
                     }
                     LabeledContent("Duration",value: session.document.settings.frameRate.timecode(session.document.duration))
                 }.disabled(exporter.isExporting)
-                Text("Export uses original media and the same compositor as the viewer. Existing files and source media are never overwritten.").font(.system(size: 11)).foregroundStyle(.secondary)
+                Text("Exports use original media. Choose a new file name; existing files and source media are never overwritten.").font(.system(size: 11)).foregroundStyle(.secondary)
                 if exporter.isExporting {
                     ProgressView(value: Double(exporter.progress))
                     HStack {
