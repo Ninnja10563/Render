@@ -122,3 +122,7 @@ RenderNode separates media leaves from recursive RenderGroup values. SceneRender
 ## Compound timelines — 0.18.0
 
 Optional schema-10 compound sources form a validated reusable DAG. Active timeline projections are separated from persistent root documents; navigation does not enter undo history, while every edit restores whole-document snapshots. Nested source clocks, video groups and multiplicative audio envelopes compile into shared AVFoundation compositions without rendering intermediate files. See COMPOUND_IMPLEMENTATION.md and EDITING.md for architecture and lossless break-apart restrictions.
+
+## Workspaces and preview resolution — 0.19.0
+
+Native split views host independently visible media, effects, inspector, timeline and audio controls. Effect application commits one validated document mutation for the full visual selection; undo remains rooted in EditorSession. PreviewQuality chooses even compositor output dimensions while preserving sequence-space rendering. Export captures original document settings and ignores preview quality. Tests render both flat and nested sequences at all quality levels.

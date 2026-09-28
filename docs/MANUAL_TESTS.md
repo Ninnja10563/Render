@@ -56,3 +56,10 @@ Vertical timeline: build a sequence with hundreds of video/audio tracks, scroll 
 - Save while editing inside a compound, close and reopen. Confirm the outer project and every source edit remain. Undo/redo both inside and outside a source; undo creation while the source is open.
 - Copy a compound to another timeline, verify shared-source behavior, and try pasting into itself: the operation must be rejected without changing the document.
 - Break apart an unprocessed compound; compare image/audio. Confirm transformed/effected compounds report the restriction and retain all edits. Test magnetic gaps, connections, locks, missing media and proxy fallback inside sources.
+
+## Workspaces and preview resolution
+
+- Resize all panels on a MacBook and external display. Switch each workspace, hide/show each panel, enter fullscreen, and verify timeline scrolling and numeric field commits.
+- Search and apply an effect to multiple visual clips, undo once, and verify locked/audio selections are excluded by disabling the action.
+- Change Full/Half/Quarter preview resolution with original, proxy and optimized media; verify framing, nested effects and full-resolution export remain consistent.
+- Open Audio controls beside the timeline. Select clips and edit volume/fades, mute/solo tracks, undo, save and reopen.

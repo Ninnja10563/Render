@@ -129,10 +129,13 @@ final class EditorSession: ObservableObject {
         }
         history.setActionName(name)
         if explicitGroup { history.endUndoGrouping() }
+        let previousTimeline = project
         displayDocument(next)
         isDirty = next != savedProject
         selection = selection.filter { project.clip($0) != nil }
-        scheduleRecovery(); rebuild()
+        scheduleRecovery()
+        if previousTimeline.tracks != project.tracks || previousTimeline.settings != project.settings || previousTimeline.compounds != project.compounds ||
+            previousTimeline.assets.contains(where: { old in project.assets.first(where: { $0.id == old.id }) != old }) { rebuild() }
     }
     private func displayDocument(_ root: RenderProject) {
         // Undo may remove the source currently being edited. Return to the nearest surviving context.
