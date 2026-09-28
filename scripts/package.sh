@@ -7,11 +7,14 @@ swift build -c release --arch arm64
 swift test -c release --arch arm64
 scripts/test-audio-dsp.sh
 BIN_DIR=$(swift build -c release --arch arm64 --show-bin-path)
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" build/Render.iconset
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks" build/Render.iconset
+SPARKLE_FRAMEWORK=$(find .build/artifacts -type d -path '*/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework' -print -quit)
+test -n "$SPARKLE_FRAMEWORK"
+ditto "$SPARKLE_FRAMEWORK" "$APP/Contents/Frameworks/Sparkle.framework"
 cp "$BIN_DIR/Render" "$APP/Contents/MacOS/Render"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${GITHUB_RUN_NUMBER:-1}" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$APP/Contents/Info.plist"
 swift scripts/icon.swift build/Render.iconset
 iconutil -c icns build/Render.iconset -o "$APP/Contents/Resources/Render.icns"
 cp LICENSE "$APP/Contents/Resources/LICENSE"
@@ -19,6 +22,7 @@ codesign --force --deep --sign - "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 test "$(lipo -archs "$APP/Contents/MacOS/Render")" = arm64
 plutil -lint "$APP/Contents/Info.plist"
+scripts/test-updates.sh "$APP"
 STAGING=$(mktemp -d)
 MOUNT=$(mktemp -d)
 cleanup() { hdiutil detach "$MOUNT" >/dev/null 2>&1 || true; rm -rf "$STAGING" "$MOUNT"; }

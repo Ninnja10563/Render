@@ -1,8 +1,10 @@
 # Implementation status
 
-This is the development status for 0.27.0. A published DMG means that milestone passed its automated release gates; it does not mean Render is a production-equivalent replacement for an established editor.
+This is the development status for 0.28.0. A published DMG means that milestone passed its automated release gates; it does not mean Render is a production-equivalent replacement for an established editor.
 
 ## Implemented editing path
+
+- Signed automatic update checks, background downloads and installation on quit using Sparkle, with native Settings and manual checking. The feed follows development prereleases.
 
 - Native SwiftUI/AppKit workspace with resizable panels, independent browsers/audio controls, workspace presets, fullscreen, and preview-resolution choices.
 - Reference-based projects, atomic writes, recent projects, recovery snapshots, relinking, schema migration, focused-field save commits, and document-wide undo/redo.

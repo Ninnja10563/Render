@@ -39,5 +39,6 @@ jobs:
             dist/*.sha256
             build/workspace*.png
             build/launch.log
+            build/update-*.log
             build/*-benchmark.log
           if-no-files-found: ignore

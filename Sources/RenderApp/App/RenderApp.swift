@@ -6,17 +6,24 @@ import RenderCore
 struct RenderApplication: App {
     @NSApplicationDelegateAdaptor(RenderAppDelegate.self) private var delegate
     @StateObject private var session = EditorSession()
+    @StateObject private var updates = AppUpdater.shared
     var body: some Scene {
         Window("Render", id: "editor") {
             WorkspaceView(session: session)
                 .frame(minWidth: 960, minHeight: 620)
-                .onAppear { delegate.session = session; session.start(); delegate.installKeyboardMonitor() }
+                .onAppear { delegate.session = session; session.start(); delegate.installKeyboardMonitor(); updates.start() }
                 .onOpenURL { session.open($0) }
         }
         .defaultSize(width: 1440, height: 900)
-        .commands { EditorCommands(session: session) }
+        .commands {
+            EditorCommands(session: session)
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") { updates.check() }.disabled(!updates.canCheck)
+            }
+        }
         Settings {
             TabView {
+                UpdateSettingsView(updates: updates).tabItem { Label("Updates",systemImage: "arrow.triangle.2.circlepath") }
                 SettingsView().tabItem { Label("General",systemImage: "gearshape") }
                 ShortcutSettingsView(store: .shared).tabItem { Label("Shortcuts",systemImage: "keyboard") }
             }.padding(8)

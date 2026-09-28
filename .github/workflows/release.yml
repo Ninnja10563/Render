@@ -29,12 +29,17 @@ jobs:
       - run: swift build --arch arm64
       - run: swift test --arch arm64
       - run: scripts/package.sh
+      - name: Sign update archive and feed
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: scripts/prepare-update.sh
       - name: Publish verified release assets
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
-          gh release create "v$RELEASE_VERSION" --verify-tag --title "Render $RELEASE_VERSION" --notes-file "docs/releases/$RELEASE_VERSION.md" --prerelease "dist/Render-$RELEASE_VERSION-Apple-Silicon.dmg" "dist/Render-$RELEASE_VERSION-Apple-Silicon.dmg.sha256"
+          gh release create "v$RELEASE_VERSION" --verify-tag --title "Render $RELEASE_VERSION" --notes-file "docs/releases/$RELEASE_VERSION.md" --prerelease "dist/Render-$RELEASE_VERSION-Apple-Silicon.dmg" "dist/Render-$RELEASE_VERSION-Apple-Silicon.dmg.sha256" "dist/update/appcast.xml" "dist/update/Render-$RELEASE_VERSION-Apple-Silicon.md"
+          scripts/publish-update-feed.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -42,3 +47,4 @@ jobs:
           path: |
             build/workspace*.png
             build/launch.log
+            build/update-*.log
