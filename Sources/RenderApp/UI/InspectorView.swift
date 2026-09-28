@@ -59,6 +59,7 @@ struct InspectorView: View {
                             Toggle("Mute clip",isOn: Binding(get: { clip.properties.muted },set: { value in var p = clip.properties; p.muted = value; session.perform(.properties(clip: clip.id,p)) })).font(.system(size: 11))
                         }
                             AudioFadeInspectorView(session: session,clip: clip)
+                            AudioEffectsInspectorView(session: session,clip: clip)
                         }
                         inspectorSection("Timing") {
                             InspectorNumber(label: "Speed (%)",value: clip.speed * 100,range: 5...1600,reset: 100) { session.perform(.speed(clip: clip.id,$0 / 100)) }

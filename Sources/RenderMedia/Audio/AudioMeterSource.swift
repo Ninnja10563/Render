@@ -9,7 +9,8 @@ public struct AudioMeterReading: Sendable {
     public var peaks: [Float]
     public var rms: [Float]
 }
-/// Immutable owner of a tap and its lock-free measurement ring. The tap only observes audio.
+/// Owner of a compiled processing tap and optional lock-free measurement ring.
+/// Configuration is complete before playback; only the audio callback mutates DSP state.
 public final class AudioMeterSource: @unchecked Sendable, Identifiable {
     public let id = UUID()
     public let name: String

@@ -17,6 +17,7 @@ struct AudioControlsView: View {
                         InspectorNumber(label: "Volume",value: clip.properties.value("volume",at: frame),range: 0...4,reset: 1) { session.setProperty("volume",value: $0,clipID: clip.id) }
                         Toggle("Mute clip",isOn: Binding(get: { clip.properties.muted },set: { value in var p = clip.properties; p.muted = value; session.perform(.properties(clip: clip.id,p)) }))
                         AudioFadeInspectorView(session: session,clip: clip)
+                        AudioEffectsInspectorView(session: session,clip: clip)
                         Divider()
                     } else { Text("Select a clip with audio to adjust its level and fades.").font(.system(size: 11)).foregroundStyle(.secondary) }
                     AudioInputMetersView(meters: session.audioMeters)
