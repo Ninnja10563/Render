@@ -13,7 +13,7 @@ public struct ClipConnection: Codable, Equatable, Sendable {
 
 public enum MagneticEditing {
     /// Reconcile primary order and connected timing after an edit, before transaction validation.
-    static func reconcile(_ project: inout RenderProject,from original: RenderProject) throws {
+    static func reconcile(_ project: inout RenderProject,from original: RenderProject,animationShifts: [UUID: Int64] = [:]) throws {
         guard let settings = project.storyline, let primary = project.tracks.firstIndex(where: { $0.id == settings.trackID }) else { return }
         if settings.enabled {
             let sorted = project.tracks[primary].clips.enumerated().sorted {
@@ -41,8 +41,9 @@ public enum MagneticEditing {
                         }
                         clip.connection = nil; retained.append(clip); continue
                     }
-                    if let oldAnchor = oldClips[connection.anchor], oldAnchor.start != anchor.start || oldAnchor.animationOffset != anchor.animationOffset {
-                        let offset = connection.offset - (anchor.animationOffset - oldAnchor.animationOffset)
+                    if let oldAnchor = oldClips[connection.anchor], oldAnchor.start != anchor.start || oldAnchor.animationOffset != anchor.animationOffset || animationShifts[anchor.id] != nil {
+                        let phaseChange = animationShifts[anchor.id] ?? (anchor.animationOffset - oldAnchor.animationOffset)
+                        let offset = connection.offset - phaseChange
                         let newStart = max(0,anchor.start + offset)
                         if newStart != clip.start && project.tracks[t].locked { throw RenderError.invalid("A connected clip is locked. Unlock its track before moving the anchor.") }
                         clip.start = newStart

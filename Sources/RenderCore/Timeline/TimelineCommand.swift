@@ -92,6 +92,15 @@ public enum TimelineCommand: Sendable {
         default: break
         }
         var project = original
+        var animationShifts: [UUID: Int64] = [:]
+        let editRate = original.settings.frameRate
+        let stillIDs = Set(original.assets.filter { $0.kind == .image }.map(\.id))
+        func adjustLeading(_ clip: inout TimelineClip,by delta: Int64) {
+            clip.sourceIn += editRate.seconds(delta) * clip.speed
+            if clip.title != nil || clip.isGap == true || clip.assetID.map({ stillIDs.contains($0) }) == true { clip.sourceIn = max(0,clip.sourceIn) }
+            clip.moveAnimationOrigin(by: delta)
+            animationShifts[clip.id] = delta
+        }
         let trackIndices = Dictionary(uniqueKeysWithValues: original.tracks.enumerated().map { ($0.element.id,$0.offset) })
         var clipLocations: [UUID: (track: Int, clip: Int)] = [:]
         for (t,track) in original.tracks.enumerated() {
@@ -261,8 +270,7 @@ public enum TimelineCommand: Sendable {
             switch edge {
             case .leading:
                 let delta = frame - original.start
-                edited.sourceIn += project.settings.frameRate.seconds(delta) * original.speed
-                edited.animationOffset += delta; edited.duration -= delta; shift = -delta
+                adjustLeading(&edited,by: delta); edited.duration -= delta; shift = -delta
             case .trailing:
                 shift = frame - original.end; edited.duration += shift
             }
@@ -277,13 +285,12 @@ public enum TimelineCommand: Sendable {
             let delta = boundary - left.end
             project.tracks[t].clips[c].duration += delta
             project.tracks[t].clips[n].start += delta
-            project.tracks[t].clips[n].sourceIn += project.settings.frameRate.seconds(delta) * project.tracks[t].clips[n].speed
-            project.tracks[t].clips[n].animationOffset += delta
+            adjustLeading(&project.tracks[t].clips[n],by: delta)
             project.tracks[t].clips[n].duration -= delta
         case .slip(let id,let delta):
             guard abs(Double(delta)) < 100_000_000 else { throw RenderError.invalid("Slip exceeds timeline bounds.") }
             let (t,c) = try location(id)
-            guard project.tracks[t].clips[c].assetID != nil, project.tracks[t].clips[c].title == nil, project.assets.first(where: { $0.id == project.tracks[t].clips[c].assetID })?.kind != .image else { throw RenderError.invalid("Still images do not have a moving source window.") }
+            guard project.tracks[t].clips[c].compoundID != nil || (project.tracks[t].clips[c].assetID != nil && project.tracks[t].clips[c].title == nil && !stillIDs.contains(project.tracks[t].clips[c].assetID!)) else { throw RenderError.invalid("Still images do not have a moving source window.") }
             project.tracks[t].clips[c].sourceIn += project.settings.frameRate.seconds(delta) * project.tracks[t].clips[c].speed
         case .slide(let id,let delta):
             guard abs(Double(delta)) < 100_000_000 else { throw RenderError.invalid("Slide exceeds timeline bounds.") }
@@ -294,8 +301,7 @@ public enum TimelineCommand: Sendable {
             project.tracks[t].clips[before].duration += delta
             project.tracks[t].clips[c].start += delta
             project.tracks[t].clips[after].start += delta
-            project.tracks[t].clips[after].sourceIn += project.settings.frameRate.seconds(delta) * project.tracks[t].clips[after].speed
-            project.tracks[t].clips[after].animationOffset += delta
+            adjustLeading(&project.tracks[t].clips[after],by: delta)
             project.tracks[t].clips[after].duration -= delta
         case .deleteRange(let track,let start,let end,let ripple):
             guard start >= 0, end > start, end < 100_000_000 else { throw RenderError.invalid("Select a valid timeline range.") }
@@ -365,8 +371,7 @@ public enum TimelineCommand: Sendable {
             switch edge {
             case .leading:
                 let delta = frame - clip.start
-                clip.sourceIn += project.settings.frameRate.seconds(delta) * clip.speed
-                clip.animationOffset += delta
+                adjustLeading(&clip,by: delta)
                 clip.duration -= delta; clip.start = frame
             case .trailing: clip.duration = frame - clip.start
             }
@@ -436,7 +441,7 @@ public enum TimelineCommand: Sendable {
             project.assets[a].url = url
             project.assets[a].variants = nil
         }
-        try MagneticEditing.reconcile(&project,from: original)
+        try MagneticEditing.reconcile(&project,from: original,animationShifts: animationShifts)
         if case .transition = self { /* Explicit authoring reports invalid handles instead of discarding the request. */ }
         else { TransitionEditing.reconcile(&project) }
         try project.validate()
