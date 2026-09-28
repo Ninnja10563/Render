@@ -9,8 +9,9 @@ public final class ExportService: ObservableObject {
     @Published public private(set) var elapsed: TimeInterval = 0
     private var session: AVAssetExportSession?
     private var cancelled = false
+    private var encodingTask: Task<Void,Error>?
     public init() {}
-    public func cancel() { cancelled = true; session?.cancelExport() }
+    public func cancel() { cancelled = true; session?.cancelExport(); encodingTask?.cancel() }
     public func export(project: RenderProject, configuration: ExportConfiguration, to destination: URL) async throws {
         guard !isExporting else { throw RenderError.invalid("An export is already running.") }
         try configuration.validate()
@@ -19,11 +20,25 @@ public final class ExportService: ObservableObject {
         isExporting = true; cancelled = false; progress = 0; elapsed = 0
         let start = Date()
         let temporary = destination.deletingLastPathComponent().appendingPathComponent(".render-export-\(UUID().uuidString).\(configuration.codec == .proRes ? "mov" : "mp4")")
-        defer { isExporting = false; session = nil; try? FileManager.default.removeItem(at: temporary) }
+        defer { isExporting = false; session = nil; encodingTask = nil; try? FileManager.default.removeItem(at: temporary) }
         // Preserve sequence coordinates for transforms, masks, effects and titles at every output size.
         let prepared = try await CompositionBuilder().build(project,outputSize: CGSize(width: configuration.width,height: configuration.height))
         if cancelled { throw CancellationError() }
         prepared.videoComposition.frameDuration = CMTime(value: Int64(configuration.frameRate.denominator), timescale: configuration.frameRate.numerator)
+        if configuration.videoBitrate != nil {
+            let duration = CMTime(value: project.duration * Int64(project.settings.frameRate.denominator),timescale: project.settings.frameRate.numerator)
+            let task = Task {
+                try await ControlledEncoder().encode(prepared: prepared,configuration: configuration,duration: duration,to: temporary) { value in
+                    await MainActor.run { self.progress = value; self.elapsed = Date().timeIntervalSince(start) }
+                }
+            }
+            encodingTask = task
+            try await task.value
+            if cancelled { throw CancellationError() }
+            try FileManager.default.moveItem(at: temporary,to: destination)
+            progress = 1; elapsed = Date().timeIntervalSince(start)
+            return
+        }
         let preset: String
         switch configuration.codec {
         case .h264: preset = AVAssetExportPresetHighestQuality
