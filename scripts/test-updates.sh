@@ -28,7 +28,8 @@ with open(p,'rb') as f: info=plistlib.load(f)
 info.update(CFBundleIdentifier='app.render.update-probe',CFBundleName='Render Update Probe',CFBundleExecutable='probe',CFBundleVersion='1',CFBundleShortVersionString='1',LSMinimumSystemVersion='14.0')
 with open(p,'wb') as f: plistlib.dump(info,f)
 PY
-clang -arch arm64 -mmacosx-version-min=14.0 -fobjc-arc -F "$(dirname "$FRAMEWORK")" \
+clang -arch arm64 -mmacosx-version-min=14.0 -fobjc-arc \
+    -DSPU_OBJC_DIRECT='__attribute__((objc_direct))' -DSPU_OBJC_DIRECT_MEMBERS='__attribute__((objc_direct_members))' -F "$(dirname "$FRAMEWORK")" \
     -framework Sparkle -framework Cocoa -Wl,-rpath,"$(pwd)/$(dirname "$FRAMEWORK")" \
     -Wl,-sectcreate,__TEXT,__info_plist,"$TEST_ROOT/probe.plist" \
     "$SOURCE/main.m" "$SOURCE/SPUCommandLineDriver.m" "$SOURCE/SPUCommandLineUserDriver.m" -o "$TEST_ROOT/probe"

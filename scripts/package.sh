@@ -24,7 +24,6 @@ codesign --force --deep --sign - "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 test "$(lipo -archs "$APP/Contents/MacOS/Render")" = arm64
 plutil -lint "$APP/Contents/Info.plist"
-scripts/test-updates.sh "$APP"
 STAGING=$(mktemp -d)
 MOUNT=$(mktemp -d)
 cleanup() { hdiutil detach "$MOUNT" >/dev/null 2>&1 || true; rm -rf "$STAGING" "$MOUNT"; }
@@ -44,4 +43,5 @@ mkdir -p build/Installed/Applications
 ditto "$MOUNT/Render.app" build/Installed/Applications/Render.app
 scripts/smoke.sh "$(pwd)/build/Installed/Applications/Render.app"
 RENDER_APPEARANCE=light scripts/smoke.sh "$(pwd)/build/Installed/Applications/Render.app"
+scripts/test-updates.sh "$APP"
 (cd dist && shasum -a 256 "Render-$VERSION-Apple-Silicon.dmg" > "Render-$VERSION-Apple-Silicon.dmg.sha256")
