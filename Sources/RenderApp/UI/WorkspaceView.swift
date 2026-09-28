@@ -40,6 +40,7 @@ struct WorkspaceView: View {
         .alert("Render couldn’t complete the operation", isPresented: Binding(get: { session.errorMessage != nil }, set: { if !$0 { session.errorMessage = nil } })) {
             Button("OK",role: .cancel) { session.errorMessage = nil }
         } message: { Text(session.errorMessage ?? "") }
+        .sheet(isPresented: $session.showAudioSync) { AudioSyncView(session: session) }
         .sheet(isPresented: $session.showExport) { ExportView(session: session, exporter: session.exporter) }
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
             Task {

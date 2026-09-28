@@ -42,6 +42,7 @@ struct EditorCommands: Commands {
             Picker("Editing Tool",selection: $session.tool) {
                 ForEach(EditingTool.allCases,id: \.self) { Text($0.rawValue).tag($0) }
             }
+            Button("Synchronize Audio…") { session.showAudioSync = true }.disabled(session.selection.count != 2)
             Button("Detach Audio") { if let clip = session.selectedClip { session.perform(.detachAudio(clip: clip.id)) } }.disabled(session.selectedClip == nil)
             Divider()
             Button("Add Title") { session.addTitle() }.keyboardShortcut("t",modifiers: [.command,.option])
