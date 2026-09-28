@@ -23,8 +23,15 @@ extension EditorSession {
         guard tool == .blade else { throw RenderError.invalid("The remapped shortcut did not select Blade.") }
         tool = .select; try await post("b",code: 11)
         guard tool == .select else { throw RenderError.invalid("The old shortcut still selected Blade.") }
+        try store.assign(.init("q",control: true,option: true),to: .trimTool)
+        try await post("q",code: 12,flags: [.control,.option])
+        guard tool == .trim else { throw RenderError.invalid("Modified shortcut did not select Trim.") }
+        tool = .select
         try await post("n",code: 45,repeatKey: true)
         guard snapping == originalSnapping else { throw RenderError.invalid("Held shortcut repeated a toggle.") }
+        try store.assign(.init("1",shift: true),to: .selectTool)
+        tool = .blade; try await post("!",code: 18,flags: .shift)
+        guard tool == .select else { throw RenderError.invalid("Shifted number shortcut did not use its base key.") }
         seek(0); try await post("w",code: 13)
         guard playhead == 1 else { throw RenderError.invalid("Remapped frame movement failed in the timeline.") }
         openSource(asset.id); sourceMonitor.seek(30)

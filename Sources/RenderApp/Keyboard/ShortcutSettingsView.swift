@@ -70,7 +70,7 @@ private struct ShortcutRecordingSheet: View {
     var body: some View {
         VStack(alignment: .leading,spacing: 14) {
             Text(action.title).font(.headline)
-            Text("Press a letter, number, arrow, Space, Home, End or Delete. You can include Shift, Control or Option.").foregroundStyle(.secondary)
+            Text("Press A–Z, 0–9, a left/right arrow, Space, Home, End or Delete. You can include Shift, Control or Option.").foregroundStyle(.secondary)
             ShortcutCapture(receive: { event in
                 if event.keyCode == 53 { dismiss(); return }
                 guard let shortcut = EditorShortcut(event: event) else {

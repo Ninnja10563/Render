@@ -118,7 +118,7 @@ public struct EditorShortcutMap: Codable, Equatable, Sendable {
     }
     public mutating func assign(_ shortcut: EditorShortcut?,to action: EditorShortcutAction) throws {
         if let shortcut {
-            guard shortcut.isValid else { throw RenderError.invalid("Choose a letter, number, arrow, Space, Home, End or Delete, optionally with Shift, Control or Option.") }
+            guard shortcut.isValid else { throw RenderError.invalid("Choose A–Z, 0–9, a left/right arrow, Space, Home, End or Delete, optionally with Shift, Control or Option.") }
             if let other = conflict(for: shortcut,assigning: action) {
                 throw RenderError.invalid("\(shortcut.label) is already assigned to \(other.title). Clear or change that binding first.")
             }

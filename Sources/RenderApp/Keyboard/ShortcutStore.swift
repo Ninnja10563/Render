@@ -34,7 +34,10 @@ extension EditorShortcut {
     init?(event: NSEvent) {
         guard event.modifierFlags.intersection([.command]).isEmpty else { return nil }
         let named: [UInt16:String] = [49:"space",123:"left",124:"right",115:"home",119:"end",51:"delete",117:"delete"]
-        guard let key = named[event.keyCode] ?? event.charactersIgnoringModifiers?.lowercased() else { return nil }
+        // Strip Shift as well as Option/Control before comparing the logical base key.
+        // charactersIgnoringModifiers alone retains Shift (e.g. Shift-1 becomes "!").
+        let characters = event.characters(byApplyingModifiers: []) ?? event.charactersIgnoringModifiers
+        guard let key = named[event.keyCode] ?? characters?.lowercased() else { return nil }
         self.init(key,shift: event.modifierFlags.contains(.shift),control: event.modifierFlags.contains(.control),option: event.modifierFlags.contains(.option))
         guard isValid else { return nil }
     }
