@@ -66,6 +66,8 @@ struct EditorCommands: Commands {
         CommandGroup(after: .sidebar) {
             Toggle("Media Browser", isOn: $session.showLibrary).keyboardShortcut("1",modifiers: [.command,.option])
             Toggle("Inspector", isOn: $session.showInspector).keyboardShortcut("2",modifiers: [.command,.option])
+            Toggle("Effects Browser",isOn: $session.showEffects).keyboardShortcut("4",modifiers: [.command,.option])
+            Toggle("Audio Controls",isOn: $session.showAudio).keyboardShortcut("5",modifiers: [.command,.option])
             Toggle("Timeline", isOn: $session.showTimeline).keyboardShortcut("3",modifiers: [.command,.option])
         }
     }

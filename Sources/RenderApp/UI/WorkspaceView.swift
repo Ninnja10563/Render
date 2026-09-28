@@ -8,18 +8,28 @@ struct WorkspaceView: View {
         VStack(spacing: 0) {
             VSplitView {
                 HSplitView {
-                    if session.showLibrary { MediaBrowserView(session: session).frame(minWidth: 210, idealWidth: 270, maxWidth: 440) }
+                    if session.showLibrary || session.showEffects {
+                        VSplitView {
+                            if session.showLibrary { MediaBrowserView(session: session).frame(minHeight: 100) }
+                            if session.showEffects { EffectsBrowserView(session: session).frame(minHeight: 180) }
+                        }.frame(minWidth: 210,idealWidth: 270,maxWidth: 440)
+                    }
                     VStack(spacing: 0) {
                         ViewerView(session: session).frame(minWidth: 380,maxWidth: .infinity,minHeight: session.showAngles ? 160 : 250,maxHeight: .infinity)
                         if session.showAngles { MulticamAngleViewer(session: session).frame(height: 140) }
                     }
                     if session.showInspector { InspectorView(session: session).frame(minWidth: 250, idealWidth: 280, maxWidth: 380) }
                 }.frame(minHeight: session.showAngles ? 310 : 280)
-                if session.showTimeline {
-                    VStack(spacing: 0) {
-                        if !session.compoundPath.isEmpty { CompoundBreadcrumb(session: session) }
-                        TimelineView(session: session)
-                    }.frame(minHeight: 200, idealHeight: 310)
+                if session.showTimeline || session.showAudio {
+                    HSplitView {
+                        if session.showTimeline {
+                            VStack(spacing: 0) {
+                                if !session.compoundPath.isEmpty { CompoundBreadcrumb(session: session) }
+                                TimelineView(session: session)
+                            }.frame(minWidth: 520)
+                        }
+                        if session.showAudio { AudioControlsView(session: session).frame(minWidth: 230,idealWidth: 260,maxWidth: session.showTimeline ? 380 : .infinity) }
+                    }.frame(minHeight: 200,idealHeight: 310)
                 }
             }
             statusBar
@@ -40,6 +50,18 @@ struct WorkspaceView: View {
                 }
             }
             ToolbarItemGroup(placement: .primaryAction) {
+                Menu {
+                    Button("Editing") { session.setWorkspace(.editing) }
+                    Button("Effects") { session.setWorkspace(.effects) }
+                    Button("Audio") { session.setWorkspace(.audio) }
+                    Button("Viewer Only") { session.setWorkspace(.viewer) }
+                    Divider()
+                    Toggle("Media Browser",isOn: $session.showLibrary)
+                    Toggle("Effects Browser",isOn: $session.showEffects)
+                    Toggle("Inspector",isOn: $session.showInspector)
+                    Toggle("Audio Controls",isOn: $session.showAudio)
+                    Toggle("Timeline",isOn: $session.showTimeline)
+                } label: { Image(systemName: "rectangle.3.group") }.help("Workspace layout")
                 BackgroundTasksButton(queue: session.backgroundTasks)
                 Button { session.showInspector.toggle() } label: { Image(systemName: "sidebar.right") }.help("Show or hide inspector")
                 Button { session.showExport = true } label: { Label("Export", systemImage: "square.and.arrow.up") }.disabled(session.document.duration == 0)
@@ -102,6 +124,11 @@ private struct ViewerView: View {
                 Picker("Playback media",selection: $session.playbackMode) {
                     ForEach(PlaybackMediaMode.allCases,id: \.self) { mode in Text(mode.label).tag(mode) }
                 }.labelsHidden().frame(width: 100).controlSize(.mini).help("Final export always uses originals")
+                Menu(session.previewQuality.label) {
+                    ForEach(PreviewQuality.allCases,id: \.self) { quality in
+                        Button(quality.label) { session.previewQuality = quality }
+                    }
+                }.menuStyle(.borderlessButton).frame(width: 60).help("Preview resolution; exports always use the chosen export dimensions")
                 Menu(zoom == 0 ? "Fit" : "\(Int(zoom * 100))%") {
                     Button("Fit") { zoom = 0 }
                     Button("100% · Actual Pixels") { zoom = 1 }

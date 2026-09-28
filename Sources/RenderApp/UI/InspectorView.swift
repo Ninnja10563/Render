@@ -125,17 +125,8 @@ struct InspectorView: View {
             }
         }
     }
-    func hasAudio(_ clip: TimelineClip) -> Bool {
-        if let id = clip.compoundID, let source = session.project.compounds?.first(where: { $0.id == id }) {
-            return source.tracks.flatMap(\.clips).contains { hasAudio($0) }
-        }
-        guard let media = session.project.assets.first(where: { $0.id == clip.assetID }) else { return false }
-        return media.kind == .audio || media.audioChannels > 0
-    }
-    func isVisual(_ clip: TimelineClip) -> Bool {
-        if let id = clip.compoundID { return session.project.compounds?.first(where: { $0.id == id })?.kind == .video }
-        return session.project.assets.first(where: { $0.id == clip.assetID })?.kind != .audio
-    }
+    func hasAudio(_ clip: TimelineClip) -> Bool { session.clipHasAudio(clip) }
+    func isVisual(_ clip: TimelineClip) -> Bool { session.isVisualClip(clip) }
     func property(_ label: String,key: String,range: ClosedRange<Double>,reset: Double,clip: TimelineClip,displayScale: Double = 1) -> some View {
         let frame = max(0,min(clip.duration - 1,session.playhead - clip.start)) + clip.animationOffset
         let keyed = clip.properties.animations[key]?.keys.contains { $0.frame == frame } ?? false

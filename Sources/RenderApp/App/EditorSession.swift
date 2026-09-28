@@ -31,6 +31,9 @@ final class EditorSession: ObservableObject {
     @Published var snapping = true
     @Published var tool: EditingTool = .select
     @Published var showLibrary = true
+    @Published var showEffects = false
+    @Published var showAudio = false
+    @Published var previewQuality: PreviewQuality = .full { didSet { if oldValue != previewQuality { rebuild() } } }
     @Published var showInspector = true
     @Published var showTimeline = true
     @Published var showExport = false
@@ -177,6 +180,7 @@ final class EditorSession: ObservableObject {
         buildTask?.cancel(); pause(); previewReady = false
         let snapshot = project
         let mode = playbackMode
+        let dimensions = previewQuality.dimensions(for: snapshot.settings)
         previewError = nil; playbackNotice = nil
         guard snapshot.duration > 0 else { player.replaceCurrentItem(with: nil); playhead = 0; return }
         buildTask = Task {
@@ -184,7 +188,7 @@ final class EditorSession: ObservableObject {
                 // Coalesce rapid inspector/text edits before rebuilding the render graph.
                 try await Task.sleep(nanoseconds: 60_000_000)
                 try Task.checkCancellation()
-                let prepared = try await builder.build(snapshot,mode: mode)
+                let prepared = try await builder.build(snapshot,mode: mode,outputSize: CGSize(width: dimensions.width,height: dimensions.height))
                 try Task.checkCancellation()
                 guard token == generation else { return }
                 playbackNotice = prepared.originalFallbacks.isEmpty ? nil : "\(mode.label) unavailable for \(prepared.originalFallbacks.count) media items; using originals."
