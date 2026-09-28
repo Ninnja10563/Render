@@ -36,10 +36,12 @@ struct TitleInspectorView: View {
                 InspectorNumber(label: "Padding",value: title.padding,range: 0...200,reset: 16) { value in change { $0.padding = value } }
             }
             InspectorNumber(label: "Start (seconds)",value: session.fps.seconds(clip.start),range: 0...max(600,session.fps.seconds(session.project.duration)),reset: 0) { value in
-                session.perform(.move(clips: [clip.id],delta: session.fps.frames(value) - clip.start))
+                do { session.perform(.move(clips: [clip.id],delta: try session.fps.editingFrames(value) - clip.start)) }
+                catch { session.report(error) }
             }
             InspectorNumber(label: "Duration (seconds)",value: session.fps.seconds(clip.duration),range: session.fps.seconds(1)...600,reset: 5) { value in
-                session.perform(.trim(clip: clip.id,edge: .trailing,to: clip.start + max(1,session.fps.frames(value))))
+                do { session.perform(.trim(clip: clip.id,edge: .trailing,to: clip.start + max(1,try session.fps.editingFrames(value)))) }
+                catch { session.report(error) }
             }
             Divider()
         }.font(.system(size: 10))
