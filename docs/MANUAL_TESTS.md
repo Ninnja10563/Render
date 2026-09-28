@@ -37,3 +37,5 @@ Magnetic connections are one level deep and anchor to primary-storyline clips. M
 Filmstrip requests decode visible cells only, quantize source time to 100 ms, and share a two-decoder limit with media posters. Generated thumbnails are indicative source frames, not effect-rendered previews. Still images repeat their poster; titles and gaps retain labeled timeline tiles.
 
 Transitions preserve sequence duration and require source handles on both sides of a cut. The transition duration cannot exceed either adjacent clip. Structural edits that break a pair remove that transition in the same undoable transaction. Transition audio uses linear amplitude crossfades; curve selection and independent transition audio duration are not yet exposed.
+
+Audio fades: import a tone or music file, add both fades and switch Linear/Smooth/Equal Power. Audition and export; split halfway through the fade and confirm no restart. Trim, undo, save/reopen, then change a fade to attach it to the new edges. Check title/still/silent-video selections omit audio controls.

@@ -58,7 +58,8 @@ extension AudioAutomation {
                 return (ramp.from + (ramp.to - ramp.from) * ratio) * envelope(frame)
             }
             for (a,b) in zip(boundaries,boundaries.dropFirst()) {
-                let varying = ramp.from != ramp.to && envelope(a) != envelope(b)
+                let overlap = fadeIn > 0 && fadeOut > 0 && a < fadeIn && b > duration - fadeOut
+                let varying = overlap || (ramp.from != ramp.to && envelope(a) != envelope(b))
                 let parts = varying ? min(Int64(64),b - a) : 1
                 for index in 0..<parts {
                     let lo = a + (b - a) * index / parts, hi = a + (b - a) * (index + 1) / parts

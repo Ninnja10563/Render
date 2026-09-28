@@ -92,3 +92,7 @@ FilmstripView derives cell indices from the visible timeline interval, so reques
 ## Transitions and schema 7
 
 Outgoing ClipTransition links to the adjacent right clip. Validation checks both source handles at clip speed; TransitionWindow straddles the unchanged cut. CompositionBuilder expands only rendering source ranges and reuses a second video/audio slot when intervals overlap, preserving sequence duration. Instructions include active transition handles. The compositor evaluates each pair once, combines transformed/effected inputs with the lower-layer canvas, and preserves the requested blend modes. AudioAutomation multiplies volume curves by bounded crossfade ramps. Broken links are pruned as part of structural-edit undo transactions; explicit transition authoring instead reports invalid handles.
+
+## Audio fades and schema 8
+
+ClipProperties optionally carries ClipAudioFades, whose frame interval shares the volume animation coordinate system. Structural edits retain the envelope with animationOffset, avoiding an audible fade restart at a blade cut. Authoring a duration or shape attaches the envelope to the currently selected clip edges. Bounded piecewise ramps multiply automation, clip fades and transition envelopes before AVAudioMix setup; preview and export use the same composition builder.
