@@ -280,7 +280,14 @@ final class EditorSession: ObservableObject {
             } catch { report(error) }
         }
     }
+    func flushInspectorEdits() -> Bool {
+        let request = InspectorCommitRequest()
+        NotificationCenter.default.post(name: .renderCommitInspector,object: request)
+        if let error = request.error { errorMessage = error; return false }
+        return errorMessage == nil
+    }
     func save(asNew: Bool = false) async -> Bool {
+        guard flushInspectorEdits() else { return false }
         var target = asNew ? nil : documentURL
         if target == nil {
             let panel = NSSavePanel()
@@ -302,6 +309,7 @@ final class EditorSession: ObservableObject {
         } catch { report(error); return false }
     }
     func confirmDiscard() async -> Bool {
+        guard flushInspectorEdits() else { return false }
         guard isDirty else { return true }
         let alert = NSAlert(); alert.messageText = "Save changes to “\(project.name)”?"
         alert.informativeText = "Your unsaved edits will be lost if you don’t save."

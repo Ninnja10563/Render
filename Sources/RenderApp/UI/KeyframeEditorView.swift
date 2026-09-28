@@ -88,16 +88,18 @@ private struct KeyframeRow: View {
     let move: (Int64) -> Void
     let setValue: (Double) -> Void
     let interpolate: (Interpolation) -> Void
-    @State private var draftFrame: Int64 = 0
-    @State private var draftValue: Double = 0
+    @FocusState private var focused: Field?
+    private enum Field { case frame, value }
+    @State private var draftFrame = ""
+    @State private var draftValue = ""
     private var visible: Bool { key.frame >= offset && key.frame < offset + duration }
     var body: some View {
         HStack(spacing: 5) {
             Button(action: select) { Image(systemName: selected ? "checkmark.square.fill" : "square") }.buttonStyle(.plain).help("Select keyframe")
-            TextField("Frame",value: $draftFrame,format: .number.grouping(.never))
-                .frame(width: 42).onSubmit { move(draftFrame) }.help("Frame relative to the clip start")
-            TextField("Value",value: $draftValue,format: .number.precision(.fractionLength(0...3)))
-                .frame(width: 43).onSubmit { setValue(draftValue) }
+            TextField("Frame",text: $draftFrame)
+                .frame(width: 42).focused($focused,equals: .frame).onSubmit { _ = commit(.frame) }.help("Frame relative to the clip start")
+            TextField("Value",text: $draftValue)
+                .frame(width: 43).focused($focused,equals: .value).onSubmit { _ = commit(.value) }
             Picker("Interpolation",selection: Binding(get: { key.interpolation },set: interpolate)) {
                 Text("Linear").tag(Interpolation.linear)
                 Text("Ease In").tag(Interpolation.easeIn)
@@ -108,8 +110,28 @@ private struct KeyframeRow: View {
             Button(action: seek) { Image(systemName: "scope") }.buttonStyle(.plain).disabled(!visible).help("Go to keyframe")
         }.font(.system(size: 10)).controlSize(.mini).opacity(visible ? 1 : 0.55)
             .onAppear { refresh() }.onChange(of: key) { _,_ in refresh() }.onChange(of: offset) { _,_ in refresh() }
+            .onChange(of: focused) { old,_ in _ = commit(old) }
+            .onReceive(NotificationCenter.default.publisher(for: .renderCommitInspector)) { note in
+                if let error = commit(focused) { (note.object as? InspectorCommitRequest)?.error = error }
+            }
     }
-    private func refresh() { draftFrame = key.frame - offset; draftValue = key.value }
+    private func commit(_ field: Field?) -> String? {
+        switch field {
+        case .frame:
+            guard let frame = Int64(draftFrame.trimmingCharacters(in: .whitespacesAndNewlines)) else { return "Enter a valid keyframe position before saving." }
+            if frame != key.frame - offset { move(frame) }
+        case .value:
+            guard let value = try? Double(draftValue,format: .number.grouping(.never)), value.isFinite else { return "Enter a valid keyframe value before saving." }
+            if value != key.value { setValue(value) }
+        case nil: break
+        }
+        return nil
+    }
+    private func refresh() {
+        draftFrame = String(key.frame - offset)
+        draftValue = key.value.formatted(.number.grouping(.never).precision(.fractionLength(0...6)))
+    }
+
 }
 
 struct EffectAmountView: View {

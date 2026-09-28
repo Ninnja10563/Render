@@ -156,21 +156,37 @@ struct InspectorNumber: View {
     let reset: Double
     let commit: (Double) -> Void
     @State private var draft: Double = 0
+    @State private var text = ""
+    @State private var textEdited = false
     @FocusState private var fieldFocused: Bool
     var body: some View {
         VStack(spacing: 4) {
             HStack {
                 Text(label).foregroundStyle(.secondary)
                 Spacer(minLength: 4)
-                TextField(label,value: $draft,format: .number.precision(.fractionLength(0...2)))
+                TextField(label,text: Binding(get: { text },set: { text = $0; textEdited = true }))
                     .multilineTextAlignment(.trailing).textFieldStyle(.plain).frame(width: 60).focused($fieldFocused)
-                    .onSubmit { commit(draft) }
-                Button { draft = reset; commit(reset) } label: { Image(systemName: "arrow.counterclockwise").font(.system(size: 9)) }.buttonStyle(.plain).help("Reset \(label)")
+                    .onSubmit { _ = commitText() }
+                Button { update(reset); commit(reset) } label: { Image(systemName: "arrow.counterclockwise").font(.system(size: 9)) }.buttonStyle(.plain).help("Reset \(label)")
             }.font(.system(size: 10))
-            Slider(value: Binding(get: { min(range.upperBound,max(range.lowerBound,draft)) },set: { draft = $0 }),in: range,onEditingChanged: { editing in if !editing { commit(draft) } }).controlSize(.mini)
-        }.onAppear { draft = value }.onChange(of: value) { _,new in draft = new }
-            .onChange(of: fieldFocused) { wasFocused,isFocused in if wasFocused && !isFocused && draft != value { commit(draft) } }
+            Slider(value: Binding(get: { min(range.upperBound,max(range.lowerBound,draft)) },set: { update($0) }),in: range,onEditingChanged: { editing in if !editing { commit(draft) } }).controlSize(.mini)
+        }.onAppear { update(value) }.onChange(of: value) { _,new in if !fieldFocused { update(new) } }
+            .onChange(of: fieldFocused) { wasFocused,isFocused in if wasFocused && !isFocused { _ = commitText() } }
+            .onReceive(NotificationCenter.default.publisher(for: .renderCommitInspector)) { notification in
+                if let error = commitText() { (notification.object as? InspectorCommitRequest)?.error = error }
+            }
     }
+    private func update(_ number: Double) {
+        draft = number; text = number.formatted(.number.grouping(.never).precision(.fractionLength(0...3))); textEdited = false
+    }
+    private func commitText() -> String? {
+        guard textEdited else { return nil }
+        guard let number = try? Double(text,format: .number.grouping(.never)), number.isFinite else { return "Enter a valid number for \(label) before saving." }
+        draft = number
+        if number != value { commit(number) }
+        return nil
+    }
+
 }
 
 private struct ProjectSettingsView: View {

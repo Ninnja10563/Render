@@ -82,6 +82,7 @@ struct ExportView: View {
         return configuration
     }
     func begin() {
+        guard session.flushInspectorEdits() else { failure = session.errorMessage; return }
         failure = nil
         let configuration = configuration
         do { try configuration.validate() } catch { failure = error.localizedDescription; return }

@@ -82,6 +82,7 @@ extension EditorSession {
             guard project.clip(left.id)?.transition != nil else { throw RenderError.invalid("Transition authoring failed.") }
             undo(); redo()
         }
+        try await checkFocusedInspectorSave(clipID: original.id,folder: folder)
         selectedAsset = asset.id
         if let image = try await library.thumbnail(asset) { thumbnails[asset.id] = NSImage(cgImage: image,size: .zero) }
         let deadline = Date().addingTimeInterval(15)
