@@ -16,6 +16,7 @@ final class EditorSession: ObservableObject {
     @Published var selectedRange: TimelineSelectionRange?
     @Published var selectedAsset: UUID?
     @Published var selectedTrack: UUID?
+    let timelineDrag = TimelineDragState()
     let transport = TransportState()
     let audioMeters = AudioMeterState()
     var playhead: Int64 { get { transport.playhead } set { if transport.playhead != newValue { transport.playhead = newValue } } }
@@ -30,7 +31,7 @@ final class EditorSession: ObservableObject {
     @Published var waveforms: [UUID: [Float]] = [:]
     @Published var pointsPerSecond: Double = 70
     @Published var snapping = true
-    @Published var tool: EditingTool = .select
+    @Published var tool: EditingTool = .select { didSet { if oldValue != tool { timelineDrag.cancel() } } }
     @Published var showLibrary = true
     @Published var showEffects = false
     @Published var showAudio = false
@@ -145,6 +146,7 @@ final class EditorSession: ObservableObject {
             previousTimeline.assets.contains(where: { old in project.assets.first(where: { $0.id == old.id }) != old }) { rebuild() }
     }
     private func displayDocument(_ root: RenderProject) {
+        timelineDrag.cancel()
         // Undo may remove the source currently being edited. Return to the nearest surviving context.
         while let id = compoundPath.last, root.compounds?.contains(where: { $0.id == id }) != true { compoundPath.removeLast() }
         if let id = compoundPath.last, let context = try? root.timelineContext(compoundID: id) {

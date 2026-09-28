@@ -29,6 +29,7 @@ struct TimelineView: View {
                 Menu { Button("Video Track") { session.perform(.addTrack(.video)) }; Button("Audio Track") { session.perform(.addTrack(.audio)) } } label: { Image(systemName: "plus") }.menuStyle(.borderlessButton).frame(width: 24)
                 Button { session.split() } label: { Image(systemName: "scissors") }.buttonStyle(.plain).help("Split at playhead (⌘B)")
                 Spacer()
+                TimelineDragHint(drag: session.timelineDrag)
                 Image(systemName: "minus.magnifyingglass").foregroundStyle(.secondary)
                 Slider(value: $session.pointsPerSecond, in: 10...240).frame(width: 100).help("Timeline zoom")
                 Image(systemName: "plus.magnifyingglass").foregroundStyle(.secondary)
@@ -52,6 +53,8 @@ struct TimelineView: View {
                             }
                             Color.clear.frame(height: trailingSpace)
                         }
+                        .coordinateSpace(name: "timelineContent")
+                        .overlay(alignment: .topLeading) { TimelineDragOverlay(drag: session.timelineDrag,frameRate: session.fps,pointsPerSecond: session.pointsPerSecond,laneHeight: laneHeight,visibleRows: visibleRows,visibleRange: (scrollOffset - 200)...(scrollOffset + viewportWidth + 200)) }
                         .overlay(alignment: .topLeading) {
                             TimelinePlayhead(transport: session.transport,frameRate: session.fps,pointsPerSecond: session.pointsPerSecond)
                         }

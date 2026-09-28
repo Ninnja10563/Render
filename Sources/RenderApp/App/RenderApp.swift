@@ -85,6 +85,7 @@ final class RenderAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
                   !(NSApp.keyWindow?.firstResponder is NSTextView),
                   event.modifierFlags.intersection([.command,.control,.option]).isEmpty else { return event }
             switch event.keyCode {
+            case 53: session.timelineDrag.cancel()
             case 49: session.togglePlayback()
             case 123: session.pause(); session.seek(session.playhead - (event.modifierFlags.contains(.shift) ? 10 : 1))
             case 124: session.pause(); session.seek(session.playhead + (event.modifierFlags.contains(.shift) ? 10 : 1))

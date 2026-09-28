@@ -6,6 +6,11 @@ struct ClipTile: View {
     let clip: TimelineClip
     let track: TimelineTrack
     let visibleRange: ClosedRange<CGFloat>
+    @ObservedObject private var drag: TimelineDragState
+    init(session: EditorSession,clip: TimelineClip,track: TimelineTrack,visibleRange: ClosedRange<CGFloat>) {
+        self.session = session; self.clip = clip; self.track = track; self.visibleRange = visibleRange; drag = session.timelineDrag
+    }
+    @State private var beganSelectionDrag = false
     @State private var dragFrames: Int64 = 0
     @State private var trimDelta: Int64 = 0
     @State private var trimEdge: TrimEdge = .trailing
@@ -63,20 +68,29 @@ struct ClipTile: View {
                     }
                 }
                 .contentShape(Rectangle())
-                .gesture(DragGesture(minimumDistance: 3).onChanged { value in
+                .opacity(drag.active && selected ? 0.25 : 1)
+                .gesture(DragGesture(minimumDistance: 3,coordinateSpace: .named("timelineContent")).onChanged { value in
                     guard !track.locked, session.tool != .blade else { return }
                     if !selected { session.selectClip(clip.id) }
                     let delta = session.fps.frames(value.translation.width / session.pointsPerSecond)
                     if session.tool == .select {
-                        let earliest = session.selection.compactMap { session.project.clip($0)?.start }.min() ?? clip.start
-                        dragFrames = max(-earliest,session.snap(clip.start + delta,excluding: session.selection) - clip.start)
-                        session.movePreview = dragFrames
+                        if !beganSelectionDrag {
+                            session.pause(); NSApp.keyWindow?.makeFirstResponder(nil)
+                            do { try drag.begin(project: session.project,selection: session.selection); beganSelectionDrag = true }
+                            catch { session.report(error); return }
+                        }
+                        let frames = session.snap(clip.start + delta,excluding: session.selection) - clip.start
+                        let offset = Int((value.translation.height / 70).rounded())
+                        drag.update(delta: frames,trackOffset: offset)
                     } else {
                         dragFrames = delta
                         if session.tool == .slide { session.movePreview = delta }
                     }
                 }.onEnded { _ in
-                    if dragFrames != 0 {
+                    if beganSelectionDrag {
+                        do { if let command = try drag.finish() { session.perform(command) } } catch { session.report(error) }
+                        beganSelectionDrag = false
+                    } else if dragFrames != 0 {
                         switch session.tool {
                         case .select: session.perform(.move(clips: session.selection,delta: dragFrames))
                         case .trim: session.perform(.trim(clip: clip.id,edge: .trailing,to: clip.end + dragFrames))

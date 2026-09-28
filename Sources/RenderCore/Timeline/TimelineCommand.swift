@@ -26,6 +26,7 @@ public enum TimelineCommand: Sendable {
     case deleteRange(track: UUID, start: Int64, end: Int64, ripple: Bool)
     case pasteLanes([ClipboardLane], at: Int64)
     case move(clips: Set<UUID>, delta: Int64)
+    case moveAcrossTracks(clips: Set<UUID>,delta: Int64,trackOffset: Int)
     case moveToTrack(clip: UUID, track: UUID, at: Int64)
     case trim(clip: UUID, edge: TrimEdge, to: Int64)
     case split(clips: Set<UUID>, at: Int64)
@@ -66,7 +67,7 @@ public enum TimelineCommand: Sendable {
         case .detachAudio: return "Detach Audio"
         case .deleteRange: return "Delete Range"
         case .pasteLanes: return "Paste Clips"
-        case .move, .moveToTrack: return "Move Clips"
+        case .move, .moveToTrack, .moveAcrossTracks: return "Move Clips"
         case .trim: return "Trim Clip"
         case .split: return "Split Clips"
         case .delete(_, let ripple): return ripple ? "Ripple Delete" : "Delete Clips"
@@ -360,6 +361,8 @@ public enum TimelineCommand: Sendable {
                 let (t,c) = try location(id)
                 project.tracks[t].clips[c].start += delta
             }
+        case .moveAcrossTracks(let ids,let delta,let offset):
+            try TrackMovePlan.apply(ids,delta: delta,trackOffset: offset,to: &project)
         case .moveToTrack(let id, let track, let at):
             let target = try trackIndex(track)
             let (t, c) = try location(id)
