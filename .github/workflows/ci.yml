@@ -22,6 +22,8 @@ jobs:
           uname -m
       - name: Debug build
         run: swift build --arch arm64
+      - name: Audio DSP sanitizers
+        run: scripts/test-audio-dsp.sh
       - name: Core and media integration tests
         run: swift test --arch arm64
       - name: Compare core editing performance

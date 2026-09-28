@@ -5,6 +5,7 @@ VERSION=$(tr -d '\n' < VERSION)
 APP="$(pwd)/dist/Render.app"
 swift build -c release --arch arm64
 swift test -c release --arch arm64
+scripts/test-audio-dsp.sh
 BIN_DIR=$(swift build -c release --arch arm64 --show-bin-path)
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" build/Render.iconset
 cp "$BIN_DIR/Render" "$APP/Contents/MacOS/Render"
