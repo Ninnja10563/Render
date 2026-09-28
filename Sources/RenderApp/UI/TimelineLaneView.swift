@@ -29,6 +29,8 @@ struct TimelineLaneView: View {
             }
             Rectangle().fill(Color.primary.opacity(0.07)).frame(height: 1).offset(y: height - 1)
         }.frame(width: contentWidth,height: height)
+            .onAppear { TimelineRenderProbe.appear(track.id) }
+            .onDisappear { TimelineRenderProbe.disappear(track.id) }
             .overlay(alignment: .leading) { rangeHighlight }
             .overlay { toolInteraction }
             .onDrop(of: [.text],isTargeted: nil,perform: drop)

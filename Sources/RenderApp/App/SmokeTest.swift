@@ -84,6 +84,7 @@ extension EditorSession {
         }
         try await checkFocusedInspectorSave(clipID: original.id,folder: folder)
         try await checkMulticamEditing(folder: folder,still: asset)
+        try await checkTimelineViewport()
         selectedAsset = asset.id
         if let image = try await library.thumbnail(asset) { thumbnails[asset.id] = NSImage(cgImage: image,size: .zero) }
         let deadline = Date().addingTimeInterval(15)

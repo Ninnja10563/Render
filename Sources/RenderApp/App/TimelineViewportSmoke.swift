@@ -1,0 +1,37 @@
+import AppKit
+import SwiftUI
+import RenderCore
+
+@MainActor
+enum TimelineRenderProbe {
+    static var visible: Set<UUID> = []
+    static func appear(_ id: UUID) { if CommandLine.arguments.contains("--smoke-test") { visible.insert(id) } }
+    static func disappear(_ id: UUID) { if CommandLine.arguments.contains("--smoke-test") { visible.remove(id) } }
+}
+
+extension EditorSession {
+    func checkTimelineViewport() async throws {
+        let test = EditorSession()
+        test.project.tracks = (0..<500).map { TimelineTrack(name: "Track \($0)",kind: .video) }
+        let ids = Set(test.project.tracks.map(\.id))
+        let window = NSWindow(contentRect: NSRect(x: 100,y: 100,width: 960,height: 350),styleMask: [.titled],backing: .buffered,defer: false)
+        window.isReleasedWhenClosed = false
+        defer { window.close(); TimelineRenderProbe.visible.subtract(ids) }
+        window.contentView = NSHostingView(rootView: TimelineView(session: test))
+        window.makeKeyAndOrderFront(nil)
+        try await Task.sleep(nanoseconds: 200_000_000)
+        func verticalScroll(_ view: NSView) -> NSScrollView? {
+            if let scroll = view as? NSScrollView, scroll.hasVerticalScroller { return scroll }
+            return view.subviews.lazy.compactMap { verticalScroll($0) }.first
+        }
+        guard let scroll = window.contentView.flatMap(verticalScroll) else { throw RenderError.invalid("Timeline test could not find the vertical scroll view.") }
+        let initial = TimelineRenderProbe.visible.intersection(ids)
+        guard initial.contains(test.project.tracks[0].id), initial.count <= 12 else { throw RenderError.invalid("Offscreen timeline tracks were constructed at the top of the viewport.") }
+        scroll.contentView.scroll(to: NSPoint(x: 0,y: 28 + 250 * 70))
+        scroll.reflectScrolledClipView(scroll.contentView)
+        try await Task.sleep(nanoseconds: 200_000_000)
+        let middle = TimelineRenderProbe.visible.intersection(ids)
+        guard middle.contains(test.project.tracks[250].id), !middle.contains(test.project.tracks[0].id), middle.count <= 12 else { throw RenderError.invalid("Timeline viewport did not release and replace scrolled track views.") }
+        print("RENDER_VIEWPORT_OK 500-tracks \(middle.count)-visible-lanes native-scroll")
+    }
+}
