@@ -36,7 +36,7 @@ open dist/Render.app
 
 The package script builds an ARM64 Release bundle, generates the icon, ad-hoc signs it, creates and verifies the DMG, checks an installed copy, and runs a launch smoke check. GitHub Actions runs core tests plus synthetic-media preview/export integration tests. DMGs are release assets, never committed binaries.
 
-[Architecture and milestones](docs/DEVELOPMENT.md) · [Manual testing and limitations](docs/MANUAL_TESTS.md) · [Installation](docs/INSTALL.md)
+[Implementation status](docs/STATUS.md) · [Architecture and milestones](docs/DEVELOPMENT.md) · [Manual testing and limitations](docs/MANUAL_TESTS.md) · [Installation](docs/INSTALL.md)
 
 ## Release status
 
