@@ -32,6 +32,7 @@ extension RenderProject {
         for id in sources.keys { _ = try depth(id) }
     }
     public func timelineContext(compoundID: UUID) throws -> RenderProject {
+        try validate()
         guard let source = compounds?.first(where: { $0.id == compoundID }) else { throw RenderError.invalid("Compound source no longer exists.") }
         let lookup = Dictionary(uniqueKeysWithValues: (compounds ?? []).map { ($0.id,$0) })
         var reachable: Set<UUID> = []

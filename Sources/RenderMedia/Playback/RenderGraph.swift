@@ -14,6 +14,7 @@ struct RenderLayer {
 struct RenderGroup {
     var clip: TimelineClip
     var children: [RenderNode]
+    var settings: ProjectSettings? = nil
     var incoming: TransitionWindow? = nil
     var outgoing: TransitionWindow? = nil
 }

@@ -2,6 +2,7 @@ import Foundation
 
 public enum CompoundEditing {
     public static func create(_ selected: Set<UUID>,name: String,in original: RenderProject) throws -> RenderProject {
+        try original.validate()
         guard !selected.isEmpty, !name.isEmpty else { throw RenderError.invalid("Select clips and name the compound.") }
         var chosen = selected
         for clip in original.tracks.flatMap(\.clips) where clip.connection.map({ selected.contains($0.anchor) }) == true { chosen.insert(clip.id) }
@@ -61,6 +62,7 @@ public enum CompoundEditing {
     }
 
     public static func breakApart(_ id: UUID,in original: RenderProject) throws -> RenderProject {
+        try original.validate()
         guard let location = original.location(id), let parent = original.clip(id), let sourceID = parent.compoundID,
               let source = original.compounds?.first(where: { $0.id == sourceID }) else { throw RenderError.invalid("Select a compound clip first.") }
         let parentTrack = original.tracks[location.track]

@@ -39,8 +39,10 @@ final class SceneRenderer {
             else if let decoded = source(layer.trackID) { image = decoded.transformed(by: layer.preferredTransform) }
             else { throw RenderError.invalid("A source video frame could not be decoded.") }
         case .group(let group):
-            let localFrame = group.clip.sourceIn * rate.value + (frame - Double(group.clip.start)) * group.clip.speed
-            image = try scene(group.children,frame: localFrame,rate: rate,bounds: bounds,background: .clear,depth: depth + 1,source: source)
+            let childRate = group.settings?.frameRate ?? rate
+            let childBounds = group.settings.map { CGRect(x: 0,y: 0,width: $0.width,height: $0.height) } ?? bounds
+            let localFrame = (group.clip.sourceIn + (frame - Double(group.clip.start)) / rate.value * group.clip.speed) * childRate.value
+            image = try scene(group.children,frame: localFrame,rate: childRate,bounds: childBounds,background: .clear,depth: depth + 1,source: source)
         }
         let clip = node.clip, p = clip.properties
         let animationFrame = frame - Double(clip.start) + Double(clip.animationOffset)
