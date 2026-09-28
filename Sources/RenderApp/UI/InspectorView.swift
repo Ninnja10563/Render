@@ -11,9 +11,9 @@ struct InspectorView: View {
             PanelHeader("Inspector") { EmptyView() }
             ScrollView {
                 if let clip = session.selectedClip {
-                    VStack(alignment: .leading,spacing: 18) {
+                    VStack(alignment: .leading,spacing: 12) {
                         VStack(alignment: .leading,spacing: 5) {
-                            Text(clip.name).font(.system(size: 12,weight: .semibold)).lineLimit(2)
+                            Text(clip.name).font(.system(size: 11,weight: .medium)).lineLimit(2)
                             Text("\(session.fps.timecode(clip.duration)) · \(Int(clip.speed * 100))% speed").font(.system(size: 10,design: .monospaced)).foregroundStyle(.secondary)
                         }
                         if let id = clip.compoundID {
@@ -139,7 +139,7 @@ struct InspectorView: View {
         var effects = clip.effects; change(&effects[index]); session.perform(.effects(clip: clip.id,effects))
     }
     func inspectorSection<Content: View>(_ title: String,@ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading,spacing: 10) {
+        VStack(alignment: .leading,spacing: 6) {
             HStack { Text(title).font(EditorStyle.sectionFont).accessibilityAddTraits(.isHeader); Spacer() }
             content()
             Divider()

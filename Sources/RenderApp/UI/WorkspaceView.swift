@@ -171,6 +171,18 @@ private struct ViewerView: View {
                     }.foregroundStyle(.white.opacity(0.8))
                 }
             }.clipped().frame(maxWidth: .infinity,maxHeight: .infinity)
+                .contextMenu {
+                    Button(session.isPlaying ? "Pause" : "Play") { session.togglePlayback() }.disabled(!session.previewReady)
+                    Button("Go to Beginning") { session.pause(); session.seek(0) }.disabled(session.project.duration == 0)
+                    Divider()
+                    Button("Fit to Viewer") { zoom = 0 }
+                    Button("Actual Pixels") { zoom = 1 }
+                    Menu("Playback Quality") {
+                        ForEach(PreviewQuality.allCases,id: \.self) { quality in
+                            Button(quality.label) { session.previewQuality = quality }
+                        }
+                    }
+                }
             HStack(spacing: 8) {
                 Text(session.fps.timecode(session.playhead)).font(.system(size: 12,weight: .medium,design: .monospaced)).frame(minWidth: 92,alignment: .leading)
                 Spacer(minLength: 0)

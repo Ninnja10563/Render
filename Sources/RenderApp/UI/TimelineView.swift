@@ -34,12 +34,12 @@ struct TimelineView: View {
                 Image(systemName: "minus.magnifyingglass").foregroundStyle(.secondary)
                 Slider(value: $session.pointsPerSecond, in: 10...240).frame(width: 100).help("Timeline zoom")
                 Image(systemName: "plus.magnifyingglass").foregroundStyle(.secondary)
-            }.controlSize(.small).padding(.horizontal,12).frame(height: 40).background(EditorStyle.panel)
+            }.controlSize(.small).padding(.horizontal,12).frame(height: 32).background(EditorStyle.panel)
             Divider()
             ScrollView(.vertical) {
                 HStack(alignment: .top,spacing: 0) {
                     VStack(spacing: 0) {
-                        Text("Tracks").font(EditorStyle.metadataFont).foregroundStyle(.secondary).frame(width: headerWidth,height: 28,alignment: .leading).padding(.leading,12)
+                        Text("Tracks").font(.system(size: 10)).foregroundStyle(.secondary).padding(.leading,10).frame(width: headerWidth,height: 28,alignment: .leading)
                         Color.clear.frame(height: leadingSpace)
                         ForEach(visibleTracks) { track in TrackHeader(session: session, track: track).frame(width: headerWidth,height: laneHeight) }
                         Color.clear.frame(height: trailingSpace)
@@ -93,6 +93,17 @@ struct TimelineView: View {
                 }
             }.frame(width: visibleWidth,height: 28).offset(x: origin)
         }.frame(width: contentWidth,height: 28).background(EditorStyle.panel).contentShape(Rectangle())
+            .contextMenu {
+                Button("Add Marker at Playhead") { session.perform(.marker(.init(frame: session.playhead,name: "Marker"))) }
+                ForEach(session.project.markers) { marker in
+                    Menu("\(marker.name) · \(session.fps.timecode(marker.frame))") {
+                        Button("Go to Marker") { session.closeSource(); session.pause(); session.seek(marker.frame) }
+                        Button("Delete Marker") { session.perform(.removeMarker(marker.id)) }
+                    }
+                }
+                Divider()
+                Toggle("Snapping",isOn: $session.snapping)
+            }
             .gesture(DragGesture(minimumDistance: 0).onChanged { value in session.closeSource(); NSApp.keyWindow?.makeFirstResponder(nil); session.pause(); session.seek(session.fps.frames(value.location.x / session.pointsPerSecond)) })
     }
 }
@@ -101,25 +112,40 @@ private struct TrackHeader: View {
     @ObservedObject var session: EditorSession
     let track: TimelineTrack
     var body: some View {
-        VStack(alignment: .leading,spacing: 10) {
-            HStack {
-                Image(systemName: track.kind == .video ? "film" : "waveform").foregroundStyle(.secondary)
-                Text(track.name).fontWeight(.medium)
-                if session.project.storyline?.trackID == track.id { Image(systemName: "link").font(.system(size: 9)).help("Primary storyline") }
-            }.font(.system(size: 11))
-            HStack(spacing: 12) {
-                Button { update(locked: !track.locked) } label: { Image(systemName: track.locked ? "lock.fill" : "lock.open") }.help(track.locked ? "Unlock track" : "Lock track")
-                if track.kind == .video { Button { update(hidden: !track.hidden) } label: { Image(systemName: track.hidden ? "eye.slash" : "eye") }.help("Toggle video visibility") }
-                Button { update(muted: !track.muted) } label: { Image(systemName: track.muted ? "speaker.slash.fill" : "speaker.wave.2") }.help("Mute track")
-                Button { update(solo: !track.solo) } label: { Text("S").fontWeight(track.solo ? .heavy : .regular).foregroundStyle(track.solo ? Color.orange : Color.secondary) }.help("Solo track audio")
-            }.font(.system(size: 10)).buttonStyle(.plain).foregroundStyle(.secondary)
-        }.padding(.horizontal,12).frame(maxWidth: .infinity,maxHeight: .infinity,alignment: .leading)
-            .background(session.selectedTrack == track.id ? Color.accentColor.opacity(0.09) : .clear)
+        VStack(alignment: .leading,spacing: 4) {
+            HStack(spacing: 5) {
+                Text(track.name).font(.system(size: 10)).lineLimit(1).truncationMode(.tail)
+                if session.project.storyline?.trackID == track.id {
+                    Image(systemName: "link").font(.system(size: 9)).foregroundStyle(.secondary).help("Primary storyline")
+                }
+                Spacer(minLength: 0)
+            }
+            HStack(spacing: 2) {
+                trackButton("Lock track",symbol: track.locked ? "lock.fill" : "lock.open",active: track.locked) { update(locked: !track.locked) }
+                if track.kind == .video {
+                    trackButton("Hide video",symbol: track.hidden ? "eye.slash" : "eye",active: track.hidden) { update(hidden: !track.hidden) }
+                }
+                trackButton("Mute track",symbol: track.muted ? "speaker.slash.fill" : "speaker.wave.2",active: track.muted) { update(muted: !track.muted) }
+                Button { update(solo: !track.solo) } label: {
+                    Text("S").font(.system(size: 10,weight: track.solo ? .semibold : .regular))
+                        .frame(width: 22,height: 20).contentShape(Rectangle())
+                }.foregroundStyle(track.solo ? Color.orange : Color.secondary)
+                    .help("Solo track audio").accessibilityLabel("Solo track audio").accessibilityValue(track.solo ? "On" : "Off")
+            }.buttonStyle(.plain)
+        }.padding(.horizontal,10).padding(.top,8).frame(maxWidth: .infinity,maxHeight: .infinity,alignment: .topLeading)
+            .background(session.selectedTrack == track.id ? Color.primary.opacity(0.06) : .clear)
             .contentShape(Rectangle()).onTapGesture { session.selectedTrack = track.id }
             .contextMenu {
-                if track.kind == .video { Button("Use as Primary Storyline") { session.perform(.storyline(enabled: session.project.storyline?.enabled ?? false,track: track.id)) }.disabled(track.locked) }
+                TrackContextMenu(session: session,track: track)
             }
             .overlay(alignment: .bottom) { Divider() }
+    }
+    private func trackButton(_ title: String,symbol: String,active: Bool,action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol).font(.system(size: 10))
+                .frame(width: 22,height: 20).contentShape(Rectangle())
+        }.foregroundStyle(active ? Color.orange : Color.secondary)
+            .help(title).accessibilityLabel(title).accessibilityValue(active ? "On" : "Off")
     }
     func update(locked: Bool? = nil, hidden: Bool? = nil, muted: Bool? = nil, solo: Bool? = nil) {
         session.perform(.trackState(track: track.id,locked: locked ?? track.locked,hidden: hidden ?? track.hidden,muted: muted ?? track.muted,solo: solo ?? track.solo))
@@ -132,7 +158,21 @@ private struct TimelinePlayhead: View {
     let frameRate: FrameRate
     let pointsPerSecond: Double
     var body: some View {
-        Rectangle().fill(Color.accentColor).frame(width: 1.5)
-            .offset(x: frameRate.seconds(transport.playhead) * pointsPerSecond).allowsHitTesting(false)
+        GeometryReader { geometry in
+            let x = frameRate.seconds(transport.playhead) * pointsPerSecond
+            // Keep the indicator distinct from the panel divider without an accent-colored rail.
+            Path { path in
+                path.move(to: CGPoint(x: x + 0.5,y: 9))
+                path.addLine(to: CGPoint(x: x + 0.5,y: geometry.size.height))
+            }.stroke(Color.primary.opacity(0.6),lineWidth: 1)
+            Path { path in
+                path.move(to: CGPoint(x: x - 4,y: 0))
+                path.addLine(to: CGPoint(x: x + 5,y: 0))
+                path.addLine(to: CGPoint(x: x + 5,y: 5))
+                path.addLine(to: CGPoint(x: x + 0.5,y: 10))
+                path.addLine(to: CGPoint(x: x - 4,y: 5))
+                path.closeSubpath()
+            }.fill(Color.primary.opacity(0.8))
+        }.allowsHitTesting(false).accessibilityHidden(true)
     }
 }

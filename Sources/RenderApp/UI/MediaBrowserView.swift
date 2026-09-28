@@ -29,14 +29,14 @@ struct MediaBrowserView: View {
             } else {
                 List(selection: $session.selectedAsset) {
                     ForEach(filtered) { media in
-                        HStack(spacing: 10) {
+                        HStack(spacing: 8) {
                             ZStack {
                                 Color.black.opacity(0.2)
                                 if let image = session.thumbnails[media.id] { Image(nsImage: image).resizable().scaledToFit() }
                                 else { Image(systemName: media.kind == .audio ? "waveform" : "film").foregroundStyle(.secondary) }
                             }.frame(width: 64,height: 40).clipped()
-                            VStack(alignment: .leading,spacing: 4) {
-                                Text(media.name).font(.system(size: 11,weight: .medium)).lineLimit(1)
+                            VStack(alignment: .leading,spacing: 2) {
+                                Text(media.name).font(.system(size: 11,weight: .regular)).lineLimit(1)
                                 Text(media.kind == .audio ? "\(media.audioChannels) ch · \(media.codec)" : "\(media.width) × \(media.height) · \(media.codec)").font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
                                 Text(session.fps.timecode(session.fps.frames(media.duration))).font(.system(size: 10,design: .monospaced)).foregroundStyle(.secondary)
                                 if let range = media.selection {
@@ -59,7 +59,7 @@ struct MediaBrowserView: View {
                             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([media.url]) }
                         }
                     }
-                }.listStyle(.sidebar).scrollContentBackground(.hidden).background(EditorStyle.content)
+                }.listStyle(.plain).scrollContentBackground(.hidden).background(EditorStyle.content)
             }
             Divider()
             HStack {

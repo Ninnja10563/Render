@@ -17,10 +17,10 @@ struct PanelHeader<Actions: View>: View {
     }
     var body: some View {
         HStack(spacing: 8) {
-            Text(title).font(.system(size: 12,weight: .medium)).accessibilityAddTraits(.isHeader)
+            Text(title).font(.system(size: 11,weight: .medium)).accessibilityAddTraits(.isHeader)
             Spacer(minLength: 6)
             actions.font(.system(size: 11)).foregroundStyle(.secondary)
-        }.buttonStyle(.plain).padding(.horizontal,12).frame(height: 32)
+        }.buttonStyle(.plain).padding(.horizontal,10).frame(height: 32)
             .background(EditorStyle.panel)
             .overlay(alignment: .bottom) { Divider() }
     }

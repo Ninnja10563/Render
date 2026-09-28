@@ -1,6 +1,6 @@
 # Implementation status
 
-This is the development status for 0.26.0. A published DMG means that milestone passed its automated release gates; it does not mean Render is a production-equivalent replacement for an established editor.
+This is the development status for 0.27.0. A published DMG means that milestone passed its automated release gates; it does not mean Render is a production-equivalent replacement for an established editor.
 
 ## Implemented editing path
 

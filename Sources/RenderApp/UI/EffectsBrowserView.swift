@@ -29,7 +29,7 @@ struct EffectsBrowserView: View {
                         }
                     }
                 }
-            }.listStyle(.sidebar).scrollContentBackground(.hidden).background(EditorStyle.content)
+            }.listStyle(.plain).scrollContentBackground(.hidden).background(EditorStyle.content)
                 .overlay { if !groups.flatMap(\.1).contains(where: { search.isEmpty || $0.label.localizedCaseInsensitiveContains(search) }) { Text("No matching effects").font(.system(size: 12)).foregroundStyle(.secondary) } }
             Divider()
             VStack(alignment: .leading,spacing: 8) {

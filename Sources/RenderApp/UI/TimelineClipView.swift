@@ -22,7 +22,7 @@ struct ClipTile: View {
                 RoundedRectangle(cornerRadius: 3).fill(tint.opacity(track.hidden || track.muted ? 0.5 : 1))
                 if track.kind == .video, let assetID = clip.assetID, let media = session.project.assets.first(where: { $0.id == assetID }), geometry.size.width > 34 {
                     FilmstripView(media: media,clip: clip,library: session.library,poster: session.thumbnails[assetID],pointsPerSecond: session.pointsPerSecond,frameRate: session.fps,visibleRange: visibleRange,width: geometry.size.width,mode: session.playbackMode)
-                        .offset(y: 22).opacity(0.8)
+                        .offset(y: 18).opacity(0.8)
                 }
                 if let assetID = clip.assetID, let peaks = session.waveforms[assetID], let asset = session.project.assets.first(where: { $0.id == clip.assetID }) {
                     let clipOrigin = session.fps.seconds(clip.start) * session.pointsPerSecond
@@ -43,7 +43,7 @@ struct ClipTile: View {
                 if clip.compoundID != nil {
                     Label("Compound",systemImage: "square.stack.3d.up").font(.system(size: 10)).foregroundStyle(.white.opacity(0.7)).padding(.horizontal,8).offset(y: 31)
                 }
-                Text((clip.connection != nil ? "↳ " : "") + clip.name).font(.system(size: 10,weight: .medium)).foregroundStyle(.white).lineLimit(1).padding(.horizontal,7).frame(height: 22).frame(maxWidth: .infinity,alignment: .leading).background(.black.opacity(0.15))
+                Text((clip.connection != nil ? "↳ " : "") + clip.name).font(.system(size: 10,weight: .regular)).foregroundStyle(.white).lineLimit(1).padding(.horizontal,5).frame(height: 18).frame(maxWidth: .infinity,alignment: .leading).background(.black.opacity(0.15))
                 if selected && session.tool != .blade && geometry.size.width > 18 {
                     HStack {
                         trimHandle(.leading)
@@ -108,6 +108,9 @@ struct ClipTile: View {
                     else { session.selectClip(clip.id,extend: NSEvent.modifierFlags.contains(.shift) || NSEvent.modifierFlags.contains(.command)) }
                 }
                 .contextMenu {
+                    Button("Copy") { targetContextClip(); session.copy() }
+                    Button("Cut") { targetContextClip(); session.cut() }.disabled(track.locked)
+                    Divider()
                     if let id = clip.compoundID {
                         Button("Open Compound Timeline") { session.openCompound(id) }
                         Button("Break Apart Compound") { session.perform(.breakApart(clip.id)) }
@@ -123,12 +126,16 @@ struct ClipTile: View {
                     }
                     Button("Detach Audio") { session.perform(.detachAudio(clip: clip.id)) }
                         .disabled(session.project.assets.first(where: { $0.id == clip.assetID })?.kind != .video || (session.project.assets.first(where: { $0.id == clip.assetID })?.audioChannels ?? 0) == 0)
-                    Button("Delete") { session.perform(.delete(clips: [clip.id],ripple: false)) }
-                    Button("Ripple Delete") { session.perform(.delete(clips: [clip.id],ripple: true)) }
+                    Button("Delete") { targetContextClip(); session.delete() }.disabled(track.locked)
+                    Button("Ripple Delete") { targetContextClip(); session.delete(ripple: true) }.disabled(track.locked)
                 }
                 .offset(x: session.fps.seconds((selected ? session.movePreview : 0) + (trimEdge == .leading && session.tool != .ripple ? trimDelta : 0)) * session.pointsPerSecond)
         }.onDisappear { if beganSelectionDrag { drag.cancel(); beganSelectionDrag = false } }
             .help("\(clip.name) · \(session.fps.timecode(clip.duration))\(track.locked ? " · Locked" : "")")
+    }
+    private func targetContextClip() {
+        session.selectedRange = nil
+        if !selected { session.selectClip(clip.id) }
     }
     func trimHandle(_ edge: TrimEdge) -> some View {
         Rectangle().fill(Color.accentColor.opacity(0.75)).frame(width: 5)

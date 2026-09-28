@@ -65,7 +65,7 @@ final class EditorSession: ObservableObject {
     private var activeAudioProcessing: [AudioMeterSource] = []
     private var playbackObservation: NSKeyValueObservation?
     private var previewTasks: [UUID: Task<Void, Never>] = [:]
-    private var clipboard: [ClipboardLane] = []
+    @Published private var clipboard: [ClipboardLane] = []
     private var clipboardProjectID: UUID?
     private var clipboardKinds: [UUID: TrackKind] = [:]
     private var didStart = false
@@ -280,6 +280,7 @@ final class EditorSession: ObservableObject {
         guard !project.tracks.contains(where: { $0.locked && $0.clips.contains(where: { selection.contains($0.id) }) }) else { errorMessage = "Unlock selected tracks before cutting."; return }
         copy(); delete()
     }
+    var hasTimelineClipboard: Bool { clipboardProjectID == project.id && !clipboard.isEmpty }
     func paste() {
         guard clipboardProjectID == project.id, !clipboard.isEmpty, let track = selectedTrack ?? project.tracks.first?.id else { return }
         do {

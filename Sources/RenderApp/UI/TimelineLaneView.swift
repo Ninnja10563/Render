@@ -17,11 +17,13 @@ struct TimelineLaneView: View {
     }
     var body: some View {
         ZStack(alignment: .topLeading) {
-            Rectangle().fill(session.selectedTrack == track.id ? Color.accentColor.opacity(0.08) : EditorStyle.canvas)
+            Rectangle().fill(EditorStyle.canvas)
+                .overlay { if session.selectedTrack == track.id { Color.primary.opacity(0.035).allowsHitTesting(false) } }
                 .onTapGesture {
                     session.closeSource(); NSApp.keyWindow?.makeFirstResponder(nil)
                     session.selectedTrack = track.id; session.selection = []; session.selectedRange = nil
                 }
+                .contextMenu { TrackContextMenu(session: session,track: track) }
             ForEach(visibleClips) { clip in
                 ClipTile(session: session,clip: clip,track: track,visibleRange: visibleRange)
                     .frame(width: max(3,session.fps.seconds(clip.duration) * session.pointsPerSecond),height: height - 10)
