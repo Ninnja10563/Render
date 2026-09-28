@@ -112,7 +112,9 @@ private struct KeyframeRow: View {
             .onAppear { refresh() }.onChange(of: key) { _,_ in refresh() }.onChange(of: offset) { _,_ in refresh() }
             .onChange(of: focused) { old,_ in _ = commit(old) }
             .onReceive(NotificationCenter.default.publisher(for: .renderCommitInspector)) { note in
-                if let error = commit(focused) { (note.object as? InspectorCommitRequest)?.error = error }
+                let invalid = Int64(draftFrame.trimmingCharacters(in: .whitespacesAndNewlines)) == nil || (try? Double(draftValue,format: .number.grouping(.never))).map { !$0.isFinite } != false
+                if invalid { (note.object as? InspectorCommitRequest)?.error = "Correct the invalid keyframe field before saving." }
+                else if let error = commit(focused) { (note.object as? InspectorCommitRequest)?.error = error }
             }
     }
     private func commit(_ field: Field?) -> String? {
@@ -122,14 +124,15 @@ private struct KeyframeRow: View {
             if frame != key.frame - offset { move(frame) }
         case .value:
             guard let value = try? Double(draftValue,format: .number.grouping(.never)), value.isFinite else { return "Enter a valid keyframe value before saving." }
-            if value != key.value { setValue(value) }
+            if draftValue != formattedValue { setValue(value) }
         case nil: break
         }
         return nil
     }
+    private var formattedValue: String { key.value.formatted(.number.grouping(.never).precision(.fractionLength(0...6))) }
     private func refresh() {
         draftFrame = String(key.frame - offset)
-        draftValue = key.value.formatted(.number.grouping(.never).precision(.fractionLength(0...6)))
+        draftValue = formattedValue
     }
 
 }
