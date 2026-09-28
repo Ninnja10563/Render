@@ -3,38 +3,11 @@ import CoreImage
 import Metal
 import RenderCore
 
-struct RenderLayer {
-    var trackID: CMPersistentTrackID
-    var clip: TimelineClip
-    var preferredTransform: CGAffineTransform
-    var still: CIImage?
-    var title: TitleContent? = nil
-    var incoming: TransitionWindow? = nil
-    var outgoing: TransitionWindow? = nil
-    var start: Int64 { incoming?.start ?? clip.start }
-    var end: Int64 { outgoing?.end ?? clip.end }
-}
-final class RenderInstruction: NSObject, AVVideoCompositionInstructionProtocol {
-    var timeRange: CMTimeRange
-    let enablePostProcessing = false
-    let containsTweening = true
-    let passthroughTrackID: CMPersistentTrackID = kCMPersistentTrackID_Invalid
-    var requiredSourceTrackIDs: [NSValue]?
-    let layers: [RenderLayer]
-    let frameRate: FrameRate
-    let designSize: CGSize
-    init(range: CMTimeRange, layers: [RenderLayer], clock: CMPersistentTrackID, frameRate: FrameRate,designSize: CGSize) {
-        timeRange = range; self.layers = layers; self.frameRate = frameRate; self.designSize = designSize
-        requiredSourceTrackIDs = ([clock] + layers.filter { $0.still == nil && $0.title == nil }.map(\.trackID)).map { NSNumber(value: $0) }
-    }
-}
-
 /// Serial GPU submission; one CIContext is reused for the lifetime of a compositor.
 public final class VideoCompositor: NSObject, AVVideoCompositing {
     public let sourcePixelBufferAttributes: [String: any Sendable]? = [kCVPixelBufferPixelFormatTypeKey as String: [kCVPixelFormatType_32BGRA, kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange, kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]]
     public let requiredPixelBufferAttributesForRenderContext: [String: any Sendable] = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA, kCVPixelBufferMetalCompatibilityKey as String: true]
-    private let titles = TitleRenderer()
-    private let effects = EffectRenderer()
+    private let scene = SceneRenderer()
     private let queue = DispatchQueue(label: "app.render.compositor", qos: .userInteractive)
     private let context: CIContext = {
         let options: [CIContextOption: Any] = [.cacheIntermediates: false, .workingColorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!]
@@ -51,19 +24,11 @@ public final class VideoCompositor: NSObject, AVVideoCompositing {
                 }
                 let outputBounds = CGRect(origin: .zero,size: request.renderContext.size)
                 let bounds = CGRect(origin: .zero,size: instruction.designSize)
-                var canvas = CIImage(color: .black).cropped(to: bounds)
-                let layers = Dictionary(uniqueKeysWithValues: instruction.layers.map { ($0.clip.id,$0) })
                 let frame = request.compositionTime.seconds * instruction.frameRate.value
+                var canvas: CIImage
                 do {
-                    for layer in instruction.layers.reversed() {
-                        if let incoming = layer.incoming, frame >= Double(incoming.start), frame < Double(incoming.end), layers[incoming.leftID] != nil { continue }
-                        let image = try layerImage(layer,request: request,instruction: instruction,bounds: bounds)
-                        if let transition = layer.outgoing, frame >= Double(transition.start), frame < Double(transition.end), let right = layers[transition.rightID] {
-                            let next = try layerImage(right,request: request,instruction: instruction,bounds: bounds)
-                            canvas = TransitionRenderer.composite(image,next,over: canvas,outMode: layer.clip.properties.geometry?.blend ?? .normal,inMode: right.clip.properties.geometry?.blend ?? .normal,kind: transition.kind,progress: transition.progress(at: frame),bounds: bounds)
-                        } else {
-                            canvas = ClipImageGeometry.blend(image,over: canvas,mode: layer.clip.properties.geometry?.blend ?? .normal).cropped(to: bounds)
-                        }
+                    canvas = try scene.render(instruction.nodes,frame: frame,rate: instruction.frameRate,size: instruction.designSize) { track in
+                        request.sourceFrame(byTrackID: track).map { CIImage(cvPixelBuffer: $0) }
                     }
                 } catch { request.finish(with: error); return }
                 let outputScale = min(outputBounds.width / bounds.width,outputBounds.height / bounds.height)
@@ -74,23 +39,6 @@ public final class VideoCompositor: NSObject, AVVideoCompositing {
                 request.finish(withComposedVideoFrame: buffer)
             }
         }
-    }
-    private func layerImage(_ layer: RenderLayer,request: AVAsynchronousVideoCompositionRequest,instruction: RenderInstruction,bounds: CGRect) throws -> CIImage {
-        let source: CIImage
-        if let title = layer.title { source = try titles.image(title,size: instruction.designSize) }
-        else if let still = layer.still { source = still }
-        else if let pixel = request.sourceFrame(byTrackID: layer.trackID) { source = CIImage(cvPixelBuffer: pixel).transformed(by: layer.preferredTransform) }
-        else { throw RenderError.invalid("A source video frame could not be decoded.") }
-        let frame = request.compositionTime.seconds * instruction.frameRate.value - Double(layer.clip.start) + Double(layer.clip.animationOffset)
-        let p = layer.clip.properties
-        var image = source.transformed(by: CGAffineTransform(translationX: -source.extent.minX,y: -source.extent.minY))
-        let sourceBounds = image.extent
-        let transform = ClipImageGeometry.transform(source: sourceBounds,canvas: bounds,properties: p,frame: frame)
-        let crop = ClipImageGeometry.crop(source: sourceBounds,properties: p,frame: frame)
-        if crop.isEmpty { return CIImage(color: .clear).cropped(to: bounds) }
-        image = image.cropped(to: crop).transformed(by: transform)
-        for effect in layer.clip.effects where effect.enabled { image = try effects.apply(effect,to: image,at: frame,sourceBounds: sourceBounds,transform: transform) }
-        return image.applyingFilter("CIColorMatrix",parameters: ["inputAVector": CIVector(x: 0,y: 0,z: 0,w: p.value("opacity",at: frame))])
     }
     public func cancelAllPendingVideoCompositionRequests() { queue.sync {} }
 }
