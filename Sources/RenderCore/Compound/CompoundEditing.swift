@@ -87,7 +87,7 @@ public enum CompoundEditing {
         let newIDs = Dictionary(uniqueKeysWithValues: visible.map { ($0.id,UUID()) })
         var tracks: [TimelineTrack] = []
         for oldTrack in source.tracks {
-            var track = oldTrack; track.id = UUID(); track.locked = false; track.clips = []
+            var track = oldTrack; track.id = UUID(); track.clips = []
             for child in oldTrack.clips where newIDs[child.id] != nil {
                 let lo = max(trimStart,child.start), hi = min(trimEnd,child.end)
                 var copy = child; copy.id = newIDs[child.id]!
@@ -104,6 +104,7 @@ public enum CompoundEditing {
         project.tracks[location.track].clips.remove(at: location.clip)
         if project.storyline?.trackID == parentTrack.id {
             guard let childPrimary = source.storyline?.trackID, let index = source.tracks.firstIndex(where: { $0.id == childPrimary }) else { throw RenderError.invalid("This compound has no primary storyline to restore.") }
+            guard !tracks[index].locked else { throw RenderError.invalid("Unlock the internal primary track before restoring it to the parent storyline.") }
             var primary = tracks.remove(at: index).clips.sorted { $0.start < $1.start }
             if project.storyline?.enabled == true {
                 var cursor = parent.start, filled: [TimelineClip] = []

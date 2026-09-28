@@ -29,7 +29,12 @@ extension MediaIntegrationTests {
         let encoded = AVAssetImageGenerator(asset: AVURLAsset(url: url)); encoded.requestedTimeToleranceBefore = .zero; encoded.requestedTimeToleranceAfter = .zero
         for (frame,channel) in [(16,0),(25,2),(59,2)] {
             let timestamp = CMTime(value: Int64(frame),timescale: 30)
-            let a = pixel(try await preview.image(at: timestamp).image), b = pixel(try await encoded.image(at: timestamp).image)
+            let previewImage = try await preview.image(at: timestamp).image
+            let encodedImage = try await encoded.image(at: timestamp).image
+            let center = CGRect(x: 150,y: 80,width: 20,height: 20)
+            let a = pixel(try XCTUnwrap(previewImage.cropping(to: center))), b = pixel(try XCTUnwrap(encodedImage.cropping(to: center)))
+            let edge = pixel(try XCTUnwrap(previewImage.cropping(to: CGRect(x: 5,y: 80,width: 10,height: 10))))
+            XCTAssertLessThan(edge[0],5); XCTAssertLessThan(edge[2],5,"Child square canvas stays letterboxed")
             XCTAssertGreaterThan(a[channel],120); XCTAssertLessThan(a[channel],220)
             XCTAssertLessThan(a[channel == 0 ? 2 : 0],10)
             for c in 0..<3 { XCTAssertEqual(Double(a[c]),Double(b[c]),accuracy: 15) }
@@ -73,7 +78,7 @@ extension MediaIntegrationTests {
         }
         let prepared = try await CompositionBuilder().build(project)
         XCTAssertEqual(prepared.audioMix.inputParameters.count,1)
-        var muted = project; muted.tracks[0].muted = true
+        var muted = project; muted.tracks[try XCTUnwrap(muted.location(parent.id)).track].muted = true
         let silent = try await CompositionBuilder().build(muted)
         XCTAssertEqual(silent.audioMix.inputParameters.count,0)
     }

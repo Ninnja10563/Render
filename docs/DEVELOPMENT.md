@@ -118,3 +118,7 @@ TimelineViewport computes one fixed-height track range for both the frozen heade
 ## Hierarchical compositor
 
 RenderNode separates media leaves from recursive RenderGroup values. SceneRenderer composites children on a transparent sequence-sized canvas and then applies the group's own geometry/effect/opacity stack. Its child time maps sourceIn plus parent-relative time multiplied by speed; parent animation remains on the parent edit clock. Groups use the same transition/blend path as leaves. RenderInstruction compiles required source track IDs, while VideoCompositor owns AVFoundation frame requests and the reused Metal-backed CIContext. Recursion has a defensive depth limit. Project persistence and composition planning for compound timelines remain a subsequent milestone; ordinary project playback continues through leaf nodes.
+
+## Compound timelines — 0.18.0
+
+Optional schema-10 compound sources form a validated reusable DAG. Active timeline projections are separated from persistent root documents; navigation does not enter undo history, while every edit restores whole-document snapshots. Nested source clocks, video groups and multiplicative audio envelopes compile into shared AVFoundation compositions without rendering intermediate files. See COMPOUND_IMPLEMENTATION.md and EDITING.md for architecture and lossless break-apart restrictions.

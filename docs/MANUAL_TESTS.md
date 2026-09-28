@@ -49,3 +49,10 @@ Focused drafts: type a position, effect value, fade duration or keyframe value w
 Multicam: import two camera recordings, trim a reference segment, enter positive/negative source offsets and create a source. Scrub and play the angle viewer, page more than four cameras, cut at the playhead, replace a segment in the inspector, then undo/save/reopen/export. Try unavailable source ranges, speed changes, locked tracks, magnetic connections and detached audio. Verify inactive pages release their players. Cuts currently pause for rebuild; do not describe this as uninterrupted live switching.
 
 Vertical timeline: build a sequence with hundreds of video/audio tracks, scroll vertically and horizontally together, zoom, resize panels and select distant tracks. Verify header/lane alignment, correct drop targets, continued selection and playhead geometry. Observe filmstrip decoding and memory in Instruments; only visible rows plus overscan should request frames. Test drag/trim while scrolling and switching the inspector.
+
+## Compound timelines
+
+- Group a multitrack selection, open its source, edit a title and audio fade, return, trim/retime the parent and compare export. Repeat with nested sources and mixed source frame rates.
+- Save while editing inside a compound, close and reopen. Confirm the outer project and every source edit remain. Undo/redo both inside and outside a source; undo creation while the source is open.
+- Copy a compound to another timeline, verify shared-source behavior, and try pasting into itself: the operation must be rejected without changing the document.
+- Break apart an unprocessed compound; compare image/audio. Confirm transformed/effected compounds report the restriction and retain all edits. Test magnetic gaps, connections, locks, missing media and proxy fallback inside sources.

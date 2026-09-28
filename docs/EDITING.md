@@ -20,6 +20,16 @@ Right-click library media to append, insert or overwrite at the playhead. Insert
 
 Right-click a video clip with embedded audio to detach audio. This creates a separate audio track referencing the same file, preserves timing/speed/volume automation, and mutes the original clip's audio. Undo reverses the complete operation. The resulting video and audio can be selected and moved together.
 
-Copy/paste across multiple tracks preserves track assignment and relative synchronization. Single-track paste targets the selected compatible track. Clipboard contents are scoped to the current project. Range copy/paste is not yet implemented.
+Copy/paste across multiple tracks preserves track assignment and relative synchronization. Single-track paste targets the selected compatible track. Clipboard contents are scoped to the current project. Across compound contexts, missing destination lanes are created with their original media kind; compound source definitions remain shared. Range copy/paste is not yet implemented.
 
-Ripple operations affect one track. They do not imply a magnetic timeline or automatically move connected clips on other tracks. Those workflows remain a separate milestone.
+Traditional ripple operations affect one track. Enable Magnetic Storyline in the Timeline menu for primary-storyline gap removal and connected-clip movement. Explicit gap clips preserve intentional empty time.
+
+## Compound clips
+
+Select clips and choose Create Compound Clip (⌥⌘G). Connected children are included; selection across a transition must include both sides. Intervening unselected video that would change layer order must also be included. Open the compound through its inspector, context menu or Timeline menu. Breadcrumbs return to parent timelines without creating edits.
+
+Parent effects and opacity apply after its children composite. Audio volume, fades and automation multiply through every ancestor. Hiding a video track does not mute its sound; mute and solo retain their per-timeline scope. Parent speed and source trims map into the child's frame rate independently.
+
+Save, recovery and video export always capture the full root document, including edits made inside sources. Compound instances share their source: editing one source changes every instance. Deleting inner clips retains source duration, so an empty source remains a valid transparent/silent interval. Extending contents grows the source without automatically changing existing instances.
+
+Break Apart generates fresh child IDs, preserves source timing and automation phase, and keeps the reusable source definition. Group transforms/effects/speed, non-Normal child blending, solo state, differing sequence settings, or trims through transitions can prevent lossless flattening; reset those conditions first or retain the compound. Track locks remain in force. Cycles are rejected and nesting is limited to eight sources.

@@ -86,6 +86,11 @@ extension EditorSession {
         try await checkMulticamEditing(folder: folder,still: asset)
         try await checkTimelineViewport()
         try await checkCompoundEditing(folder: folder,still: asset)
+        showAngles = false
+        selection = Set(project.tracks.flatMap(\.clips).map(\.id))
+        createCompound(name: "Opening Scene")
+        guard let compound = selectedClip?.compoundID else { throw RenderError.invalid("Workspace compound creation failed.") }
+        openCompound(compound); selectClip(original.id)
         selectedAsset = asset.id
         if let image = try await library.thumbnail(asset) { thumbnails[asset.id] = NSImage(cgImage: image,size: .zero) }
         let deadline = Date().addingTimeInterval(15)
