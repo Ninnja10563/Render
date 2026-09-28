@@ -25,14 +25,13 @@ extension EditorSession {
         editor.sourceMonitor.seek(30); editor.markSource(incoming: true)
         editor.sourceMonitor.seek(59); editor.markSource(incoming: false)
         guard editor.sourceMonitor.range == SourceSelection(start: 1,end: 2),editor.player.currentItem === timelineItem,editor.project.tracks == fixture.tracks else { throw RenderError.invalid("Source marks rebuilt or changed the existing timeline.") }
-        if let path = ProcessInfo.processInfo.environment["RENDER_SCREENSHOT"],let view = window.contentView {
+        if let path = ProcessInfo.processInfo.environment["RENDER_SCREENSHOT"] {
             try await Task.sleep(nanoseconds: 100_000_000)
-            if let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
-                view.cacheDisplay(in: view.bounds,to: bitmap)
-                if let png = bitmap.representation(using: .png,properties: [:]) {
-                    try png.write(to: URL(fileURLWithPath: path).deletingLastPathComponent().appendingPathComponent("workspace-source-\(ProcessInfo.processInfo.environment["RENDER_APPEARANCE"] ?? "dark").png"))
-                }
-            }
+            let screenshot = URL(fileURLWithPath: path).deletingLastPathComponent().appendingPathComponent("workspace-source-\(ProcessInfo.processInfo.environment["RENDER_APPEARANCE"] ?? "dark").png")
+            let capture = Process(); capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            capture.arguments = ["-x","-l",String(window.windowNumber),screenshot.path]
+            try capture.run(); capture.waitUntilExit()
+            guard capture.terminationStatus == 0 else { throw RenderError.invalid("Cannot capture the installed source viewer.") }
         }
         let saved = folder.appendingPathComponent("Source Marks.renderproject")
         try await ProjectStore().save(editor.document,to: saved)

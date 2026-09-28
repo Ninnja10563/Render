@@ -73,7 +73,8 @@ struct SourceViewer: View {
                     if source.reversePreview { Text("Reverse preview · Audio muted").font(.system(size: 9)).foregroundStyle(.secondary) }
                 }.font(.system(size: 10)).controlSize(.small).padding(.horizontal,12).padding(.vertical,8)
             }
-        }.onChange(of: session.selectedAsset) { _,id in if let id { session.openSource(id) } }
+        }.background(Color(nsColor: .windowBackgroundColor))
+            .onChange(of: session.selectedAsset) { _,id in if let id { session.openSource(id) } }
             .onDisappear { source.pause() }
     }
 }
