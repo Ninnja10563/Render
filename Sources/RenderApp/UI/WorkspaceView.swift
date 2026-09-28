@@ -10,11 +10,11 @@ struct WorkspaceView: View {
                 HSplitView {
                     if session.showLibrary { MediaBrowserView(session: session).frame(minWidth: 210, idealWidth: 270, maxWidth: 440) }
                     VStack(spacing: 0) {
-                        ViewerView(session: session).frame(minWidth: 380,maxWidth: .infinity,minHeight: 250,maxHeight: .infinity)
+                        ViewerView(session: session).frame(minWidth: 380,maxWidth: .infinity,minHeight: session.showAngles ? 160 : 250,maxHeight: .infinity)
                         if session.showAngles { MulticamAngleViewer(session: session).frame(height: 140) }
                     }
                     if session.showInspector { InspectorView(session: session).frame(minWidth: 250, idealWidth: 280, maxWidth: 380) }
-                }.frame(minHeight: 280)
+                }.frame(minHeight: session.showAngles ? 310 : 280)
                 if session.showTimeline { TimelineView(session: session).frame(minHeight: 200, idealHeight: 310) }
             }
             statusBar
