@@ -41,6 +41,14 @@ final class AudioFadeTests: XCTestCase {
         XCTAssertTrue(ramps.allSatisfy { $0.end > $0.start && $0.from.isFinite && $0.to.isFinite })
         XCTAssertLessThanOrEqual(ramps.count,130)
     }
+    func testDetachingAudioRetainsClipFades() throws {
+        var p = TimelineTests().fixture(); p.assets[0].audioChannels = 2
+        let fade = ClipAudioFades(start: 0,end: 300,fadeIn: 90,fadeOut: 30)
+        p.tracks[0].clips[0].properties.audioFades = fade
+        let edited = try TimelineCommand.detachAudio(clip: p.tracks[0].clips[0].id).applying(to: p)
+        XCTAssertEqual(edited.tracks.last?.clips.first?.properties.audioFades,fade)
+        XCTAssertTrue(edited.tracks[0].clips[0].properties.muted)
+    }
     func testInvalidAndLegacyPayloads() throws {
         XCTAssertThrowsError(try ClipAudioFades(start: 0,end: 100,fadeIn: 101).validate())
         XCTAssertThrowsError(try ClipAudioFades(start: Int64.min,end: Int64.max).validate())
