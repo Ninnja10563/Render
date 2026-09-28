@@ -21,6 +21,18 @@ extension EditorSession {
         window.makeFirstResponder(nil); tool = .select
         try await post("q",code: 12)
         guard tool == .blade else { throw RenderError.invalid("The remapped shortcut did not select Blade.") }
+        let menu = NSMenu()
+        tool = .select
+        NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification,object: menu)
+        NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification,object: menu)
+        try await post("q",code: 12)
+        guard tool == .select else { throw RenderError.invalid("Editing shortcut intercepted menu input.") }
+        NotificationCenter.default.post(name: NSMenu.didEndTrackingNotification,object: menu)
+        try await post("q",code: 12)
+        guard tool == .select else { throw RenderError.invalid("Closing a submenu resumed editing shortcuts too early.") }
+        NotificationCenter.default.post(name: NSMenu.didEndTrackingNotification,object: menu)
+        try await post("q",code: 12)
+        guard tool == .blade else { throw RenderError.invalid("Editing shortcuts did not resume after menu tracking ended.") }
         tool = .select; try await post("b",code: 11)
         guard tool == .select else { throw RenderError.invalid("The old shortcut still selected Blade.") }
         try store.assign(.init("q",control: true,option: true),to: .trimTool)
@@ -74,6 +86,6 @@ extension EditorSession {
         defaults.set(Data("corrupt shortcuts".utf8),forKey: ShortcutStore.storageKey)
         let recovered = ShortcutStore(defaults: defaults)
         guard recovered.loadError != nil,recovered.map == EditorShortcutMap(),defaults.data(forKey: ShortcutStore.storageKey) == Data("corrupt shortcuts".utf8) else { throw RenderError.invalid("Shortcut recovery discarded the saved data.") }
-        print("RENDER_SHORTCUTS_OK native-events persistence context text-focus recorder recovery")
+        print("RENDER_SHORTCUTS_OK native-events persistence context menu-focus text-focus recorder recovery")
     }
 }

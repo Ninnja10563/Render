@@ -35,6 +35,8 @@ struct RenderApplication: App {
 final class RenderAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     weak var session: EditorSession?
     private var monitor: Any?
+    private var menuTrackingDepth = 0
+    private var menuObservers: [NSObjectProtocol] = []
     var shortcuts = ShortcutStore.shared
     func applicationDidFinishLaunching(_ notification: Notification) {
         if CommandLine.arguments.contains("--smoke-test") {
@@ -89,10 +91,23 @@ final class RenderAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
         }
         return .terminateLater
     }
+    func applicationWillTerminate(_ notification: Notification) {
+        for observer in menuObservers { NotificationCenter.default.removeObserver(observer) }
+        if let monitor { NSEvent.removeMonitor(monitor) }
+    }
     func windowShouldClose(_ sender: NSWindow) -> Bool { NSApp.terminate(nil); return false }
     func installKeyboardMonitor() {
         guard monitor == nil else { return }
+        menuObservers = [
+            NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification,object: nil,queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.menuTrackingDepth += 1 }
+            },
+            NotificationCenter.default.addObserver(forName: NSMenu.didEndTrackingNotification,object: nil,queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { if let self { self.menuTrackingDepth = max(0,self.menuTrackingDepth - 1) } }
+            }
+        ]
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard self?.menuTrackingDepth == 0 else { return event }
             if let capture = NSApp.keyWindow?.firstResponder as? ShortcutCaptureView {
                 capture.keyDown(with: event); return nil
             }
