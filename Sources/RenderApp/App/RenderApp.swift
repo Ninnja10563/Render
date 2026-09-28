@@ -23,9 +23,9 @@ struct RenderApplication: App {
         }
         Settings {
             TabView {
-                UpdateSettingsView(updates: updates).tabItem { Label("Updates",systemImage: "arrow.triangle.2.circlepath") }
                 SettingsView().tabItem { Label("General",systemImage: "gearshape") }
                 ShortcutSettingsView(store: .shared).tabItem { Label("Shortcuts",systemImage: "keyboard") }
+                UpdateSettingsView(updates: updates).tabItem { Label("Updates",systemImage: "arrow.triangle.2.circlepath") }
             }.padding(8)
         }
     }

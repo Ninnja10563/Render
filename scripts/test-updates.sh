@@ -31,6 +31,15 @@ clang -arch arm64 -mmacosx-version-min=14.0 -fobjc-arc -F "$(dirname "$FRAMEWORK
     -framework Sparkle -framework Cocoa -Wl,-rpath,"$(pwd)/$(dirname "$FRAMEWORK")" \
     -Wl,-sectcreate,__TEXT,__info_plist,"$TEST_ROOT/probe.plist" \
     "$SOURCE/main.m" "$SOURCE/SPUCommandLineDriver.m" "$SOURCE/SPUCommandLineUserDriver.m" -o "$TEST_ROOT/probe"
+run_probe() {
+    python3 - "$TEST_ROOT/probe" "$@" <<'PYTHON'
+import subprocess,sys
+try:
+    sys.exit(subprocess.run(sys.argv[1:],timeout=90).returncode)
+except subprocess.TimeoutExpired:
+    print("Update integration command timed out",file=sys.stderr); sys.exit(124)
+PYTHON
+}
 "$TOOLS/generate_keys" --account "$ACCOUNT" > /dev/null
 "$TOOLS/generate_keys" --account "$ACCOUNT" -x "$TEST_ROOT/test.key" > /dev/null
 PUBLIC_KEY=$("$TOOLS/generate_keys" --account "$ACCOUNT" -p)
@@ -60,7 +69,7 @@ python3 - "$TEST_ROOT/server/appcast.xml" <<'PY'
 import pathlib,sys
 p=pathlib.Path(sys.argv[1]); p.write_bytes(p.read_bytes().replace(b'<title>',b'<title>Forged ',1))
 PY
-if "$TEST_ROOT/probe" "$TEST_ROOT/old/Render.app" --probe --feed-url "$FEED" > build/update-forged-feed.log 2>&1; then
+if run_probe "$TEST_ROOT/old/Render.app" --probe --feed-url "$FEED" > build/update-forged-feed.log 2>&1; then
     echo "Forged update feed was accepted"; exit 1
 fi
 grep -iE 'signature|signed|validation' build/update-forged-feed.log
@@ -70,17 +79,17 @@ python3 - "$TEST_ROOT/server/Render.zip" <<'PY'
 import pathlib,sys
 p=pathlib.Path(sys.argv[1]); data=bytearray(p.read_bytes()); data[1024]^=1; p.write_bytes(data)
 PY
-if "$TEST_ROOT/probe" "$TEST_ROOT/old/Render.app" --check-immediately --feed-url "$FEED" > build/update-corrupt-download.log 2>&1; then
+if run_probe "$TEST_ROOT/old/Render.app" --check-immediately --feed-url "$FEED" > build/update-corrupt-download.log 2>&1; then
     echo "Corrupt update was accepted"; exit 1
 fi
 grep -iE 'signature|signed|validation' build/update-corrupt-download.log
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$TEST_ROOT/old/Render.app/Contents/Info.plist")" = 0.0.1
 cp "$TEST_ROOT/archive.good" "$TEST_ROOT/server/Render.zip"
-"$TEST_ROOT/probe" "$TEST_ROOT/old/Render.app" --check-immediately --feed-url "$FEED" > build/update-install.log 2>&1
+run_probe "$TEST_ROOT/old/Render.app" --check-immediately --feed-url "$FEED" > build/update-install.log 2>&1
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$TEST_ROOT/old/Render.app/Contents/Info.plist")" = 0.0.2
 codesign --verify --deep --strict "$TEST_ROOT/old/Render.app"
 set +e
-"$TEST_ROOT/probe" "$TEST_ROOT/old/Render.app" --probe --feed-url "$FEED" > build/update-current.log 2>&1
+run_probe "$TEST_ROOT/old/Render.app" --probe --feed-url "$FEED" > build/update-current.log 2>&1
 RESULT=$?
 set -e
 test "$RESULT" = 4
