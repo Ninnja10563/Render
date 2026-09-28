@@ -146,3 +146,9 @@ TimelineClip.moveAnimationOrigin rebases property/effect curves and fade coordin
 ## Clip audio processors and schema 11 — 0.22.0
 
 Validated AudioEffect stacks compile into preallocated native C DSP programs on each composition audio input. A shared registry attaches the same tap for playback and both export paths; meters are optional. Continuous source spans with equal speed and effect identities retain processor state across blade edits. Nonlinear compound bus processing is deliberately deferred to a real summing architecture. See [Audio processing](AUDIO_PROCESSING.md) for callback constraints, algorithms and limitations.
+
+## Source ranges and schema 12 — 0.24.0
+
+MediaAsset carries optional half-open SourceSelection seconds. Source marks are normal project commands and undo entries; append/insert/overwrite derive the new clip's source-in and whole sequence-frame duration from the same range. Existing clip bounds remain independent of browser marks. Playback-source equality excludes marks so changing them does not rebuild the timeline.
+
+SourceMonitor owns an independent AVPlayer, cancellable image decode and reverse-preview task. Opening/closing sources, returning focus to timeline clips and undoing an import explicitly stop or clear that transport. Source positions use the active sequence time base; Out includes the displayed frame. Native checks exercise saved marks, real playback, range editing, recovered missing files, and decoded preview/export frames. Release packaging now launches the installed app in dark and light appearances.

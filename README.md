@@ -11,7 +11,7 @@ Apple Silicon · macOS 14+ · Xcode 16.4+ for source builds. No external runtime
 ## Working editing path
 
 1. Import video, audio or still images (⌘I or Finder drop).
-2. Double-click media to append, or drag it onto a compatible timeline track.
+2. Double-click media to append, or drag it onto a compatible timeline track. Use Open Source to review it first; mark In/Out with I/O, then append, insert or overwrite the selected range.
 3. Scrub the ruler, play with Space, select with A, blade with B, split with ⌘B. Drag selected clips to move in time or between compatible tracks, drag their edges to trim, Shift-click for multi-selection. R selects ripple trim, O roll, Y slip, U slide, G range and Z zoom (Shift-click zooms out). Select a range and press Delete or Shift-Delete to ripple it.
 4. Adjust transform, opacity, volume, speed and effects in the inspector. Diamonds create property and effect keyframes. The Animation inspector edits key timing, values, linear/ease/hold interpolation, and keyframe copy/paste. Undo/redo uses ⌘Z / ⇧⌘Z.
 5. Save a `.renderproject` document. Original media is referenced without copying. Right-click a media item to relink a moved file.
