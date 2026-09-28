@@ -89,3 +89,10 @@ Vertical timeline: build a sequence with hundreds of video/audio tracks, scroll 
 - Split an unchanged processed clip and listen across the cut; its continuous processor state should remain. Seek, trim to a different source range, add a gap and compare predictable envelope restarts.
 - Use quiet speech, transients and sustained tones to assess gate and compressor timing. Check output clipping after high fader gain and summing tracks. The sample peak limiter is pre-fader and is not a true-peak mastering limiter.
 - Profile audio callback CPU and playback latency on physical Apple Silicon while dragging clips, switching layouts and exporting. Automated numerical tests do not replace listening or device profiling.
+
+## Cross-track dragging
+
+- Drag a single clip and a multitrack selection up/down and forward/backward. Confirm source/animation timing and relative lane spacing, then undo/redo.
+- Try incompatible, locked and occupied destinations, timeline bounds, and a destination inside the selected tracks. Invalid drops must preserve the complete document.
+- Move connected anchors off the primary and clips onto the magnetic primary. Confirm connected timing, packing and cleared connections.
+- Press Escape mid-drag, switch editing tools, scroll the source row out of view and close the timeline. No abandoned drag should remain visible or commit later.

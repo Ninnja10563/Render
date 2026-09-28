@@ -28,7 +28,7 @@ ln -s /Applications "$STAGING/Applications"
 cp docs/INSTALL.md "$STAGING/Read Me.txt"
 DMG="$(pwd)/dist/Render-$VERSION-Apple-Silicon.dmg"
 hdiutil create -volname "Render $VERSION" -srcfolder "$STAGING" -ov -format UDZO "$DMG"
-hdiutil verify "$DMG"
+scripts/verify-dmg.sh "$DMG"
 hdiutil attach "$DMG" -mountpoint "$MOUNT" -nobrowse -readonly
 codesign --verify --deep --strict "$MOUNT/Render.app"
 test -L "$MOUNT/Applications"
