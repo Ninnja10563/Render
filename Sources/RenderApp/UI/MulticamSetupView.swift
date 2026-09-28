@@ -16,7 +16,7 @@ struct MulticamSetupView: View {
                 Text("Camera").frame(width: 100,alignment: .leading)
                 Text("Media").frame(maxWidth: .infinity,alignment: .leading)
                 Text("Offset (s)").frame(width: 65,alignment: .trailing)
-                Color.clear.frame(width: 18)
+                Color.clear.frame(width: 18,height: 1)
             }.font(EditorStyle.metadataFont).foregroundStyle(.secondary)
             ScrollView {
                 VStack(spacing: 8) {

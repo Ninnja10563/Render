@@ -40,9 +40,9 @@ extension EditorSession {
             throw RenderError.invalid("Multicam visual review requires the camera fixture.")
         }
         selection = [cameraClip.id]
-            panel.contentView = NSHostingView(rootView: MulticamSetupView(session: self))
-            panel.setContentSize(NSSize(width: 610,height: 450))
-            try await capture(panel,"multicam-setup")
+        panel.contentView = NSHostingView(rootView: MulticamSetupView(session: self))
+        panel.setContentSize(NSSize(width: 610,height: 450))
+        try await capture(panel,"multicam-setup")
         let empty = EditorSession()
         panel.contentView = NSHostingView(rootView: WorkspaceView(session: empty).frame(minWidth: 960,minHeight: 620))
         panel.setContentSize(NSSize(width: 960,height: 620))
