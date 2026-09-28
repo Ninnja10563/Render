@@ -4,6 +4,7 @@ import RenderCore
 struct MediaBrowserView: View {
     @ObservedObject var session: EditorSession
     @State private var search = ""
+    @AppStorage("Render.MediaGrid") private var grid = true
     var filtered: [MediaAsset] { session.project.assets.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) } }
     var body: some View {
         VStack(spacing: 0) {
@@ -26,6 +27,30 @@ struct MediaBrowserView: View {
                     Text("No matching media").font(.system(size: 12,weight: .medium))
                     Button("Clear Search") { search = "" }.controlSize(.small)
                 }.frame(maxWidth: .infinity,maxHeight: .infinity)
+            } else if grid {
+                ScrollView {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 94),spacing: 12)],alignment: .leading,spacing: 14) {
+                        ForEach(filtered) { media in
+                            Button { session.selectedAsset = media.id } label: {
+                                VStack(alignment: .leading,spacing: 4) {
+                                    ZStack {
+                                        Color.black
+                                        if let image = session.thumbnails[media.id] { Image(nsImage: image).resizable().scaledToFit() }
+                                        else { Image(systemName: media.kind == .audio ? "waveform" : "film").foregroundStyle(.secondary) }
+                                    }.frame(height: 58).clipped()
+                                        .overlay { Rectangle().strokeBorder(session.selectedAsset == media.id ? Color.accentColor : .clear,lineWidth: 1) }
+                                    Text(media.name).font(.system(size: 10)).lineLimit(1).frame(maxWidth: .infinity,alignment: .leading)
+                                    Text(session.fps.timecode(session.fps.frames(media.duration)))
+                                        .font(.system(size: 10,design: .monospaced)).foregroundStyle(.secondary)
+                                }.contentShape(Rectangle())
+                            }.buttonStyle(.plain)
+                                .accessibilityLabel(media.name).accessibilityAddTraits(session.selectedAsset == media.id ? .isSelected : [])
+                                .simultaneousGesture(TapGesture(count: 2).onEnded { session.append(media.id) })
+                                .onDrag { NSItemProvider(object: media.id.uuidString as NSString) }
+                                .contextMenu { mediaMenu(media) }
+                        }
+                    }.padding(10)
+                }.background(EditorStyle.content)
             } else {
                 List(selection: $session.selectedAsset) {
                     ForEach(filtered) { media in
@@ -46,7 +71,24 @@ struct MediaBrowserView: View {
                         }.padding(.vertical,3).tag(media.id)
                         .onTapGesture(count: 2) { session.append(media.id) }
                         .onDrag { NSItemProvider(object: media.id.uuidString as NSString) }
-                        .contextMenu {
+                        .contextMenu { mediaMenu(media) }
+                    }
+                }.listStyle(.plain).scrollContentBackground(.hidden).background(EditorStyle.content)
+            }
+            Divider()
+            HStack(spacing: 8) {
+                Picker("Media layout",selection: $grid) {
+                    Image(systemName: "square.grid.2x2").tag(true)
+                    Image(systemName: "list.bullet").tag(false)
+                }.pickerStyle(.segmented).labelsHidden().controlSize(.small).frame(width: 58).help("Thumbnail or list view")
+                Button("Open Source") { if let id = session.selectedAsset { session.openSource(id) } }.font(.system(size: 10)).buttonStyle(.plain).disabled(session.selectedAsset == nil)
+                Spacer()
+                Button { if let id = session.selectedAsset { session.append(id) } } label: { Image(systemName: "plus.rectangle.on.rectangle") }
+                    .buttonStyle(.plain).disabled(session.selectedAsset == nil).help("Append selected media")
+            }.padding(.horizontal,12).frame(height: 32)
+        }.background(EditorStyle.panel)
+    }
+    @ViewBuilder private func mediaMenu(_ media: MediaAsset) -> some View {
                             Button("Open Source") { session.openSource(media.id) }
                             Button("Append to Timeline") { session.append(media.id) }
                             Button("Insert at Playhead") { session.append(media.id,atPlayhead: true,insert: true) }
@@ -57,17 +99,6 @@ struct MediaBrowserView: View {
                             }
                             Button("Relink Media…") { session.relink(media) }
                             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([media.url]) }
-                        }
-                    }
-                }.listStyle(.plain).scrollContentBackground(.hidden).background(EditorStyle.content)
-            }
-            Divider()
-            HStack {
-                Button("Open Source") { if let id = session.selectedAsset { session.openSource(id) } }.font(.system(size: 10)).buttonStyle(.plain).disabled(session.selectedAsset == nil)
-                Spacer()
-                Button { if let id = session.selectedAsset { session.append(id) } } label: { Image(systemName: "plus.rectangle.on.rectangle") }
-                    .buttonStyle(.plain).disabled(session.selectedAsset == nil).help("Append selected media")
-            }.padding(.horizontal,12).frame(height: 32)
-        }.background(EditorStyle.panel)
+                        
     }
 }
