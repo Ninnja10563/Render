@@ -12,6 +12,7 @@ public struct MediaAsset: Codable, Equatable, Identifiable, Sendable {
     public var frameRate: Double
     public var codec: String
     public var variants: [MediaVariant]?
+    public var selection: SourceSelection?
     public var audioChannels: Int
     public init(url: URL, kind: MediaKind, duration: Double, width: Int = 0, height: Int = 0, frameRate: Double = 0, codec: String = "", audioChannels: Int = 0) {
         self.url = url; name = url.lastPathComponent; self.kind = kind; self.duration = duration
@@ -66,7 +67,7 @@ public struct ProjectSettings: Codable, Equatable, Sendable {
     public init() {}
 }
 public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
-    public static let currentSchema = 11
+    public static let currentSchema = 12
     public var schemaVersion = currentSchema
     public var id = UUID()
     public var name = "Untitled"
@@ -95,6 +96,7 @@ public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
         let compoundIDs = (compounds ?? []).flatMap { [$0.id] + $0.tracks.map(\.id) + $0.tracks.flatMap(\.clips).map(\.id) + $0.markers.map(\.id) }
         guard Set(ids + cameraIDs + compoundIDs).count == ids.count + cameraIDs.count + compoundIDs.count else { throw RenderError.invalid("Project contains duplicate identifiers.") }
         for asset in assets {
+            try asset.selection?.validate(duration: asset.duration)
             let variants = asset.variants ?? []
             guard (variants.isEmpty || asset.kind == .video), variants.count <= 2, Set(variants.map(\.mode)).count == variants.count,
                   variants.allSatisfy({ $0.mode != .original && $0.url.isFileURL && $0.source.url.isFileURL && $0.source.size >= 0 && $0.source.modified.timeIntervalSince1970.isFinite }) else {

@@ -41,6 +41,7 @@ struct MediaBrowserView: View {
                         .onTapGesture(count: 2) { session.append(media.id) }
                         .onDrag { NSItemProvider(object: media.id.uuidString as NSString) }
                         .contextMenu {
+                            Button("Open Source") { session.openSource(media.id) }
                             Button("Append to Timeline") { session.append(media.id) }
                             Button("Insert at Playhead") { session.append(media.id,atPlayhead: true,insert: true) }
                             Button("Overwrite at Playhead") { session.append(media.id,atPlayhead: true,overwrite: true) }
@@ -56,7 +57,7 @@ struct MediaBrowserView: View {
             }
             Divider()
             HStack {
-                Text("Double-click to append").font(.system(size: 10)).foregroundStyle(.secondary)
+                Button("Open Source") { if let id = session.selectedAsset { session.openSource(id) } }.font(.system(size: 10)).buttonStyle(.plain).disabled(session.selectedAsset == nil)
                 Spacer()
                 Button { if let id = session.selectedAsset { session.append(id) } } label: { Image(systemName: "plus.rectangle.on.rectangle") }
                     .buttonStyle(.plain).disabled(session.selectedAsset == nil).help("Append selected media")

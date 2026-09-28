@@ -84,6 +84,27 @@ final class RenderAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
                   NSApp.modalWindow == nil, NSApp.keyWindow?.attachedSheet == nil,
                   !(NSApp.keyWindow?.firstResponder is NSTextView),
                   event.modifierFlags.intersection([.command,.control,.option]).isEmpty else { return event }
+            if session.showingSource {
+                let source = session.sourceMonitor
+                switch event.keyCode {
+                case 49: source.togglePlayback()
+                case 123: source.seek(source.frame - (event.modifierFlags.contains(.shift) ? 10 : 1))
+                case 124: source.seek(source.frame + (event.modifierFlags.contains(.shift) ? 10 : 1))
+                case 115: source.seek(0)
+                case 119: source.seek(source.totalFrames - 1)
+                case 53: session.closeSource()
+                default:
+                    switch event.charactersIgnoringModifiers?.lowercased() {
+                    case "i": session.markSource(incoming: true)
+                    case "o": session.markSource(incoming: false)
+                    case "j": source.shuttle(-1)
+                    case "k": source.pause()
+                    case "l": source.shuttle(1)
+                    default: return event
+                    }
+                }
+                return nil
+            }
             switch event.keyCode {
             case 53: session.timelineDrag.cancel()
             case 49: session.togglePlayback()

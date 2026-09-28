@@ -14,6 +14,7 @@ public enum TimelineCommand: Sendable {
     case title(clip: UUID,TitleContent)
     case captions([CaptionCue])
     case addAsset(MediaAsset)
+    case sourceSelection(asset: UUID,SourceSelection?)
     case addTrack(TrackKind)
     case append(asset: UUID, track: UUID, at: Int64)
     case insert(asset: UUID, track: UUID, at: Int64)
@@ -56,6 +57,7 @@ public enum TimelineCommand: Sendable {
         case .title: return "Edit Title"
         case .captions: return "Import Captions"
         case .addAsset: return "Import Media"
+        case .sourceSelection: return "Change Source Marks"
         case .addTrack: return "Add Track"
         case .append: return "Add Clip"
         case .insert: return "Insert Clip"
@@ -120,7 +122,9 @@ public enum TimelineCommand: Sendable {
         func newClip(_ assetID: UUID, _ at: Int64) throws -> TimelineClip {
             guard let asset = project.assets.first(where: { $0.id == assetID }) else { throw RenderError.invalid("Select valid media first.") }
             let frames = asset.kind == .image ? project.settings.frameRate.frames(5) : Int64((asset.duration * project.settings.frameRate.value).rounded(.down))
-            return TimelineClip(assetID: asset.id, name: asset.name, start: at, duration: max(1, frames))
+            var clip = TimelineClip(assetID: asset.id,name: asset.name,start: at,duration: max(1,frames))
+            if let range = asset.selection { clip.sourceIn = range.start; clip.duration = try range.clipFrames(at: project.settings.frameRate) }
+            return clip
         }
         func reconnectSplit(_ old: TimelineClip,right: TimelineClip,cut: Int64) throws {
             for t in project.tracks.indices {
@@ -217,6 +221,10 @@ public enum TimelineCommand: Sendable {
                 else { var lane = TimelineTrack(name: "Captions \(lanes.count + 1)",kind: .video); lane.clips = [clip]; lanes.append(lane) }
             }
             project.tracks.insert(contentsOf: lanes,at: 0)
+        case .sourceSelection(let id,let range):
+            guard let index = project.assets.firstIndex(where: { $0.id == id }) else { throw RenderError.invalid("Source media no longer exists.") }
+            try range?.validate(duration: project.assets[index].duration)
+            project.assets[index].selection = range
         case .addAsset(let asset):
             project.assets.append(asset)
         case .addTrack(let kind):

@@ -15,7 +15,15 @@ struct WorkspaceView: View {
                         }.frame(minWidth: 210,idealWidth: 270,maxWidth: 440)
                     }
                     VStack(spacing: 0) {
-                        ViewerView(session: session).frame(minWidth: 380,maxWidth: .infinity,minHeight: session.showAngles ? 160 : 250,maxHeight: .infinity)
+                        HStack(spacing: 12) {
+                            Button("Timeline") { session.closeSource() }.fontWeight(session.showingSource ? .regular : .semibold)
+                            Button("Source") { if let id = session.selectedAsset { session.openSource(id) } }.fontWeight(session.showingSource ? .semibold : .regular).disabled(session.selectedAsset == nil)
+                            Spacer()
+                        }.buttonStyle(.plain).font(.system(size: 11)).padding(.horizontal,12).frame(height: 26)
+                        Group {
+                            if session.showingSource { SourceViewer(session: session) }
+                            else { ViewerView(session: session) }
+                        }.frame(minWidth: 380,maxWidth: .infinity,minHeight: session.showAngles ? 160 : 250,maxHeight: .infinity)
                         if session.showAngles { MulticamAngleViewer(session: session).frame(height: 140) }
                     }
                     if session.showInspector { InspectorView(session: session).frame(minWidth: 250, idealWidth: 280, maxWidth: 380) }

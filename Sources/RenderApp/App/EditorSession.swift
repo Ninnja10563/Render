@@ -16,6 +16,8 @@ final class EditorSession: ObservableObject {
     @Published var selectedRange: TimelineSelectionRange?
     @Published var selectedAsset: UUID?
     @Published var selectedTrack: UUID?
+    let sourceMonitor = SourceMonitor()
+    @Published var showingSource = false
     let timelineDrag = TimelineDragState()
     let transport = TransportState()
     let audioMeters = AudioMeterState()
@@ -139,11 +141,12 @@ final class EditorSession: ObservableObject {
         if explicitGroup { history.endUndoGrouping() }
         let previousTimeline = project
         displayDocument(next)
+        if showingSource,let id = sourceMonitor.asset?.id,let media = project.assets.first(where: { $0.id == id }) { sourceMonitor.configure(media,rate: fps) }
         isDirty = next != savedProject
         selection = selection.filter { project.clip($0) != nil }
         scheduleRecovery()
         if previousTimeline.tracks != project.tracks || previousTimeline.settings != project.settings || previousTimeline.compounds != project.compounds ||
-            previousTimeline.assets.contains(where: { old in project.assets.first(where: { $0.id == old.id }) != old }) { rebuild() }
+            previousTimeline.assets.contains(where: { old in project.assets.first(where: { $0.id == old.id }).map { !old.hasSamePlaybackSource(as: $0) } ?? true }) { rebuild() }
     }
     private func displayDocument(_ root: RenderProject) {
         timelineDrag.cancel()
@@ -440,7 +443,7 @@ final class EditorSession: ObservableObject {
         backgroundTasks.cancelAll()
         recoveryTask?.cancel(); history.removeAllActions()
         previewTasks.values.forEach { $0.cancel() }; previewTasks.removeAll()
-        compoundPath = []; compoundRoot = nil
+        compoundPath = []; compoundRoot = nil; showingSource = false; sourceMonitor.clear()
         project = value; savedProject = value; documentURL = url
         selection = []; selectedRange = nil; selectedAsset = nil; selectedTrack = nil; playhead = 0; isDirty = false
         thumbnails = [:]; waveforms = [:]; clipboard = []; clipboardProjectID = nil
