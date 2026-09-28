@@ -100,4 +100,11 @@ run_probe "$TEST_ROOT/old/Render.app" --probe --feed-url "$FEED" > build/update-
 RESULT=$?
 set -e
 test "$RESULT" = 4
-echo "RENDER_UPDATE_INSTALL_OK signed-feed forged-feed corrupt-archive install current-version"
+python3 - "$TEST_ROOT/old/Render.app/Contents/MacOS/Render" "$TEST_ROOT/updated-workspace.png" <<'PYTHON'
+import os,subprocess,sys
+with open('build/update-launch.log','w') as log:
+    result=subprocess.run([sys.argv[1],'--smoke-test'],env={**os.environ,'RENDER_APPEARANCE':'dark','RENDER_SCREENSHOT':sys.argv[2]},stdout=log,stderr=subprocess.STDOUT,timeout=90)
+    sys.exit(result.returncode)
+PYTHON
+grep -q RENDER_SMOKE_OK build/update-launch.log
+echo "RENDER_UPDATE_INSTALL_OK signed-feed forged-feed corrupt-archive install current-version launch"

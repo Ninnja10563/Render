@@ -7,7 +7,7 @@ The update channel carries Render development prereleases. There is no separate 
 ## Release path
 
 1. The existing release workflow builds/tests the app, installs and launches the DMG copy, exercises native input, and captures both appearances.
-2. `scripts/test-updates.sh` builds Sparkle’s pinned command-line test driver, creates disposable app copies and test-only keys, rejects a forged feed and corrupt archive, performs an actual update, verifies its bundle signature, and checks current-version behavior. Its HTTP server binds only to loopback. Production transport remains HTTPS.
+2. `scripts/test-updates.sh` builds Sparkle’s pinned command-line test driver, creates disposable app copies and test-only keys, rejects a forged feed and corrupt archive, performs an actual update, verifies its bundle signature, and checks current-version behavior and launches the replaced app. Its HTTP server binds only to loopback. Production transport remains HTTPS.
 3. `scripts/prepare-update.sh` reads `SPARKLE_PRIVATE_KEY` from a GitHub Actions secret into a protected temporary file. It verifies that the private key matches `SUPublicEDKey`, signs the DMG and appcast, and verifies the feed signature. No private material is included in the app or artifacts.
 4. The workflow uploads the DMG, checksum, signed appcast and notes to the versioned GitHub Release, then publishes the feed to the `updates` branch. Only feed metadata is committed there; historical DMGs remain release assets.
 
