@@ -19,16 +19,21 @@ struct RenderMeter {
     MeterRamp *ramps; size_t rampCount, rampCapacity;
     bool supported;
     AudioStreamBasicDescription format;
-    MeterSlot slots[RENDER_METER_SLOTS];
+    MeterSlot *slots;
+    RenderAudioProgramRef program;
+    atomic_bool processingFailed;
 };
 static unsigned floatBits(float value) { unsigned bits; memcpy(&bits,&value,sizeof(bits)); return bits; }
 static float bitsFloat(unsigned bits) { float value; memcpy(&value,&bits,sizeof(value)); return value; }
 static unsigned long long doubleBits(double value) { unsigned long long bits; memcpy(&bits,&value,sizeof(bits)); return bits; }
 static double bitsDouble(unsigned long long bits) { double value; memcpy(&value,&bits,sizeof(value)); return value; }
-RenderMeterRef RenderMeterCreate(void) {
+RenderMeterRef RenderMeterCreate(bool measuring) {
     RenderMeterRef meter = calloc(1,sizeof(struct RenderMeter));
     if (!meter) return NULL;
-    atomic_init(&meter->references,1);
+    atomic_init(&meter->references,1);atomic_init(&meter->processingFailed,false);
+    if (!measuring) return meter;
+    meter->slots=calloc(RENDER_METER_SLOTS,sizeof(MeterSlot));
+    if (!meter->slots) { free(meter);return NULL; }
     for (unsigned i=0;i<RENDER_METER_SLOTS;i++) {
         MeterSlot *slot = &meter->slots[i];
         atomic_init(&slot->sequence,0); atomic_init(&slot->start,0); atomic_init(&slot->end,0); atomic_init(&slot->channels,0);
@@ -37,7 +42,7 @@ RenderMeterRef RenderMeterCreate(void) {
     return meter;
 }
 void RenderMeterRelease(RenderMeterRef meter) {
-    if (atomic_fetch_sub_explicit(&meter->references,1,memory_order_acq_rel)==1) { free(meter->ramps); free(meter); }
+    if (atomic_fetch_sub_explicit(&meter->references,1,memory_order_acq_rel)==1) { free(meter->ramps); free(meter->slots); RenderAudioProgramDestroy(meter->program); free(meter); }
 }
 // Called only while compiling a composition, before the tap is used. Never on the audio thread.
 bool RenderMeterAppendRamp(RenderMeterRef meter,double start,double end,float from,float to) {
@@ -63,6 +68,12 @@ static float rampGain(RenderMeterRef meter,double time,size_t *index) {
     double fraction=fmax(0,fmin(1,(time-ramp.start)/(ramp.end-ramp.start)));
     return ramp.from+(ramp.to-ramp.from)*(float)fraction;
 }
+bool RenderMeterAppendEffects(RenderMeterRef meter,double start,double end,const RenderAudioEffectDescriptor *effects,size_t count) {
+    if (!count) return true;
+    if (!meter->program) meter->program=RenderAudioProgramCreate();
+    return meter->program && RenderAudioProgramAppend(meter->program,start,end,effects,count);
+}
+bool RenderMeterProcessingFailed(RenderMeterRef meter) { return atomic_load_explicit(&meter->processingFailed,memory_order_relaxed); }
 static void meterInit(MTAudioProcessingTapRef tap,void *client,void **storage) {
     RenderMeterRef meter = client;
     atomic_fetch_add_explicit(&meter->references,1,memory_order_relaxed); *storage = meter;
@@ -70,7 +81,11 @@ static void meterInit(MTAudioProcessingTapRef tap,void *client,void **storage) {
 static void meterFinalize(MTAudioProcessingTapRef tap) { RenderMeterRelease(MTAudioProcessingTapGetStorage(tap)); }
 static void meterPrepare(MTAudioProcessingTapRef tap,CMItemCount maxFrames,const AudioStreamBasicDescription *format) {
     RenderMeterRef meter = MTAudioProcessingTapGetStorage(tap); meter->format = *format;
-    meter->supported = format->mFormatID == kAudioFormatLinearPCM && (format->mFormatFlags & kAudioFormatFlagIsFloat) && format->mBitsPerChannel == 32 && !(format->mFormatFlags & kAudioFormatFlagIsBigEndian);
+    meter->supported = format->mChannelsPerFrame<=8 && format->mSampleRate>0 && format->mFormatID == kAudioFormatLinearPCM && (format->mFormatFlags & kAudioFormatFlagIsFloat) && format->mBitsPerChannel == 32 && !(format->mFormatFlags & kAudioFormatFlagIsBigEndian);
+    if (meter->program) {
+        if (!meter->supported) atomic_store_explicit(&meter->processingFailed,true,memory_order_relaxed);
+        RenderAudioProgramPrepare(meter->program,format->mSampleRate);
+    }
 }
 static void meterUnprepare(MTAudioProcessingTapRef tap) { ((RenderMeterRef)MTAudioProcessingTapGetStorage(tap))->supported = false; }
 static void meterProcess(MTAudioProcessingTapRef tap,CMItemCount requested,MTAudioProcessingTapFlags flags,AudioBufferList *buffers,CMItemCount *framesOut,MTAudioProcessingTapFlags *flagsOut) {
@@ -81,6 +96,18 @@ static void meterProcess(MTAudioProcessingTapRef tap,CMItemCount requested,MTAud
     if (status != noErr || !meter->supported || *framesOut <= 0 || !CMTIMERANGE_IS_VALID(range)) return;
     double start = CMTimeGetSeconds(range.start), end = CMTimeGetSeconds(CMTimeRangeGetEnd(range));
     if (!isfinite(start) || !isfinite(end) || end <= start) return;
+    if (meter->program) {
+        float *pointers[8];unsigned strides[8],count=0;size_t safeFrames=(size_t)*framesOut;
+        for (unsigned b=0;b<buffers->mNumberBuffers && count<8;b++) {
+            AudioBuffer *buffer=&buffers->mBuffers[b];unsigned channels=buffer->mNumberChannels;
+            if (!channels || !buffer->mData) continue;
+            size_t available=buffer->mDataByteSize/sizeof(float)/channels;
+            if (available<safeFrames) safeFrames=available;
+            for (unsigned c=0;c<channels && count<8;c++,count++) { pointers[count]=(float *)buffer->mData+c;strides[count]=channels; }
+        }
+        RenderAudioProgramProcess(meter->program,pointers,strides,count,safeFrames,start,end-start);
+    }
+    if (!meter->slots) return;
     float peaks[8] = {0}, rms[8] = {0}; unsigned channel = 0;
     for (unsigned b=0;b<buffers->mNumberBuffers && channel<8;b++) {
         AudioBuffer *buffer = &buffers->mBuffers[b];
@@ -118,7 +145,7 @@ MTAudioProcessingTapRef RenderMeterCreateTap(RenderMeterRef meter) {
 }
 RenderMeterSnapshot RenderMeterRead(RenderMeterRef meter,double seconds) {
     RenderMeterSnapshot result = {0};
-    if (!isfinite(seconds)) return result;
+    if (!meter->slots || !isfinite(seconds)) return result;
     unsigned long long newest = 0;
     for (unsigned i=0;i<RENDER_METER_SLOTS;i++) {
         MeterSlot *slot = &meter->slots[i];

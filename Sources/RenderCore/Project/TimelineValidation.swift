@@ -49,6 +49,11 @@ extension RenderProject {
                 let p = clip.properties
                 try p.geometry?.validate()
                 try p.audioFades?.validate()
+                if let effects = p.audioEffects, !effects.isEmpty {
+                    guard effects.count <= 16, Set(effects.map(\.id)).count == effects.count else { throw RenderError.invalid("An audio clip supports up to 16 distinct processors.") }
+                    guard clip.compoundID == nil, let assetID = clip.assetID, let media = mediaByID[assetID], media.audioChannels > 0, media.audioChannels <= 8 else { throw RenderError.invalid("Audio processors require a source clip with one to eight channels. Open a compound to process its audio sources.") }
+                    for effect in effects { try effect.validate() }
+                }
                 guard [p.x,p.y,p.scale,p.rotation,p.opacity,p.volume].allSatisfy(\.isFinite),
                       (0.01...10).contains(p.scale), (0...1).contains(p.opacity), (0...4).contains(p.volume),
                       abs(p.x) <= 32768, abs(p.y) <= 32768, abs(p.rotation) <= 3600 else { throw RenderError.invalid("Invalid clip properties.") }

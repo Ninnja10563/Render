@@ -66,7 +66,7 @@ public struct ProjectSettings: Codable, Equatable, Sendable {
     public init() {}
 }
 public struct RenderProject: Codable, Equatable, Identifiable, Sendable {
-    public static let currentSchema = 10
+    public static let currentSchema = 11
     public var schemaVersion = currentSchema
     public var id = UUID()
     public var name = "Untitled"

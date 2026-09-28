@@ -13,6 +13,8 @@ public struct AudioMeterReading: Sendable {
 public final class AudioMeterSource: @unchecked Sendable, Identifiable {
     public let id = UUID()
     public let name: String
+    public let measuring: Bool
+    public var processingFailed: Bool { RenderMeterProcessingFailed(handle) }
     let tap: MTAudioProcessingTap
     private let handle: RenderMeterRef
     // Populated during composition compilation, before this owner is published to playback/UI.
@@ -24,10 +26,24 @@ public final class AudioMeterSource: @unchecked Sendable, Identifiable {
         if low > 0, seconds < segments[low - 1].end { return segments[low - 1].name }
         return name
     }
-    init(name: String) throws {
-        guard let handle = RenderMeterCreate() else { throw RenderError.invalid("Cannot allocate audio metering storage.") }
+    init(name: String,measuring: Bool = true) throws {
+        guard let handle = RenderMeterCreate(measuring) else { throw RenderError.invalid("Cannot allocate audio metering storage.") }
         guard let tap = RenderMeterCreateTap(handle) else { RenderMeterRelease(handle); throw RenderError.invalid("Cannot create an audio processing tap.") }
-        self.handle = handle; self.tap = tap; self.name = name
+        self.handle = handle; self.tap = tap; self.name = name; self.measuring = measuring
+    }
+    func appendEffects(_ effects: [AudioEffect],start: Double,end: Double) throws {
+        let active = effects.filter(\.enabled)
+        let descriptors = active.map { effect -> RenderAudioEffectDescriptor in
+            var descriptor = RenderAudioEffectDescriptor()
+            switch effect.kind { case .equalizer: descriptor.kind = 0; case .compressor: descriptor.kind = 1; case .limiter: descriptor.kind = 2; case .noiseGate: descriptor.kind = 3 }
+            let values = effect.kind.parameters.map { effect.value($0.key) }
+            withUnsafeMutableBytes(of: &descriptor.values) { buffer in
+                let numbers = buffer.bindMemory(to: Double.self)
+                for (index,value) in values.enumerated() { numbers[index] = value }
+            }
+            return descriptor
+        }
+        guard descriptors.withUnsafeBufferPointer({ RenderMeterAppendEffects(handle,start,end,$0.baseAddress,$0.count) }) else { throw RenderError.invalid("Cannot compile audio processors.") }
     }
     func appendVolumeRamp(from: Float,to: Float,start: Double,end: Double) throws {
         guard RenderMeterAppendRamp(handle,start,end,from,to) else { throw RenderError.invalid("Cannot compile audio meter automation.") }

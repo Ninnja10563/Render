@@ -93,6 +93,7 @@ public struct ClipProperties: Codable, Equatable, Sendable {
     public var muted = false
     public var geometry: ClipGeometry?
     public var audioFades: ClipAudioFades?
+    public var audioEffects: [AudioEffect]?
     public var animations: [String: AnimationCurve] = [:]
     public init() {}
     public func value(_ property: String, at frame: Double) -> Double {

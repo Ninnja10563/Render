@@ -334,6 +334,7 @@ public enum TimelineCommand: Sendable {
             audioClip.properties.volume = clip.properties.volume; audioClip.properties.muted = clip.properties.muted
             audioClip.properties.animations["volume"] = clip.properties.animations["volume"]
             audioClip.properties.audioFades = clip.properties.audioFades
+            audioClip.properties.audioEffects = clip.properties.audioEffects
             var audioTrack = TimelineTrack(name: "Detached Audio",kind: .audio); audioTrack.clips = [audioClip]
             project.tracks.append(audioTrack)
             project.tracks[t].clips[c].properties.muted = true
