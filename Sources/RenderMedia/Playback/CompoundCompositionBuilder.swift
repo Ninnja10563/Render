@@ -138,7 +138,7 @@ private final class CompoundPlanner {
                         let target = audioSlots[slot].track; audioSlots[slot].end = time(span.end)
                         try target.insertTimeRange(audioRange,of: audio,at: audioStart)
                         target.scaleTimeRange(CMTimeRange(start: audioStart,duration: audioRange.duration),toDuration: time((hi - lo) / speed))
-                        let input = try processing.attach(clip: clip,name: "\(track.name) · \(clip.name)",target: target,mix: audioSlots[slot].mix,start: audioStart.seconds,end: min(time(span.end).seconds,(audioStart + time((hi - lo) / speed)).seconds))
+                        let input = try processing.attach(clip: clip,name: "\(track.name) · \(clip.name)",target: target,mix: audioSlots[slot].mix,start: audioStart.seconds,end: min(time(span.end).seconds,(audioStart + time((hi - lo) / speed)).seconds),sourceStart: audioRange.start.seconds,sourceEnd: audioRange.end.seconds,speed: speed)
                         try CompoundAudioMix.apply(gains,window: span,to: audioSlots[slot].mix,meter: input)
                     }
                 }

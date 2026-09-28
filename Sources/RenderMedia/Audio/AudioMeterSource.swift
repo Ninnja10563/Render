@@ -32,7 +32,7 @@ public final class AudioMeterSource: @unchecked Sendable, Identifiable {
         guard let tap = RenderMeterCreateTap(handle) else { RenderMeterRelease(handle); throw RenderError.invalid("Cannot create an audio processing tap.") }
         self.handle = handle; self.tap = tap; self.name = name; self.measuring = measuring
     }
-    func appendEffects(_ effects: [AudioEffect],start: Double,end: Double) throws {
+    func appendEffects(_ effects: [AudioEffect],start: Double,end: Double,continuous: Bool) throws {
         let active = effects.filter(\.enabled)
         guard !active.isEmpty else { return }
         let descriptors = active.map { effect -> RenderAudioEffectDescriptor in
@@ -45,7 +45,7 @@ public final class AudioMeterSource: @unchecked Sendable, Identifiable {
             }
             return descriptor
         }
-        guard descriptors.withUnsafeBufferPointer({ RenderMeterAppendEffects(handle,start,end,$0.baseAddress,$0.count) }) else { throw RenderError.invalid("Cannot compile audio processors.") }
+        guard descriptors.withUnsafeBufferPointer({ RenderMeterAppendEffects(handle,start,end,$0.baseAddress,$0.count,continuous) }) else { throw RenderError.invalid("Cannot compile audio processors.") }
     }
     func appendVolumeRamp(from: Float,to: Float,start: Double,end: Double) throws {
         guard measuring else { return }

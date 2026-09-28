@@ -9,7 +9,7 @@ typedef struct { uint32_t kind; double values[8]; } RenderAudioEffectDescriptor;
 typedef struct RenderAudioProgram *RenderAudioProgramRef;
 RenderAudioProgramRef RenderAudioProgramCreate(void);
 void RenderAudioProgramDestroy(RenderAudioProgramRef program);
-bool RenderAudioProgramAppend(RenderAudioProgramRef program,double start,double end,const RenderAudioEffectDescriptor *effects,size_t count);
+bool RenderAudioProgramAppend(RenderAudioProgramRef program,double start,double end,const RenderAudioEffectDescriptor *effects,size_t count,bool continuous);
 void RenderAudioProgramPrepare(RenderAudioProgramRef program,double sampleRate);
 void RenderAudioProgramProcess(RenderAudioProgramRef program,float **channels,const unsigned *strides,unsigned channelCount,size_t frames,double start,double duration);
 #endif

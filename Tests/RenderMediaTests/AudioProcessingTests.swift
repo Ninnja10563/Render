@@ -41,6 +41,14 @@ extension MediaIntegrationTests {
             let waveform = try await library.waveform(exported,bins: 100)
             XCTAssertEqual(Double(waveform[30..<80].max() ?? 0),0.4 * pow(10,-0.6),accuracy: 0.018,"Export path \(index) must apply the audio stack")
         }
+        var compressed = project
+        compressed.tracks[1].clips[0].properties.audioEffects = [AudioEffect(kind: .compressor)]
+        let unsplit = try await CompositionBuilder().build(compressed)
+        let originalPeaks = try readProcessedPeaks(unsplit)
+        let split = try TimelineCommand.split(clips: [clip.id],at: 30).applying(to: compressed)
+        let cut = try await CompositionBuilder().build(split)
+        let splitPeaks = try readProcessedPeaks(cut)
+        for channel in 0..<2 { XCTAssertEqual(splitPeaks[channel],originalPeaks[channel],accuracy: 0.002,"A blade edit must not restart the compressor envelope") }
         project.tracks[1].clips[0].properties.audioEffects![0].enabled = false
         let bypassed = try await CompositionBuilder().build(project)
         XCTAssertTrue(bypassed.audioProcessing.isEmpty)

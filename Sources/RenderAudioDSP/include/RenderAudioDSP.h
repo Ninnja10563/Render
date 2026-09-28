@@ -15,7 +15,7 @@ typedef struct {
 RenderMeterRef _Nullable RenderMeterCreate(bool measuring);
 void RenderMeterRelease(RenderMeterRef meter);
 bool RenderMeterAppendRamp(RenderMeterRef meter,double start,double end,float from,float to);
-bool RenderMeterAppendEffects(RenderMeterRef meter,double start,double end,const RenderAudioEffectDescriptor * _Nullable effects,size_t count);
+bool RenderMeterAppendEffects(RenderMeterRef meter,double start,double end,const RenderAudioEffectDescriptor * _Nullable effects,size_t count,bool continuous);
 bool RenderMeterProcessingFailed(RenderMeterRef meter);
 RenderMeterSnapshot RenderMeterRead(RenderMeterRef meter, double seconds);
 CF_IMPLICIT_BRIDGING_ENABLED

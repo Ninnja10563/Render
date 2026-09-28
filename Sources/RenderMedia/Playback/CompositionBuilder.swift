@@ -139,7 +139,7 @@ public actor CompositionBuilder {
                     audioSlots[slot].end = start + targetDuration
                     try target.insertTimeRange(audioRange, of: source, at: audioStart)
                     target.scaleTimeRange(CMTimeRange(start: audioStart, duration: audioRange.duration), toDuration: time(audioRange.duration.seconds / clip.speed))
-                    let input = try processing.attach(clip: clip,name: "\(track.name) · \(clip.name)",target: target,mix: mix,start: audioStart.seconds,end: min((start + targetDuration).seconds,(audioStart + time(audioRange.duration.seconds / clip.speed)).seconds))
+                    let input = try processing.attach(clip: clip,name: "\(track.name) · \(clip.name)",target: target,mix: mix,start: audioStart.seconds,end: min((start + targetDuration).seconds,(audioStart + time(audioRange.duration.seconds / clip.speed)).seconds),sourceStart: audioRange.start.seconds,sourceEnd: audioRange.end.seconds,speed: clip.speed)
                     let curve = clip.properties.animations["volume"] ?? AnimationCurve()
                     let base = AudioAutomation.ramps(curve: curve,offset: clip.animationOffset - preroll,duration: renderEnd - renderStart,fallback: clip.properties.volume)
                     let faded = AudioAutomation.applying(clip.properties.audioFades,to: base,offset: clip.animationOffset - preroll)

@@ -42,12 +42,20 @@ RenderAudioProgramRef RenderAudioProgramCreate(void) {
     return program;
 }
 void RenderAudioProgramDestroy(RenderAudioProgramRef p) { if (p) { free(p->segments);free(p); } }
-bool RenderAudioProgramAppend(RenderAudioProgramRef p,double start,double end,const RenderAudioEffectDescriptor *effects,size_t count) {
+bool RenderAudioProgramAppend(RenderAudioProgramRef p,double start,double end,const RenderAudioEffectDescriptor *effects,size_t count,bool continuous) {
     if (!p || !isfinite(start)||!isfinite(end)||end<=start||count>EFFECT_LIMIT||(count&&!effects)) return false;
     if (p->count && start<p->segments[p->count-1].end-1e-7) return false;
     for (size_t i=0;i<count;i++) {
         if (effects[i].kind>3) return false;
         for (unsigned v=0;v<8;v++) if (!isfinite(effects[i].values[v])) return false;
+    }
+    if (continuous && p->count) {
+        Segment *previous=&p->segments[p->count-1];bool same=previous->count==count && fabs(previous->end-start)<1e-7;
+        for (size_t i=0;same && i<count;i++) {
+            same=previous->effects[i].descriptor.kind==effects[i].kind;
+            for (unsigned v=0;same && v<8;v++) same=previous->effects[i].descriptor.values[v]==effects[i].values[v];
+        }
+        if (same) { previous->end=end;return true; }
     }
     if (p->count==p->capacity) {
         size_t capacity=p->capacity ? p->capacity*2 : 8;

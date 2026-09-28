@@ -81,3 +81,11 @@ Vertical timeline: build a sequence with hundreds of video/audio tracks, scroll 
 - Extend a clip with unused leading source media and animated transform, effect and volume. Compare the retained material before/after, then undo/redo.
 - Repeat with roll, slide and ripple-leading tools, connected titles and locked tracks. Real source underruns must still fail atomically.
 - Extend a title, still and explicit gap earlier; slip a trimmed compound through its available source range.
+
+## Clip audio processors
+
+- Add EQ, compressor, sample peak limiter and gate to mono, stereo and multichannel source clips. Compare playback and each export codec, including nested timelines, speed changes and transitions.
+- Bypass, reorder, reset and remove processors. Edit a focused numeric field and save; reopen and undo/redo. Try locked tracks, unsupported channel counts and compound instances.
+- Split an unchanged processed clip and listen across the cut; its continuous processor state should remain. Seek, trim to a different source range, add a gap and compare predictable envelope restarts.
+- Use quiet speech, transients and sustained tones to assess gate and compressor timing. Check output clipping after high fader gain and summing tracks. The sample peak limiter is pre-fader and is not a true-peak mastering limiter.
+- Profile audio callback CPU and playback latency on physical Apple Silicon while dragging clips, switching layouts and exporting. Automated numerical tests do not replace listening or device profiling.

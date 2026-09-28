@@ -142,3 +142,7 @@ Native AVPlayer reverse playback remains preferred. Unsupported compositions use
 ## Leading-handle reliability — 0.21.1
 
 TimelineClip.moveAnimationOrigin rebases property/effect curves and fade coordinates when a leading extension would otherwise produce a negative animationOffset. TimelineCommand records logical origin deltas separately for MagneticEditing reconciliation, so this internal coordinate translation does not change clip-connection timing. Generated-source inpoints clamp at zero while media/compound bounds remain validated. No additional persistent fields are required.
+
+## Clip audio processors and schema 11 — 0.22.0
+
+Validated AudioEffect stacks compile into preallocated native C DSP programs on each composition audio input. A shared registry attaches the same tap for playback and both export paths; meters are optional. Continuous source spans with equal speed and effect identities retain processor state across blade edits. Nonlinear compound bus processing is deliberately deferred to a real summing architecture. See [Audio processing](AUDIO_PROCESSING.md) for callback constraints, algorithms and limitations.

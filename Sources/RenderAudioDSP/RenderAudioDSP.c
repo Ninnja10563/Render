@@ -68,10 +68,10 @@ static float rampGain(RenderMeterRef meter,double time,size_t *index) {
     double fraction=fmax(0,fmin(1,(time-ramp.start)/(ramp.end-ramp.start)));
     return ramp.from+(ramp.to-ramp.from)*(float)fraction;
 }
-bool RenderMeterAppendEffects(RenderMeterRef meter,double start,double end,const RenderAudioEffectDescriptor *effects,size_t count) {
+bool RenderMeterAppendEffects(RenderMeterRef meter,double start,double end,const RenderAudioEffectDescriptor *effects,size_t count,bool continuous) {
     if (!count) return true;
     if (!meter->program) meter->program=RenderAudioProgramCreate();
-    return meter->program && RenderAudioProgramAppend(meter->program,start,end,effects,count);
+    return meter->program && RenderAudioProgramAppend(meter->program,start,end,effects,count,continuous);
 }
 bool RenderMeterProcessingFailed(RenderMeterRef meter) { return atomic_load_explicit(&meter->processingFailed,memory_order_relaxed); }
 static void meterInit(MTAudioProcessingTapRef tap,void *client,void **storage) {
