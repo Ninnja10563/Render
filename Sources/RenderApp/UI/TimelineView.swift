@@ -134,7 +134,7 @@ private struct TrackHeader: View {
             }.buttonStyle(.plain)
         }.padding(.horizontal,10).padding(.top,8).frame(maxWidth: .infinity,maxHeight: .infinity,alignment: .topLeading)
             .background(session.selectedTrack == track.id ? Color.primary.opacity(0.06) : .clear)
-            .contentShape(Rectangle()).onTapGesture { session.selectedTrack = track.id }
+            .contentShape(Rectangle()).onTapGesture { session.closeSource(); NSApp.keyWindow?.makeFirstResponder(nil); session.selectedTrack = track.id }
             .contextMenu {
                 TrackContextMenu(session: session,track: track)
             }

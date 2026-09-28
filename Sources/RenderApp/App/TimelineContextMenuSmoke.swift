@@ -59,6 +59,17 @@ extension EditorSession {
         editor.undo()
         try await choose("Copy",x: 280,y: y)
         guard editor.hasTimelineClipboard,editor.selection == [clip.id] else { throw RenderError.invalid("Clip menu did not target the clicked clip.") }
-        print("RENDER_CONTEXT_MENUS_OK native-right-click header lane clip undo clipboard")
+        editor.openSource(still.id)
+        try await choose("Select Clips on Track",x: 110,y: y)
+        guard !editor.showingSource,editor.selection == [clip.id] else { throw RenderError.invalid("Track selection menu left keyboard routing in the source viewer.") }
+        editor.openSource(still.id)
+        let headerPoint = host.convert(CGPoint(x: 40,y: host.isFlipped ? 72 : host.bounds.height - 72),to: nil)
+        for type in [NSEvent.EventType.leftMouseDown,.leftMouseUp] {
+            guard let event = NSEvent.mouseEvent(with: type,location: headerPoint,modifierFlags: [],timestamp: ProcessInfo.processInfo.systemUptime,windowNumber: window.windowNumber,context: nil,eventNumber: 0,clickCount: 1,pressure: 1) else { throw RenderError.invalid("Cannot create track selection event.") }
+            NSApp.postEvent(event,atStart: false)
+        }
+        try await Task.sleep(nanoseconds: 150_000_000)
+        guard !editor.showingSource else { throw RenderError.invalid("Clicking a track header did not restore timeline keyboard routing.") }
+        print("RENDER_CONTEXT_MENUS_OK native-right-click header lane clip undo clipboard source-focus")
     }
 }
