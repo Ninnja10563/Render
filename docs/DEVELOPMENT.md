@@ -114,3 +114,7 @@ MulticamSource owns named CameraAngle references with source-time offsets. Timel
 ## Vertical timeline viewport
 
 TimelineViewport computes one fixed-height track range for both the frozen headers and horizontal lane content. Leading/trailing spacers retain complete scroll geometry while only visible rows plus two-row overscan construct clip views. Removing an offscreen FilmstripView cancels its task; shared cache/decode-gate limits remain unchanged. Transport redraws stay isolated in TimelinePlayhead. Core tests exercise large track lists and scrolling boundary coverage; physical-device input latency and GPU/memory measurements remain separate release work.
+
+## Hierarchical compositor
+
+RenderNode separates media leaves from recursive RenderGroup values. SceneRenderer composites children on a transparent sequence-sized canvas and then applies the group's own geometry/effect/opacity stack. Its child time maps sourceIn plus parent-relative time multiplied by speed; parent animation remains on the parent edit clock. Groups use the same transition/blend path as leaves. RenderInstruction compiles required source track IDs, while VideoCompositor owns AVFoundation frame requests and the reused Metal-backed CIContext. Recursion has a defensive depth limit. Project persistence and composition planning for compound timelines remain a subsequent milestone; ordinary project playback continues through leaf nodes.
