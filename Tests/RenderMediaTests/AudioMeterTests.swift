@@ -25,7 +25,9 @@ extension MediaIntegrationTests {
         var animated = nested
         let parentLocation = try XCTUnwrap(animated.tracks.indices.first(where: { !animated.tracks[$0].clips.isEmpty }))
         animated.tracks[parentLocation].clips[0].properties.animations["volume"] = AnimationCurve(keys: [Keyframe(frame: 0,value: 0.25),Keyframe(frame: 60,value: 0.75)])
-        for (index,edit) in [project,nested,animated].enumerated() {
+        var moved = project
+        moved.tracks[1].clips[0].start = 30; moved.tracks[1].clips[0].duration = 45; moved.tracks[1].clips[0].sourceIn = 0.25
+        for (index,edit) in [project,nested,animated,moved].enumerated() {
             let prepared = try await CompositionBuilder().build(edit,metering: true)
             let meter = try XCTUnwrap(prepared.audioMeters.first)
             XCTAssertNil(meter.read(at: 1)); XCTAssertNil(meter.read(at: .nan))
