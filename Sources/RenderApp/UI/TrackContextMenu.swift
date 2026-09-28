@@ -7,11 +7,12 @@ struct TrackContextMenu: View {
     let track: TimelineTrack
     var body: some View {
         Button("Select Clips on Track") {
+            session.closeSource(); NSApp.keyWindow?.makeFirstResponder(nil)
             session.selectedRange = nil
             session.selectedTrack = track.id
             session.selection = Set(track.clips.map(\.id))
         }.disabled(track.clips.isEmpty)
-        Button("Paste at Playhead") { session.selectedTrack = track.id; session.paste() }
+        Button("Paste at Playhead") { session.closeSource(); NSApp.keyWindow?.makeFirstResponder(nil); session.selectedTrack = track.id; session.paste() }
             .disabled(track.locked || !session.hasTimelineClipboard)
         Divider()
         Toggle("Lock Track",isOn: state(\.locked))

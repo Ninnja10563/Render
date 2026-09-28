@@ -156,19 +156,22 @@ struct InspectorNumber: View {
     @State private var draft: Double = 0
     @State private var text = ""
     @State private var textEdited = false
+    @State private var showSlider = false
     @FocusState private var fieldFocused: Bool
     var body: some View {
-        VStack(spacing: 4) {
+        DisclosureGroup(isExpanded: $showSlider) {
+            Slider(value: Binding(get: { min(range.upperBound,max(range.lowerBound,draft)) },set: { update($0) }),in: range,onEditingChanged: { editing in if !editing { commit(draft) } }).controlSize(.mini)
+                .accessibilityLabel(label)
+        } label: {
             HStack {
-                Text(label).foregroundStyle(.secondary)
+                Text(label).foregroundStyle(.secondary).lineLimit(1)
                 Spacer(minLength: 4)
                 TextField(label,text: Binding(get: { text },set: { text = $0; textEdited = true }))
                     .multilineTextAlignment(.trailing).textFieldStyle(.roundedBorder).controlSize(.small).monospacedDigit().frame(width: 68).focused($fieldFocused)
                     .onSubmit { _ = commitText() }
                 Button { update(reset); commit(reset) } label: { Image(systemName: "arrow.counterclockwise").font(.system(size: 9)) }.buttonStyle(.plain).help("Reset \(label)").accessibilityLabel("Reset \(label)")
             }.font(.system(size: 11))
-            Slider(value: Binding(get: { min(range.upperBound,max(range.lowerBound,draft)) },set: { update($0) }),in: range,onEditingChanged: { editing in if !editing { commit(draft) } }).controlSize(.mini)
-        }.onAppear { update(value) }.onChange(of: value) { _,new in if !fieldFocused { update(new) } }
+        }.tint(.secondary).onAppear { update(value) }.onChange(of: value) { _,new in if !fieldFocused { update(new) } }
             .onChange(of: fieldFocused) { wasFocused,isFocused in if wasFocused && !isFocused { _ = commitText() } }
             .onReceive(NotificationCenter.default.publisher(for: .renderCommitInspector)) { notification in
                 if let error = commitText() { (notification.object as? InspectorCommitRequest)?.error = error }

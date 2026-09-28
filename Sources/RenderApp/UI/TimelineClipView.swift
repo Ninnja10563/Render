@@ -134,6 +134,7 @@ struct ClipTile: View {
             .help("\(clip.name) · \(session.fps.timecode(clip.duration))\(track.locked ? " · Locked" : "")")
     }
     private func targetContextClip() {
+        session.closeSource(); NSApp.keyWindow?.makeFirstResponder(nil)
         session.selectedRange = nil
         if !selected { session.selectClip(clip.id) }
     }
