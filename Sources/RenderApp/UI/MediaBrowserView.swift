@@ -36,6 +36,9 @@ struct MediaBrowserView: View {
                                 Text(media.name).font(.system(size: 11,weight: .medium)).lineLimit(1)
                                 Text(media.kind == .audio ? "\(media.audioChannels) ch · \(media.codec)" : "\(media.width) × \(media.height) · \(media.codec)").font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1)
                                 Text(session.fps.timecode(session.fps.frames(media.duration))).font(.system(size: 9,design: .monospaced)).foregroundStyle(.secondary)
+                                if let range = media.selection {
+                                    Text("Marked \(session.fps.timecode((try? range.clipFrames(at: session.fps)) ?? 0))").font(.system(size: 9,design: .monospaced)).foregroundStyle(.secondary)
+                                }
                             }
                         }.padding(.vertical,3).tag(media.id)
                         .onTapGesture(count: 2) { session.append(media.id) }

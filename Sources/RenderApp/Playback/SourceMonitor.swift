@@ -18,6 +18,7 @@ final class SourceMonitor: ObservableObject {
     private var observation: NSKeyValueObservation?
     private var imageTask: Task<Void,Never>?
     private var reverseTask: Task<Void,Never>?
+    private var shuttleSpeed: Float = 0
     var totalFrames: Int64 { max(1,Int64(floor((asset?.duration ?? 0) * rate.value + 0.0000001))) }
     var range: SourceSelection { asset?.selection ?? SourceSelection(start: 0,end: rate.seconds(totalFrames)) }
     init() {
@@ -65,7 +66,7 @@ final class SourceMonitor: ObservableObject {
         player.currentItem?.reversePlaybackEndTime = CMTime(seconds: range.start,preferredTimescale: 600000)
     }
     func clear() { pause(); imageTask?.cancel(); observation = nil; player.replaceCurrentItem(with: nil); asset = nil; still = nil; ready = false; error = nil; frame = 0 }
-    func pause() { reverseTask?.cancel(); reverseTask = nil; reversePreview = false; player.currentItem?.cancelPendingSeeks(); player.pause(); playing = false }
+    func pause() { reverseTask?.cancel(); reverseTask = nil; reversePreview = false; shuttleSpeed = 0; player.currentItem?.cancelPendingSeeks(); player.pause(); playing = false }
     func seek(_ frame: Int64) {
         pause(); self.frame = min(totalFrames - 1,max(0,frame))
         player.seek(to: CMTime(value: self.frame * Int64(rate.denominator),timescale: rate.numerator),toleranceBefore: .zero,toleranceAfter: .zero)
@@ -73,19 +74,19 @@ final class SourceMonitor: ObservableObject {
     func togglePlayback() { if playing { pause() } else { shuttle(1) } }
     func shuttle(_ direction: Int) {
         guard ready,asset?.kind != .image else { return }
-        let speed: Float = min(4,playing ? max(1,abs(player.rate)) * 2 : 1)
+        let speed: Float = min(4,playing ? max(1,shuttleSpeed) * 2 : 1)
         pause()
         if direction > 0 {
             if rate.seconds(frame) < range.start || rate.seconds(frame + 1) >= range.end { seek(rate.frames(range.start)) }
-            player.playImmediately(atRate: speed); playing = true
+            shuttleSpeed = speed; player.playImmediately(atRate: speed); playing = true
         } else if player.currentItem?.canPlayReverse == true {
             if rate.seconds(frame) <= range.start { seek(max(0,rate.frames(range.end) - 1)) }
-            player.rate = -speed; playing = true
+            shuttleSpeed = speed; player.rate = -speed; playing = true
         } else {
             if rate.seconds(frame) <= range.start { seek(max(0,rate.frames(range.end) - 1)) }
             let lower = rate.frames(range.start),clock = ReversePreviewClock(origin: frame,frameRate: rate,speed: Double(speed))
             let started = ProcessInfo.processInfo.systemUptime
-            reversePreview = true; playing = true
+            shuttleSpeed = speed; reversePreview = true; playing = true
             reverseTask = Task { [weak self] in
                 guard let self else { return }
                 while !Task.isCancelled {

@@ -96,3 +96,10 @@ Vertical timeline: build a sequence with hundreds of video/audio tracks, scroll 
 - Try incompatible, locked and occupied destinations, timeline bounds, and a destination inside the selected tracks. Invalid drops must preserve the complete document.
 - Move connected anchors off the primary and clips onto the magnetic primary. Confirm connected timing, packing and cleared connections.
 - Press Escape mid-drag, switch editing tools, scroll the source row out of view and close the timeline. No abandoned drag should remain visible or commit later.
+
+## Source viewer and marks
+
+- Open video, audio and images through the browser's Open Source action. Play/scrub/step, use J/K/L, and compare I/O marks with the selected interval. Out includes the displayed frame; times use the sequence frame rate.
+- Append, insert, overwrite and drag marked media into tracks. Verify source-in, duration, ripple behavior, locked tracks, undo, and unchanged existing instances.
+- Save/reopen marks, clear/undo, relink equivalent source media, switch projects, and review missing/corrupt media errors. Selection edits must not rebuild the timeline player.
+- Switch sources during decode, use long-GOP media, fractional frame rates and still images, and compare the marked source image with the first/last exported frame.
