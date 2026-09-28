@@ -33,6 +33,7 @@ public final class AudioMeterSource: @unchecked Sendable, Identifiable {
     }
     func appendEffects(_ effects: [AudioEffect],start: Double,end: Double) throws {
         let active = effects.filter(\.enabled)
+        guard !active.isEmpty else { return }
         let descriptors = active.map { effect -> RenderAudioEffectDescriptor in
             var descriptor = RenderAudioEffectDescriptor()
             switch effect.kind { case .equalizer: descriptor.kind = 0; case .compressor: descriptor.kind = 1; case .limiter: descriptor.kind = 2; case .noiseGate: descriptor.kind = 3 }
@@ -46,6 +47,7 @@ public final class AudioMeterSource: @unchecked Sendable, Identifiable {
         guard descriptors.withUnsafeBufferPointer({ RenderMeterAppendEffects(handle,start,end,$0.baseAddress,$0.count) }) else { throw RenderError.invalid("Cannot compile audio processors.") }
     }
     func appendVolumeRamp(from: Float,to: Float,start: Double,end: Double) throws {
+        guard measuring else { return }
         guard RenderMeterAppendRamp(handle,start,end,from,to) else { throw RenderError.invalid("Cannot compile audio meter automation.") }
     }
     deinit { RenderMeterRelease(handle) }

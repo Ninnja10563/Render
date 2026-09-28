@@ -44,6 +44,7 @@ actor ControlledEncoder {
             var lastReport = Date.distantPast
             while pairs.contains(where: { !$0.finished }) {
                 try Task.checkCancellation()
+                try prepared.checkAudioProcessing()
                 if writer.status == .failed { throw writer.error ?? RenderError.invalid("Output encoding failed.") }
                 var advanced = false
                 for index in pairs.indices where !pairs[index].finished && pairs[index].input.isReadyForMoreMediaData {
@@ -62,6 +63,7 @@ actor ControlledEncoder {
                 if !advanced { try await Task.sleep(nanoseconds: 2_000_000) }
                 else { await Task.yield() }
             }
+            try prepared.checkAudioProcessing()
             writer.endSession(atSourceTime: duration)
             await writer.finishWriting()
             try Task.checkCancellation()

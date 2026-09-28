@@ -59,6 +59,7 @@ final class EditorSession: ObservableObject {
     private var recoveryTask: Task<Void, Never>?
     private var generation = UUID()
     private var documentRequest = UUID()
+    private var activeAudioProcessing: [AudioMeterSource] = []
     private var playbackObservation: NSKeyValueObservation?
     private var previewTasks: [UUID: Task<Void, Never>] = [:]
     private var clipboard: [ClipboardLane] = []
@@ -85,6 +86,9 @@ final class EditorSession: ObservableObject {
                 if self.player.rate != 0 { self.playhead = min(self.project.duration, max(0,self.fps.frames(time.seconds))) }
                 self.isPlaying = self.player.rate != 0 || self.transport.reversePreviewRate > 0
                 self.audioMeters.update(seconds: time.seconds,playing: self.player.rate > 0)
+                if let failed = self.activeAudioProcessing.first(where: \.processingFailed) {
+                    self.pause(); self.previewError = "Unsupported audio processing format for \(failed.name)."
+                }
             }
         }
     }
@@ -183,7 +187,7 @@ final class EditorSession: ObservableObject {
     }
     func rebuild() {
         generation = UUID(); let token = generation
-        buildTask?.cancel(); pause(); previewReady = false; audioMeters.install([])
+        buildTask?.cancel(); pause(); previewReady = false; audioMeters.install([]); activeAudioProcessing = []
         let snapshot = project
         let mode = playbackMode
         let dimensions = previewQuality.dimensions(for: snapshot.settings)
@@ -198,7 +202,7 @@ final class EditorSession: ObservableObject {
                 try Task.checkCancellation()
                 guard token == generation else { return }
                 playbackNotice = prepared.originalFallbacks.isEmpty ? nil : "\(mode.label) unavailable for \(prepared.originalFallbacks.count) media items; using originals."
-                audioMeters.install(prepared.audioMeters)
+                audioMeters.install(prepared.audioMeters); activeAudioProcessing = prepared.audioProcessing
                 let item = prepared.playerItem()
                 player.replaceCurrentItem(with: item)
                 playbackObservation = item.observe(\.status, options: [.new]) { [weak self] item, _ in

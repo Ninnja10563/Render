@@ -17,7 +17,7 @@ actor CompoundCompositionBuilder {
         base.videoComposition.instructions = planner.instructions()
         base.audioMix.inputParameters = planner.audioSlots.map(\.mix)
         withExtendedLifetime(planner.sources) {}
-        return PreparedComposition(composition: base.composition,videoComposition: base.videoComposition,audioMix: base.audioMix,originalFallbacks: planner.fallbacks.sorted(),audioMeters: planner.meters)
+        return PreparedComposition(composition: base.composition,videoComposition: base.videoComposition,audioMix: base.audioMix,originalFallbacks: planner.fallbacks.sorted(),audioMeters: planner.processing.meters,audioProcessing: planner.processing.inputs)
     }
 }
 
@@ -27,8 +27,7 @@ private final class CompoundPlanner {
     let composition: AVMutableComposition
     let clock: CMPersistentTrackID
     let metering: Bool
-    var meters: [AudioMeterSource] = []
-    var meterByTrack: [CMPersistentTrackID: AudioMeterSource] = [:]
+    let processing: AudioInputProcessing
     let media: [UUID: MediaAsset]
     let compounds: [UUID: CompoundSource]
     var sources: [URL: SourceTracks] = [:]
@@ -40,7 +39,7 @@ private final class CompoundPlanner {
     let root = UUID()
     var entries: [UUID: Entry] = [:]
     init(project: RenderProject,mode: PlaybackMediaMode,composition: AVMutableComposition,clock: CMPersistentTrackID,metering: Bool) {
-        self.project = project; self.mode = mode; self.composition = composition; self.clock = clock; self.metering = metering
+        self.project = project; self.mode = mode; self.composition = composition; self.clock = clock; self.metering = metering; processing = AudioInputProcessing(metering: metering)
         media = Dictionary(uniqueKeysWithValues: project.assets.map { ($0.id,$0) })
         compounds = Dictionary(uniqueKeysWithValues: (project.compounds ?? []).map { ($0.id,$0) })
     }
@@ -134,17 +133,13 @@ private final class CompoundPlanner {
                             guard let target = composition.addMutableTrack(withMediaType: .audio,preferredTrackID: kCMPersistentTrackID_Invalid) else { throw RenderError.invalid("Too many audio tracks.") }
                             let mix = AVMutableAudioMixInputParameters(track: target); mix.audioTimePitchAlgorithm = .spectral
                             mix.setVolume(0,at: .zero)
-                            if metering {
-                                let meter = try AudioMeterSource(name: "Nested input \(audioSlots.count + 1)")
-                                mix.audioTapProcessor = meter.tap; meters.append(meter); meterByTrack[target.trackID] = meter
-                            }
                             audioSlots.append((target,mix,.zero)); slot = audioSlots.count - 1
                         }
                         let target = audioSlots[slot].track; audioSlots[slot].end = time(span.end)
                         try target.insertTimeRange(audioRange,of: audio,at: audioStart)
                         target.scaleTimeRange(CMTimeRange(start: audioStart,duration: audioRange.duration),toDuration: time((hi - lo) / speed))
-                        meterByTrack[target.trackID]?.appendLabel("\(track.name) · \(clip.name)",start: audioStart.seconds,end: (audioStart + time((hi - lo) / speed)).seconds)
-                        try CompoundAudioMix.apply(gains,window: span,to: audioSlots[slot].mix,meter: meterByTrack[target.trackID])
+                        let input = try processing.attach(clip: clip,name: "\(track.name) · \(clip.name)",target: target,mix: audioSlots[slot].mix,start: audioStart.seconds,end: (audioStart + time((hi - lo) / speed)).seconds)
+                        try CompoundAudioMix.apply(gains,window: span,to: audioSlots[slot].mix,meter: input)
                     }
                 }
             }

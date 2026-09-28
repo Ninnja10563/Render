@@ -9,6 +9,10 @@ public struct PreparedComposition {
     public let audioMix: AVMutableAudioMix
     public let originalFallbacks: [String]
     public var audioMeters: [AudioMeterSource] = []
+    public var audioProcessing: [AudioMeterSource] = []
+    public func checkAudioProcessing() throws {
+        if let input = audioProcessing.first(where: \.processingFailed) { throw RenderError.invalid("Unsupported audio processing format for \(input.name).") }
+    }
     public func playerItem() -> AVPlayerItem {
         let item = AVPlayerItem(asset: composition)
         item.videoComposition = videoComposition; item.audioMix = audioMix
@@ -38,8 +42,7 @@ public actor CompositionBuilder {
         var layers: [RenderLayer] = []
         var fallbacks: Set<String> = []
         var parameters: [AVMutableAudioMixInputParameters] = []
-        var meters: [AudioMeterSource] = []
-        var meterByTrack: [CMPersistentTrackID: AudioMeterSource] = [:]
+        let processing = AudioInputProcessing(metering: metering)
         let anySolo = project.tracks.contains { $0.solo }
         let mediaByID = Dictionary(uniqueKeysWithValues: project.assets.map { ($0.id,$0) })
         var sourceCache: [URL: SourceTracks] = [:]
@@ -130,23 +133,19 @@ public actor CompositionBuilder {
                         guard let target = composition.addMutableTrack(withMediaType: .audio,preferredTrackID: kCMPersistentTrackID_Invalid) else { throw RenderError.invalid("Too many audio tracks.") }
                         let mix = AVMutableAudioMixInputParameters(track: target); mix.audioTimePitchAlgorithm = .spectral
                         mix.setVolume(0,at: .zero)
-                        if metering {
-                            let meter = try AudioMeterSource(name: "\(track.name) · \(audioSlots.count + 1)")
-                            mix.audioTapProcessor = meter.tap; meters.append(meter); meterByTrack[target.trackID] = meter
-                        }
                         audioSlots.append((target,mix,.zero)); slot = audioSlots.count - 1
                     }
                     let target = audioSlots[slot].track, mix = audioSlots[slot].mix
                     audioSlots[slot].end = start + targetDuration
                     try target.insertTimeRange(audioRange, of: source, at: audioStart)
                     target.scaleTimeRange(CMTimeRange(start: audioStart, duration: audioRange.duration), toDuration: time(audioRange.duration.seconds / clip.speed))
-                    meterByTrack[target.trackID]?.appendLabel("\(track.name) · \(clip.name)",start: audioStart.seconds,end: (audioStart + time(audioRange.duration.seconds / clip.speed)).seconds)
+                    let input = try processing.attach(clip: clip,name: "\(track.name) · \(clip.name)",target: target,mix: mix,start: audioStart.seconds,end: (audioStart + time(audioRange.duration.seconds / clip.speed)).seconds)
                     let curve = clip.properties.animations["volume"] ?? AnimationCurve()
                     let base = AudioAutomation.ramps(curve: curve,offset: clip.animationOffset - preroll,duration: renderEnd - renderStart,fallback: clip.properties.volume)
                     let faded = AudioAutomation.applying(clip.properties.audioFades,to: base,offset: clip.animationOffset - preroll)
                     let ramps = AudioAutomation.applyingFades(to: faded,duration: renderEnd - renderStart,fadeIn: incoming?.duration ?? 0,fadeOut: outgoing?.duration ?? 0)
                     for ramp in ramps {
-                        try meterByTrack[target.trackID]?.appendVolumeRamp(from: Float(ramp.from),to: Float(ramp.to),start: (start + time(rate.seconds(ramp.start))).seconds,end: (start + time(rate.seconds(ramp.end))).seconds)
+                        try input?.appendVolumeRamp(from: Float(ramp.from),to: Float(ramp.to),start: (start + time(rate.seconds(ramp.start))).seconds,end: (start + time(rate.seconds(ramp.end))).seconds)
                         mix.setVolumeRamp(fromStartVolume: Float(ramp.from),toEndVolume: Float(ramp.to),
                                           timeRange: CMTimeRange(start: start + time(rate.seconds(ramp.start)),duration: time(rate.seconds(ramp.end - ramp.start))))
                     }
@@ -177,7 +176,7 @@ public actor CompositionBuilder {
         let audio = AVMutableAudioMix(); audio.inputParameters = parameters
         // Keep source owners alive through all insertions even under Release ARC optimization.
         withExtendedLifetime(sourceCache) {}
-        return PreparedComposition(composition: composition, videoComposition: video, audioMix: audio, originalFallbacks: fallbacks.sorted(),audioMeters: meters)
+        return PreparedComposition(composition: composition, videoComposition: video, audioMix: audio, originalFallbacks: fallbacks.sorted(),audioMeters: processing.meters,audioProcessing: processing.inputs)
     }
 }
 

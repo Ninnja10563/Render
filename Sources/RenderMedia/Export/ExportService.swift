@@ -37,6 +37,7 @@ public final class ExportService: ObservableObject {
             encodingTask = task
             try await task.value
             if cancelled { throw CancellationError() }
+            try prepared.checkAudioProcessing()
             try FileManager.default.moveItem(at: temporary,to: destination)
             progress = 1; elapsed = Date().timeIntervalSince(start)
             return
@@ -57,12 +58,14 @@ public final class ExportService: ObservableObject {
         exporter.shouldOptimizeForNetworkUse = true
         let monitor = Task { @MainActor in
             while !Task.isCancelled {
+                if prepared.audioProcessing.contains(where: \.processingFailed) { exporter.cancelExport(); return }
                 progress = exporter.progress; elapsed = Date().timeIntervalSince(start)
                 try? await Task.sleep(nanoseconds: 200_000_000)
             }
         }
         defer { monitor.cancel() }
         await exporter.export()
+        try prepared.checkAudioProcessing()
         if cancelled || exporter.status == .cancelled { throw CancellationError() }
         guard exporter.status == .completed else { throw exporter.error ?? RenderError.invalid("Export failed. Check available disk space and media permissions.") }
         // A completed file is published only after the encoder finishes successfully.

@@ -81,9 +81,9 @@ static void meterInit(MTAudioProcessingTapRef tap,void *client,void **storage) {
 static void meterFinalize(MTAudioProcessingTapRef tap) { RenderMeterRelease(MTAudioProcessingTapGetStorage(tap)); }
 static void meterPrepare(MTAudioProcessingTapRef tap,CMItemCount maxFrames,const AudioStreamBasicDescription *format) {
     RenderMeterRef meter = MTAudioProcessingTapGetStorage(tap); meter->format = *format;
-    meter->supported = format->mChannelsPerFrame<=8 && format->mSampleRate>0 && format->mFormatID == kAudioFormatLinearPCM && (format->mFormatFlags & kAudioFormatFlagIsFloat) && format->mBitsPerChannel == 32 && !(format->mFormatFlags & kAudioFormatFlagIsBigEndian);
+    meter->supported = format->mSampleRate>0 && format->mFormatID == kAudioFormatLinearPCM && (format->mFormatFlags & kAudioFormatFlagIsFloat) && format->mBitsPerChannel == 32 && !(format->mFormatFlags & kAudioFormatFlagIsBigEndian);
     if (meter->program) {
-        if (!meter->supported) atomic_store_explicit(&meter->processingFailed,true,memory_order_relaxed);
+        if (!meter->supported || format->mChannelsPerFrame>8) atomic_store_explicit(&meter->processingFailed,true,memory_order_relaxed);
         RenderAudioProgramPrepare(meter->program,format->mSampleRate);
     }
 }
