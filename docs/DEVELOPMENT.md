@@ -6,7 +6,7 @@ The starting repository at 0cc2977 contained LICENSE only, with no source, build
 
 ## Architecture
 
-Swift Package Manager, macOS 14+, Apple Silicon. No third-party runtime dependencies.
+Swift Package Manager, macOS 14+, Apple Silicon. Sparkle 2.10.0 is the pinned native updater dependency; editing and media systems use Apple frameworks.
 
 - RenderCore: value-semantic, Codable project graph; rational frame rate; integer frame editing; validated transactional commands; keyframe and effect models; atomic project storage.
 - RenderMedia: asynchronous AVFoundation media analysis; thumbnails and waveforms; shared composition for playback/export; Core Image compositor using a Metal-backed context.
