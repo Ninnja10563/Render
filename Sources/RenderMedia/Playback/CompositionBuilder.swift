@@ -129,6 +129,7 @@ public actor CompositionBuilder {
                     else {
                         guard let target = composition.addMutableTrack(withMediaType: .audio,preferredTrackID: kCMPersistentTrackID_Invalid) else { throw RenderError.invalid("Too many audio tracks.") }
                         let mix = AVMutableAudioMixInputParameters(track: target); mix.audioTimePitchAlgorithm = .spectral
+                        mix.setVolume(0,at: .zero)
                         if metering {
                             let meter = try AudioMeterSource(name: "\(track.name) · \(audioSlots.count + 1)")
                             mix.audioTapProcessor = meter.tap; meters.append(meter); meterByTrack[target.trackID] = meter
