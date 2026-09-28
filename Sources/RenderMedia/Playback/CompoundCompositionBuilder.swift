@@ -5,19 +5,19 @@ import RenderCore
 /// Compiles nested timeline instances without baking intermediate movies. Each instance has
 /// distinct render IDs, while source asset owners and nonoverlapping composition slots are shared.
 actor CompoundCompositionBuilder {
-    func build(_ project: RenderProject,mode: PlaybackMediaMode,outputSize: CGSize?) async throws -> PreparedComposition {
+    func build(_ project: RenderProject,mode: PlaybackMediaMode,outputSize: CGSize?,metering: Bool) async throws -> PreparedComposition {
         var clockProject = project
         var clockTrack = TimelineTrack(name: "Clock",kind: .video)
         var gap = TimelineClip(assetID: nil,name: "Clock",start: 0,duration: project.duration); gap.isGap = true
         clockTrack.clips = [gap]; clockProject.tracks = [clockTrack]; clockProject.storyline = nil; clockProject.markers = []
         let base = try await CompositionBuilder().build(clockProject,outputSize: outputSize)
         guard let clock = base.composition.tracks.first(where: { $0.mediaType == .video }) else { throw RenderError.invalid("Timeline clock is missing.") }
-        let planner = CompoundPlanner(project: project,mode: mode,composition: base.composition,clock: clock.trackID)
+        let planner = CompoundPlanner(project: project,mode: mode,composition: base.composition,clock: clock.trackID,metering: metering)
         try await planner.compile()
         base.videoComposition.instructions = planner.instructions()
         base.audioMix.inputParameters = planner.audioSlots.map(\.mix)
         withExtendedLifetime(planner.sources) {}
-        return PreparedComposition(composition: base.composition,videoComposition: base.videoComposition,audioMix: base.audioMix,originalFallbacks: planner.fallbacks.sorted())
+        return PreparedComposition(composition: base.composition,videoComposition: base.videoComposition,audioMix: base.audioMix,originalFallbacks: planner.fallbacks.sorted(),audioMeters: planner.meters)
     }
 }
 
@@ -26,6 +26,8 @@ private final class CompoundPlanner {
     let mode: PlaybackMediaMode
     let composition: AVMutableComposition
     let clock: CMPersistentTrackID
+    let metering: Bool
+    var meters: [AudioMeterSource] = []
     let media: [UUID: MediaAsset]
     let compounds: [UUID: CompoundSource]
     var sources: [URL: SourceTracks] = [:]
@@ -36,8 +38,8 @@ private final class CompoundPlanner {
     struct Entry { var node: RenderNode; var parent: UUID; var order: Int; var start: Int64; var end: Int64 }
     let root = UUID()
     var entries: [UUID: Entry] = [:]
-    init(project: RenderProject,mode: PlaybackMediaMode,composition: AVMutableComposition,clock: CMPersistentTrackID) {
-        self.project = project; self.mode = mode; self.composition = composition; self.clock = clock
+    init(project: RenderProject,mode: PlaybackMediaMode,composition: AVMutableComposition,clock: CMPersistentTrackID,metering: Bool) {
+        self.project = project; self.mode = mode; self.composition = composition; self.clock = clock; self.metering = metering
         media = Dictionary(uniqueKeysWithValues: project.assets.map { ($0.id,$0) })
         compounds = Dictionary(uniqueKeysWithValues: (project.compounds ?? []).map { ($0.id,$0) })
     }
@@ -130,6 +132,10 @@ private final class CompoundPlanner {
                         else {
                             guard let target = composition.addMutableTrack(withMediaType: .audio,preferredTrackID: kCMPersistentTrackID_Invalid) else { throw RenderError.invalid("Too many audio tracks.") }
                             let mix = AVMutableAudioMixInputParameters(track: target); mix.audioTimePitchAlgorithm = .spectral
+                            if metering {
+                                let meter = try AudioMeterSource(name: "\(track.name) · \(audioSlots.count + 1)")
+                                mix.audioTapProcessor = meter.tap; meters.append(meter)
+                            }
                             audioSlots.append((target,mix,.zero)); slot = audioSlots.count - 1
                         }
                         let target = audioSlots[slot].track; audioSlots[slot].end = time(span.end)

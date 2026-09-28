@@ -8,6 +8,7 @@ public struct PreparedComposition {
     public let videoComposition: AVMutableVideoComposition
     public let audioMix: AVMutableAudioMix
     public let originalFallbacks: [String]
+    public var audioMeters: [AudioMeterSource] = []
     public func playerItem() -> AVPlayerItem {
         let item = AVPlayerItem(asset: composition)
         item.videoComposition = videoComposition; item.audioMix = audioMix
@@ -19,11 +20,11 @@ public struct PreparedComposition {
 public actor CompositionBuilder {
     public init() {}
     private func time(_ seconds: Double) -> CMTime { CMTime(seconds: seconds, preferredTimescale: 600_000) }
-    public func build(_ project: RenderProject,mode: PlaybackMediaMode = .original,outputSize: CGSize? = nil) async throws -> PreparedComposition {
+    public func build(_ project: RenderProject,mode: PlaybackMediaMode = .original,outputSize: CGSize? = nil,metering: Bool = false) async throws -> PreparedComposition {
         try project.validate()
         guard project.duration > 0 else { throw RenderError.invalid("Add a clip to the timeline first.") }
         if project.tracks.flatMap(\.clips).contains(where: { $0.compoundID != nil }) {
-            return try await CompoundCompositionBuilder().build(project,mode: mode,outputSize: outputSize)
+            return try await CompoundCompositionBuilder().build(project,mode: mode,outputSize: outputSize,metering: metering)
         }
         let rate = project.settings.frameRate
         let composition = AVMutableComposition()
@@ -37,6 +38,7 @@ public actor CompositionBuilder {
         var layers: [RenderLayer] = []
         var fallbacks: Set<String> = []
         var parameters: [AVMutableAudioMixInputParameters] = []
+        var meters: [AudioMeterSource] = []
         let anySolo = project.tracks.contains { $0.solo }
         let mediaByID = Dictionary(uniqueKeysWithValues: project.assets.map { ($0.id,$0) })
         var sourceCache: [URL: SourceTracks] = [:]
@@ -126,6 +128,10 @@ public actor CompositionBuilder {
                     else {
                         guard let target = composition.addMutableTrack(withMediaType: .audio,preferredTrackID: kCMPersistentTrackID_Invalid) else { throw RenderError.invalid("Too many audio tracks.") }
                         let mix = AVMutableAudioMixInputParameters(track: target); mix.audioTimePitchAlgorithm = .spectral
+                        if metering {
+                            let meter = try AudioMeterSource(name: "\(track.name) · \(audioSlots.count + 1)")
+                            mix.audioTapProcessor = meter.tap; meters.append(meter)
+                        }
                         audioSlots.append((target,mix,.zero)); slot = audioSlots.count - 1
                     }
                     let target = audioSlots[slot].track, mix = audioSlots[slot].mix
@@ -167,7 +173,7 @@ public actor CompositionBuilder {
         let audio = AVMutableAudioMix(); audio.inputParameters = parameters
         // Keep source owners alive through all insertions even under Release ARC optimization.
         withExtendedLifetime(sourceCache) {}
-        return PreparedComposition(composition: composition, videoComposition: video, audioMix: audio, originalFallbacks: fallbacks.sorted())
+        return PreparedComposition(composition: composition, videoComposition: video, audioMix: audio, originalFallbacks: fallbacks.sorted(),audioMeters: meters)
     }
 }
 

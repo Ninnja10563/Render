@@ -7,7 +7,8 @@ let package = Package(
     products: [.library(name: "RenderCore", targets: ["RenderCore"]), .executable(name: "Render", targets: ["RenderApp"])],
     targets: [
         .target(name: "RenderCore"),
-        .target(name: "RenderMedia", dependencies: ["RenderCore"]),
+        .target(name: "RenderAudioDSP",publicHeadersPath: "include",linkerSettings: [.linkedFramework("MediaToolbox"),.linkedFramework("AudioToolbox"),.linkedFramework("CoreMedia")]),
+        .target(name: "RenderMedia", dependencies: ["RenderCore","RenderAudioDSP"]),
         .executableTarget(name: "RenderApp", dependencies: ["RenderCore", "RenderMedia"]),
         .testTarget(name: "RenderCoreTests", dependencies: ["RenderCore"]),
         .testTarget(name: "RenderMediaTests", dependencies: ["RenderMedia", "RenderCore"])
