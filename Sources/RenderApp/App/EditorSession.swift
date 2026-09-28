@@ -215,6 +215,7 @@ final class EditorSession: ObservableObject {
         }
     }
     func seek(_ frame: Int64) {
+        audioMeters.clearLevels()
         playhead = min(max(0,frame),max(0,project.duration - 1))
         player.currentItem?.cancelPendingSeeks()
         player.seek(to: CMTime(value: playhead * Int64(fps.denominator), timescale: fps.numerator), toleranceBefore: .zero, toleranceAfter: .zero)

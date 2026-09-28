@@ -23,7 +23,10 @@ final class AudioMeterState: ObservableObject {
         let now = Date.timeIntervalSinceReferenceDate
         guard now - lastUpdate >= 1 / 30.0 else { return }
         let elapsed = min(1,max(0,now - lastUpdate)); lastUpdate = now
-        guard playing else { return }
+        guard playing else {
+            if inputs.contains(where: { $0.peaks.contains(where: { $0 > 0 }) }) { clearLevels() }
+            return
+        }
         let decay = Float(pow(10,-elapsed)) // 20 dB per second peak falloff; samples are measured, not synthesized.
         for index in sources.indices {
             inputs[index].name = sources[index].displayName(at: seconds)

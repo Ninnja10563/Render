@@ -15,7 +15,7 @@ typedef struct {
 typedef struct { double start, end; float from, to; } MeterRamp;
 struct RenderMeter {
     atomic_uint references;
-    unsigned writeIndex;
+    unsigned long long writeIndex;
     MeterRamp *ramps; size_t rampCount, rampCapacity;
     bool supported;
     AudioStreamBasicDescription format;
@@ -99,16 +99,16 @@ static void meterProcess(MTAudioProcessingTapRef tap,CMItemCount requested,MTAud
             peaks[channel] = peak; rms[channel] = frames ? (float)sqrt(squareSum/frames) : 0;
         }
     }
-    MeterSlot *slot = &meter->slots[meter->writeIndex++ % RENDER_METER_SLOTS];
-    unsigned long long sequence = atomic_load_explicit(&slot->sequence,memory_order_relaxed);
-    atomic_store_explicit(&slot->sequence,sequence+1,memory_order_seq_cst);
+    MeterSlot *slot = &meter->slots[meter->writeIndex % RENDER_METER_SLOTS];
+    unsigned long long sequence = 2 * (++meter->writeIndex);
+    atomic_store_explicit(&slot->sequence,sequence-1,memory_order_seq_cst);
     atomic_store_explicit(&slot->start,doubleBits(start),memory_order_seq_cst); atomic_store_explicit(&slot->end,doubleBits(end),memory_order_seq_cst);
     atomic_store_explicit(&slot->channels,channel,memory_order_seq_cst);
     for (unsigned c=0;c<channel;c++) {
         atomic_store_explicit(&slot->peak[c],floatBits(peaks[c]),memory_order_seq_cst);
         atomic_store_explicit(&slot->rms[c],floatBits(rms[c]),memory_order_seq_cst);
     }
-    atomic_store_explicit(&slot->sequence,sequence+2,memory_order_seq_cst);
+    atomic_store_explicit(&slot->sequence,sequence,memory_order_seq_cst);
 }
 MTAudioProcessingTapRef RenderMeterCreateTap(RenderMeterRef meter) {
     MTAudioProcessingTapCallbacks callbacks = {kMTAudioProcessingTapCallbacksVersion_0,meter,meterInit,meterFinalize,meterPrepare,meterUnprepare,meterProcess};
@@ -119,6 +119,7 @@ MTAudioProcessingTapRef RenderMeterCreateTap(RenderMeterRef meter) {
 RenderMeterSnapshot RenderMeterRead(RenderMeterRef meter,double seconds) {
     RenderMeterSnapshot result = {0};
     if (!isfinite(seconds)) return result;
+    unsigned long long newest = 0;
     for (unsigned i=0;i<RENDER_METER_SLOTS;i++) {
         MeterSlot *slot = &meter->slots[i];
         unsigned long long first = atomic_load_explicit(&slot->sequence,memory_order_seq_cst);
@@ -134,7 +135,7 @@ RenderMeterSnapshot RenderMeterRead(RenderMeterRef meter,double seconds) {
             value.rms[c] = bitsFloat(atomic_load_explicit(&slot->rms[c],memory_order_seq_cst));
         }
         unsigned long long last = atomic_load_explicit(&slot->sequence,memory_order_seq_cst);
-        if (first == last) { value.valid = true; result = value; }
+        if (first == last && first > newest) { value.valid = true; result = value; newest = first; }
     }
     return result;
 }
