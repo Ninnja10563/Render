@@ -4,9 +4,13 @@ A native, non-destructive macOS video editor built with SwiftUI, AppKit, AVFound
 
 ![Render running on macOS with an automated composition test project](docs/assets/workspace.png)
 
+[Light appearance](docs/assets/workspace-light.png) · Actual captures from the installed app.
+
 ## Requirements
 
 Apple Silicon · macOS 14+ · Xcode 16.4+ for source builds. No external runtime packages.
+
+Default editing keys can be changed in **Settings → Shortcuts**. Native Command menu shortcuts remain unchanged.
 
 ## Working editing path
 
