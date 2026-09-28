@@ -12,14 +12,28 @@ struct MulticamSetupView: View {
         VStack(alignment: .leading,spacing: 16) {
             Text("Create Multicam Source").font(.headline)
             TextField("Name",text: $name)
-            ForEach(Array(angles.enumerated()),id: \.element.id) { index,angle in
-                HStack {
-                    TextField("Camera name",text: $angles[index].name).frame(width: 100)
-                    Picker("Media",selection: $angles[index].assetID) { ForEach(media) { Text($0.name).tag($0.id) } }.labelsHidden().disabled(index == 0)
-                    TextField("Offset",value: $angles[index].offset,format: .number.precision(.fractionLength(0...3))).frame(width: 65).disabled(index == 0)
-                    if index > 1 { Button { angles.remove(at: index) } label: { Image(systemName: "minus") }.buttonStyle(.plain) }
+            HStack(spacing: 8) {
+                Text("Camera").frame(width: 100,alignment: .leading)
+                Text("Media").frame(maxWidth: .infinity,alignment: .leading)
+                Text("Offset (s)").frame(width: 65,alignment: .trailing)
+                Color.clear.frame(width: 18)
+            }.font(EditorStyle.metadataFont).foregroundStyle(.secondary)
+            ScrollView {
+                VStack(spacing: 8) {
+                    ForEach(Array(angles.enumerated()),id: \.element.id) { index,angle in
+                        HStack(spacing: 8) {
+                            TextField("Camera name",text: $angles[index].name).frame(width: 100)
+                            Picker("Media",selection: $angles[index].assetID) { ForEach(media) { Text($0.name).tag($0.id) } }.labelsHidden().disabled(index == 0)
+                            TextField("Offset",value: $angles[index].offset,format: .number.precision(.fractionLength(0...3)))
+                                .multilineTextAlignment(.trailing).monospacedDigit().frame(width: 65).disabled(index == 0)
+                            if index > 1 {
+                                Button { angles.remove(at: index) } label: { Image(systemName: "minus") }
+                                    .buttonStyle(.plain).frame(width: 18).help("Remove camera").accessibilityLabel("Remove \(angle.name)")
+                            } else { Color.clear.frame(width: 18,height: 1) }
+                        }
+                    }
                 }
-            }
+            }.frame(height: min(260,CGFloat(max(2,angles.count)) * 30))
             Button("Add Camera") { if let asset = media.first(where: { item in !angles.contains(where: { $0.assetID == item.id }) }) { angles.append(CameraAngle(name: "Camera \(angles.count + 1)",assetID: asset.id)) } }.disabled(angles.count >= min(16,media.count))
             Text("Offsets are seconds in camera source time at reference time zero. A positive offset means that camera was already recording when the reference began. Angles keep their original media; audio follows the chosen camera.").font(.caption).foregroundStyle(.secondary)
             Text("Use trimmed clips whose source ranges are available in each camera. Angle cuts pause playback while the timeline rebuilds.").font(.caption).foregroundStyle(.secondary)

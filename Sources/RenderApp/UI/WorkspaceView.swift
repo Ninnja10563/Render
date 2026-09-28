@@ -16,13 +16,10 @@ struct WorkspaceView: View {
                     }
                     VStack(spacing: 0) {
                         HStack {
-                            Picker("Viewer",selection: Binding(get: { session.showingSource },set: { source in
+                            ViewerModeControl(showingSource: Binding(get: { session.showingSource },set: { source in
                                 if source,let id = session.selectedAsset { session.openSource(id) }
                                 else { session.closeSource() }
-                            })) {
-                                Text("Timeline").tag(false)
-                                Text("Source").tag(true).disabled(session.selectedAsset == nil)
-                            }.pickerStyle(.segmented).labelsHidden().frame(width: 158)
+                            }),sourceAvailable: session.selectedAsset != nil).frame(width: 158)
                                 .help(session.selectedAsset == nil ? "Select media to open the Source viewer" : "Choose timeline or source playback")
                             Spacer()
                         }.controlSize(.small).padding(.horizontal,12).frame(height: 32).background(EditorStyle.panel)
@@ -163,14 +160,14 @@ private struct ViewerView: View {
                         VStack(spacing: 12) {
                             Image(systemName: "exclamationmark.triangle").font(.title2)
                             Text(error).multilineTextAlignment(.center).frame(maxWidth: 380)
-                            Button("Retry Playback") { session.rebuild() }
+                            Button("Retry Playback") { session.rebuild() }.foregroundStyle(Color.primary)
                         }.foregroundStyle(.white).padding(24).background(.black.opacity(0.85))
                     } else if !session.previewReady { ProgressView("Preparing timeline…").tint(.white).foregroundStyle(.white) }
                 } else {
                     VStack(spacing: 10) {
                         Text("Empty timeline").font(.system(size: 13,weight: .medium))
                         Text("Import media, then add a clip to the timeline.").font(.system(size: 12)).foregroundStyle(.gray)
-                        Button("Import Media…") { session.importPanel() }.padding(.top,6)
+                        Button("Import Media…") { session.importPanel() }.foregroundStyle(Color.primary).padding(.top,6)
                     }.foregroundStyle(.white.opacity(0.8))
                 }
             }.clipped().frame(maxWidth: .infinity,maxHeight: .infinity)
