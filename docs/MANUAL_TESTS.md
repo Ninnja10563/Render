@@ -69,3 +69,9 @@ Vertical timeline: build a sequence with hundreds of video/audio tracks, scroll 
 - Play mono, stereo and multichannel sources in flat and nested timelines; compare post-volume/fade channel levels with a known test tone. Pause, seek, reverse shuttle and loop: stale readings must not remain visible.
 - Switch mute/solo and workspace layouts during playback. Confirm meter updates do not stall dragging or redraw the whole editor.
 - Compare output samples with metering enabled/disabled; exports must retain the same audio. Input meters are not summed master meters. Test loud overlapping inputs separately for output clipping.
+
+## Reverse preview
+
+- Use J/K/L and Space on long-GOP video, still/title sequences, compounds and proxy media. Test 1×/2×/4× reverse, scrubbing during reverse, and stopping at the beginning.
+- Confirm the viewer and playhead stay synchronized when decoding cannot maintain the requested rate. Reverse fallback must show muted audio and clear meters.
+- Change an inspector property, switch timelines, open another project, and close the app during reverse; no pending seek should affect the new item.

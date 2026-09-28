@@ -84,7 +84,7 @@ final class EditorSession: ObservableObject {
                 guard let self, time.seconds.isFinite else { return }
                 if self.player.rate != 0 { self.playhead = min(self.project.duration, max(0,self.fps.frames(time.seconds))) }
                 self.isPlaying = self.player.rate != 0 || self.transport.reversePreviewRate > 0
-                self.audioMeters.update(seconds: time.seconds,playing: self.isPlaying)
+                self.audioMeters.update(seconds: time.seconds,playing: self.player.rate > 0)
             }
         }
     }
