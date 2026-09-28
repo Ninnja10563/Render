@@ -13,7 +13,7 @@ The update channel carries Render development prereleases. There is no separate 
 
 The production feed is `https://raw.githubusercontent.com/Ninnja10563/Render/updates/appcast.xml`. GitHub’s raw-content cache can delay visibility of a new release. Sparkle verifies the feed signature and archive signature before extraction; a plain checksum is not the trust mechanism. `CFBundleVersion` and the display version use the same semantic version, avoiding unrelated workflow-run counters.
 
-The repository’s update signing key is configured as `SPARKLE_PRIVATE_KEY`. Its owner-managed backup is outside this checkout. Preserve that key securely: losing it prevents updates to ad-hoc-signed installations. Do not generate a replacement public key for routine releases. Follow Sparkle’s key-rotation procedure when Developer ID signing is available.
+The repository’s update signing key is configured as `SPARKLE_PRIVATE_KEY`. Its local backup is outside this checkout at `~/.local/share/render/update-signing/sparkle-ed25519.key`, with owner-only file permissions. Keep an additional secure owner-managed backup. Preserve that key securely: losing it prevents updates to ad-hoc-signed installations. Do not generate a replacement public key for routine releases. Follow Sparkle’s key-rotation procedure when Developer ID signing is available.
 
 ## Current limits
 

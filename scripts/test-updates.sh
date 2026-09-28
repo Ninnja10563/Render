@@ -20,6 +20,7 @@ umask 077
 mkdir -p "$TEST_ROOT/server" "$TEST_ROOT/old" "$TEST_ROOT/new" build
 # Compile Sparkle's own CLI against the pinned framework. This is test tooling only.
 cp "$SOURCE/Info.plist" "$TEST_ROOT/probe.plist"
+chmod u+w "$TEST_ROOT/probe.plist"
 python3 - "$TEST_ROOT/probe.plist" <<'PY'
 import plistlib,sys
 p=sys.argv[1]
