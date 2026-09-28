@@ -91,6 +91,7 @@ extension EditorSession {
         createCompound(name: "Opening Scene")
         guard let compound = selectedClip?.compoundID else { throw RenderError.invalid("Workspace compound creation failed.") }
         openCompound(compound); selectClip(original.id)
+        try await checkWorkspaceControls()
         selectedAsset = asset.id
         if let image = try await library.thumbnail(asset) { thumbnails[asset.id] = NSImage(cgImage: image,size: .zero) }
         let deadline = Date().addingTimeInterval(15)

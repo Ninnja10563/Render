@@ -24,8 +24,8 @@ struct AudioControlsView: View {
                         HStack(spacing: 6) {
                             Button(track.name) { session.selectedTrack = track.id; if let clip = track.clips.first(where: { $0.start <= session.playhead && $0.end > session.playhead }) ?? track.clips.first { session.selectClip(clip.id) } }.buttonStyle(.plain).lineLimit(1)
                             Spacer(minLength: 0)
-                            Toggle("M",isOn: Binding(get: { track.muted },set: { session.perform(.trackState(track.id,locked: track.locked,hidden: track.hidden,muted: $0,solo: track.solo)) })).help("Mute \(track.name)")
-                            Toggle("S",isOn: Binding(get: { track.solo },set: { session.perform(.trackState(track.id,locked: track.locked,hidden: track.hidden,muted: track.muted,solo: $0)) })).help("Solo \(track.name)")
+                            Toggle("M",isOn: Binding(get: { track.muted },set: { session.perform(.trackState(track: track.id,locked: track.locked,hidden: track.hidden,muted: $0,solo: track.solo)) })).help("Mute \(track.name)")
+                            Toggle("S",isOn: Binding(get: { track.solo },set: { session.perform(.trackState(track: track.id,locked: track.locked,hidden: track.hidden,muted: track.muted,solo: $0)) })).help("Solo \(track.name)")
                         }.toggleStyle(.button).controlSize(.mini).font(.system(size: 10))
                     }
                 }.padding(12)

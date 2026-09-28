@@ -4,7 +4,7 @@ import RenderCore
 struct EffectsBrowserView: View {
     @ObservedObject var session: EditorSession
     @State private var search = ""
-    @State private var selected: EffectKind = .exposure
+    @State private var selected: EffectKind? = .exposure
     private let groups: [(String,[EffectKind])] = [
         ("Color",[.exposure,.brightness,.contrast,.saturation,.highlights,.shadows,.temperature,.tint]),
         ("Image",[.gaussianBlur,.sharpen,.vignette]),("Compositing",[.opacity,.chromaKey])
@@ -29,9 +29,10 @@ struct EffectsBrowserView: View {
             }.listStyle(.sidebar)
             Divider()
             VStack(alignment: .leading,spacing: 8) {
-                Text(selected.label).font(.system(size: 11,weight: .semibold))
-                Text(selected.detail).font(.system(size: 10)).foregroundStyle(.secondary).fixedSize(horizontal: false,vertical: true)
-                Button("Apply to Selected Clips") { session.applyEffect(selected) }.controlSize(.small).disabled(!session.canApplyEffects)
+                let choice = selected ?? .exposure
+                Text(choice.label).font(.system(size: 11,weight: .semibold))
+                Text(choice.detail).font(.system(size: 10)).foregroundStyle(.secondary).fixedSize(horizontal: false,vertical: true)
+                Button("Apply to Selected Clips") { session.applyEffect(choice) }.controlSize(.small).disabled(!session.canApplyEffects)
             }.padding(12).frame(maxWidth: .infinity,alignment: .leading)
         }
     }

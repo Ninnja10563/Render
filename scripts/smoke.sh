@@ -19,4 +19,5 @@ grep -q RENDER_INSPECTOR_SAVE_OK build/launch.log
 grep -q RENDER_MULTICAM_OK build/launch.log
 grep -q RENDER_VIEWPORT_OK build/launch.log
 grep -q RENDER_COMPOUND_OK build/launch.log
+grep -q RENDER_WORKSPACE_OK build/launch.log
 test -s "$RENDER_SCREENSHOT"
